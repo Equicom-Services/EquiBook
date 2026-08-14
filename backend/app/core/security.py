@@ -1,36 +1,33 @@
+import bcrypt
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto"
-)
-
-ALGORITHM = "HS256"
-
-
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    password_bytes = password.encode("utf-8")
+
+    hashed = bcrypt.hashpw(
+        password_bytes,
+        bcrypt.gensalt()
+    )
+
+    return hashed.decode("utf-8")
 
 
 def verify_password(
     plain_password: str,
     hashed_password: str
 ) -> bool:
-
-    return pwd_context.verify(
-        plain_password,
-        hashed_password
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"),
+        hashed_password.encode("utf-8")
     )
 
 
-def create_access_token(data: dict):
-
+def create_access_token(data: dict) -> str:
     to_encode = data.copy()
 
     expire = datetime.now(timezone.utc) + timedelta(
@@ -44,17 +41,16 @@ def create_access_token(data: dict):
     return jwt.encode(
         to_encode,
         settings.SECRET_KEY,
-        algorithm=ALGORITHM
+        algorithm="HS256"
     )
 
 
-def decode_access_token(token: str):
-
+def decode_access_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(
             token,
             settings.SECRET_KEY,
-            algorithms=[ALGORITHM]
+            algorithms=["HS256"]
         )
 
         return payload

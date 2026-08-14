@@ -1,4 +1,7 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+from app.core.config import settings
 
 from app.core.database import Base, engine
 from app.routers import auth
@@ -6,22 +9,34 @@ from app.dependencies.auth import get_current_admin
 from app.models.admin import Admin
 
 
+load_dotenv()
 Base.metadata.create_all(bind=engine)
 
 
 app = FastAPI(
-    title="EquiServe API",
+    title="Equibook API",
     version="1.0.0"
 )
 
 
+#cors
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.FRONTEND_URL],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
+
+# Routers
 app.include_router(auth.router)
 
 
 @app.get("/")
 def root():
     return {
-        "message": "EquiServe API is running"
+        "message": "Equibook API is running"
     }
 
 
