@@ -1,0 +1,40 @@
+# ==========================================
+# Python / Backend
+# ==========================================
+# Virtual environments (matches any folder name inside backend/)
+**/venv/
+**/.venv/
+**/env/
+**/ENV/
+
+# Python bytecode & cache
+**/__pycache__/
+*.py[cod]
+
+# ==========================================
+# Next.js / Frontend
+# ==========================================
+# Node dependencies
+**/node_modules/
+
+# Next.js build output
+**/.next/
+**/out/
+**/build/
+**/dist/
+
+# ==========================================
+# Secrets & Environment Variables (CRITICAL)
+# ==========================================
+.env
+.env*.local
+**/.env
+**/.env*.local
+
+# ==========================================
+# Editor & OS Files
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
