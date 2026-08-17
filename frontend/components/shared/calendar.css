@@ -1,0 +1,134 @@
+/* Calendar container */
+.reservation-calendar {
+  width: 100%;
+}
+
+/* Main calendar */
+.reservation-calendar .fc {
+  --fc-border-color: #e2e8f0;
+  --fc-button-bg-color: #03045e;
+  --fc-button-border-color: #03045e;
+  --fc-button-hover-bg-color: #02033f;
+  --fc-button-hover-border-color: #02033f;
+  --fc-button-active-bg-color: #02033f;
+  --fc-button-active-border-color: #02033f;
+  --fc-today-bg-color: #f1f5f9;
+}
+
+/* Calendar header */
+.reservation-calendar .fc-toolbar {
+  margin-bottom: 12px;
+}
+
+/* Calendar title */
+.reservation-calendar .fc-toolbar-title {
+  color: #03045e;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* Previous / next buttons */
+.reservation-calendar .fc-button {
+  background-color: #03045e;
+  border-color: #03045e;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 13px;
+}
+
+/* Remove button focus shadow */
+.reservation-calendar .fc-button:focus {
+  box-shadow: none;
+}
+
+/* Day headers */
+.reservation-calendar .fc-col-header-cell {
+  background-color: #03045e;
+}
+
+/* Day header text */
+.reservation-calendar .fc-col-header-cell-cushion {
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 0;
+}
+
+/* Date boxes */
+.reservation-calendar .fc-daygrid-day {
+  height: 70px;
+}
+
+/* Date number */
+.reservation-calendar .fc-daygrid-day-number {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 7px;
+}
+
+/* Current day */
+.reservation-calendar .fc-day-today {
+  background-color: #f1f5f9 !important;
+}
+
+/* Current day number */
+.reservation-calendar .fc-day-today .fc-daygrid-day-number {
+  color: #03045e;
+  font-weight: 700;
+}
+
+/* Events */
+.reservation-calendar .fc-event {
+  background-color: #03045e;
+  border-color: #03045e;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 1px 3px;
+}
+
+/* Event text */
+.reservation-calendar .fc-event-title {
+  font-weight: 500;
+}
+
+/* Reduce event spacing */
+.reservation-calendar .fc-daygrid-event {
+  margin-top: 2px;
+}
+
+/* Calendar cells */
+.reservation-calendar .fc-daygrid-day-frame {
+  min-height: 70px;
+}
+
+/* Event */
+.reservation-calendar .fc-event {
+  background-color: #03045e;
+  border-color: #03045e;
+  color: white !important;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 1px 3px;
+}
+
+/* Event title */
+.reservation-calendar .fc-event-title {
+  color: white !important;
+  font-weight: 500;
+}
+
+/* Event time */
+.reservation-calendar .fc-event-time {
+  color: white !important;
+}
+
+/* Event link/text */
+.reservation-calendar .fc-event-main {
+  color: white !important;
+}
+
+/* Any links inside events */
+.reservation-calendar .fc-event a {
+  color: white !important;
+}

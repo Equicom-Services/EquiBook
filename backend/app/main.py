@@ -4,7 +4,13 @@ from dotenv import load_dotenv
 from app.core.config import settings
 
 from app.core.database import Base, engine
+
+
+
 from app.routers import auth
+from app.routers import admin
+
+
 from app.dependencies.auth import get_current_admin
 from app.models.admin import Admin
 
@@ -30,7 +36,18 @@ app.add_middleware(
 
 
 # Routers
-app.include_router(auth.router)
+app.include_router(
+    auth.router,
+    prefix="/api"
+)
+
+app.include_router(
+    admin.router,
+    prefix="/api"
+)
+
+
+
 
 
 @app.get("/")

@@ -1,12 +1,21 @@
-from sqlalchemy import Boolean, Column, Integer, String
-from datetime import datetime
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, func
+
 from app.core.database import Base
 
 
 class Admin(Base):
-    __tablename__ = "admins"
+    __tablename__ = "admin"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    name = Column(
+        String(255),
+        nullable=False
+    )
 
     email = Column(
         String(255),
@@ -20,7 +29,7 @@ class Admin(Base):
         nullable=False
     )
 
-    site = column(
+    site = Column(
         String(100),
         nullable=False
     )
@@ -40,5 +49,6 @@ class Admin(Base):
 
     is_active = Column(
         Boolean,
+        nullable=False,
         default=True
     )

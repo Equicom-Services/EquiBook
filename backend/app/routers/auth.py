@@ -10,7 +10,7 @@ from app.services.auth_service import authenticate_admin
 
 
 router = APIRouter(
-    prefix="/api/auth",
+    prefix="/auth",
     tags=["Authentication"]
 )
 
