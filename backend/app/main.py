@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.core.config import settings
-
+from app.routers import room_requests
 from app.core.database import Base, engine
 
 
@@ -41,8 +41,13 @@ app.include_router(
     prefix="/api"
 )
 
+
 app.include_router(
     admin.router,
+    prefix="/api"
+)
+app.include_router(
+    room_requests.router,
     prefix="/api"
 )
 
