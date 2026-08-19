@@ -29,46 +29,57 @@ export default function Navbar() {
   const isAdmin = pathname.startsWith("/admin");
 
   // Check admin authentication
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
+useEffect(() => {
+  const token = localStorage.getItem("access_token");
 
-    if (!token) {
-      setIsLoggedIn(false);
-      setAdmin(null);
-      return;
-    }
+  if (!token) {
+    setIsLoggedIn(false);
+    setAdmin(null);
+    return;
+  }
 
-    setIsLoggedIn(true);
+  const fetchAdmin = async () => {
+    try {
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/admin/me`;
 
-    const fetchAdmin = async () => {
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/admin/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+      console.log("Fetching admin from:", apiUrl);
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch admin");
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+
+      console.log("Admin response:", response.status);
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem("access_token");
+          setIsLoggedIn(false);
+          setAdmin(null);
+          return;
         }
 
-        const data = await response.json();
-
-        setAdmin(data);
-      } catch (error) {
-        console.error("Failed to load admin:", error);
-
-        localStorage.removeItem("access_token");
-        setIsLoggedIn(false);
-        setAdmin(null);
+        throw new Error(`Failed to fetch admin: ${response.status}`);
       }
-    };
 
-    fetchAdmin();
-  }, [pathname]);
+      const data = await response.json();
+
+      console.log("Admin data:", data);
+
+      setAdmin(data);
+      setIsLoggedIn(true);
+    } catch (error) {
+      console.error("Failed to load admin:", error);
+      setIsLoggedIn(false);
+      setAdmin(null);
+    }
+  };
+
+  fetchAdmin();
+}, [pathname]);
 
   // Update date and time
   useEffect(() => {

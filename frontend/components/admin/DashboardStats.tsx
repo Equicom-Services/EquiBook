@@ -1,19 +1,65 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 interface DashboardStatsProps {
   reservationType: "room" | "ride";
+}
+
+interface Stats {
+  total: number;
+  approved: number;
+  rejected: number;
+  pending: number;
 }
 
 export default function DashboardStats({
   reservationType,
 }: DashboardStatsProps) {
-  // Temporary data
-  // This will eventually come from your backend API.
-  const stats = {
-    total: 24,
-    approved: 18,
-    rejected: 3,
-    pending: 3,
+  const [stats, setStats] = useState<Stats>({
+    total: 0,
+    approved: 0,
+    rejected: 0,
+    pending: 0,
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+useEffect(() => {
+  const fetchStats = async () => {
+    if (reservationType !== "room") {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/room-stats`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch dashboard statistics.");
+      }
+
+      const data: Stats = await response.json();
+
+      setStats(data);
+    } catch (error) {
+      console.error("Dashboard stats error:", error);
+      setError("Unable to load statistics.");
+    } finally {
+      setLoading(false);
+    }
   };
 
+  fetchStats();
+}, [reservationType]);
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
@@ -24,13 +70,11 @@ export default function DashboardStats({
         </p>
 
         <p className="mt-2 text-2xl font-semibold text-slate-900">
-          {stats.total}
+          {loading ? "..." : stats.total}
         </p>
 
         <p className="mt-1 text-xs text-slate-400">
-          {reservationType === "room"
-            ? "Room bookings"
-            : "Ride bookings"}
+          Room bookings
         </p>
       </div>
 
@@ -41,7 +85,7 @@ export default function DashboardStats({
         </p>
 
         <p className="mt-2 text-2xl font-semibold text-green-600">
-          {stats.approved}
+          {loading ? "..." : stats.approved}
         </p>
 
         <p className="mt-1 text-xs text-slate-400">
@@ -56,7 +100,7 @@ export default function DashboardStats({
         </p>
 
         <p className="mt-2 text-2xl font-semibold text-red-600">
-          {stats.rejected}
+          {loading ? "..." : stats.rejected}
         </p>
 
         <p className="mt-1 text-xs text-slate-400">
@@ -71,7 +115,7 @@ export default function DashboardStats({
         </p>
 
         <p className="mt-2 text-2xl font-semibold text-yellow-600">
-          {stats.pending}
+          {loading ? "..." : stats.pending}
         </p>
 
         <p className="mt-1 text-xs text-slate-400">

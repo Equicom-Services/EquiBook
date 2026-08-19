@@ -6,7 +6,7 @@ from app.routers import room_requests
 from app.core.database import Base, engine
 
 
-
+from app.routers import dashboard
 from app.routers import auth
 from app.routers import admin
 
@@ -51,9 +51,10 @@ app.include_router(
     prefix="/api"
 )
 
-
-
-
+app.include_router(
+    dashboard.router,
+    prefix="/api"
+)
 
 @app.get("/")
 def root():

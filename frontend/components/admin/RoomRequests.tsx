@@ -10,7 +10,7 @@ type ReservationStatus =
   | "rejected";
 
 interface RoomRequest {
-  id: number;
+  room_reservation_id: number;
 
   request_date_time: string;
 
@@ -48,6 +48,18 @@ export default function RoomRequests({
   const [requests, setRequests] = useState<RoomRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+const [selectedRequest, setSelectedRequest] =
+  useState<RoomRequest | null>(null);
+
+const [actionType, setActionType] =
+  useState<"approved" | "rejected" | null>(null);
+
+const [adminRemarks, setAdminRemarks] =
+  useState("");
+
+const [updating, setUpdating] =
+  useState(false);
+
 
   const fetchRequests = async () => {
     try {
@@ -71,9 +83,12 @@ const response = await fetch(
         );
       }
 
-      const data: RoomRequest[] = await response.json();
-
-      setRequests(data);
+      const data = await response.json();
+      const normalizedata: RoomRequest[] = data.map((request: any) => ({
+        ...request,
+        status: request.status.toLowerCase(),
+      }));
+      setRequests(normalizedata);
     } catch (error) {
       console.error("Error fetching room requests:", error);
 
@@ -85,10 +100,15 @@ const response = await fetch(
     }
   };
 
-  useEffect(() => {
-    fetchRequests();
-  }, []);
+useEffect(() => {
+  fetchRequests();
 
+  const interval = setInterval(() => {
+    fetchRequests();
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, []);
   
 
   const filteredRequests = useMemo(() => {
@@ -143,11 +163,51 @@ const response = await fetch(
     );
   }
 
+  const updateStatus = async (
+  requestId: number,
+  status: "approved" | "rejected",
+  adminRemarks?: string
+) => {
+  try {
+    const params = new URLSearchParams();
+
+    params.append("status", status);
+
+    if (adminRemarks) {
+      params.append("admin_remarks", adminRemarks);
+    }
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/${requestId}/status?${params.toString()}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+
+      throw new Error(
+        error.detail || "Failed to update request."
+      );
+    }
+
+    await fetchRequests();
+  } catch (error) {
+    console.error("Error updating request:", error);
+  }
+};
+
+
+
   return (
     <div className="space-y-3">
       {filteredRequests.map((request) => (
         <div
-          key={request.id}
+          key={request.room_reservation_id}
           className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
         >
           <div className="flex items-start justify-between gap-6">
@@ -162,9 +222,9 @@ const response = await fetch(
 
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    request.status === "pending"
+                    request.status.toLowerCase() === "pending"
                       ? "bg-amber-100 text-amber-700"
-                      : request.status === "approved"
+                      : request.status.toLowerCase() === "approved"
                       ? "bg-green-100 text-green-700"
                       : "bg-red-100 text-red-700"
                   }`}
@@ -234,21 +294,126 @@ const response = await fetch(
             </div>
 
             {/* Actions */}
-            {request.status === "pending" && (
+            {request.status.toLowerCase() === "pending" && (
               <div className="flex shrink-0 gap-2">
-                <button
-                  className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                >
-                  Reject
-                </button>
+<button
+  onClick={() => {
+    setSelectedRequest(request);
+    setActionType("rejected");
+    setAdminRemarks("");
+  }}
+  className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+>
+  Reject
+</button>
 
-                <button
-                  className="rounded-lg bg-[#03045e] px-3 py-2 text-sm font-medium text-white hover:bg-[#02033f]"
-                >
-                  Approve
-                </button>
+<button
+  onClick={() => {
+    setSelectedRequest(request);
+    setActionType("approved");
+    setAdminRemarks("");
+  }}
+  className="rounded-lg bg-[#03045e] px-3 py-2 text-sm font-medium text-white hover:bg-[#02033f]"
+>
+  Approve
+</button>
+{selectedRequest && actionType && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+
+      <h2 className="text-lg font-semibold text-slate-900">
+        {actionType === "approved"
+          ? "Approve Room Request"
+          : "Reject Room Request"}
+      </h2>
+
+      <p className="mt-2 text-sm text-slate-500">
+        {actionType === "approved"
+          ? "Are you sure you want to approve this room reservation?"
+          : "Please provide a reason for rejecting this request."}
+      </p>
+
+      <div className="mt-5">
+        <label className="text-sm font-medium text-slate-700">
+          Remarks
+          {actionType === "rejected" && (
+            <span className="text-red-500"> *</span>
+          )}
+        </label>
+
+        <textarea
+          value={adminRemarks}
+          onChange={(e) =>
+            setAdminRemarks(e.target.value)
+          }
+          placeholder={
+            actionType === "approved"
+              ? "Optional remarks..."
+              : "Reason for rejection..."
+          }
+          rows={4}
+          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
+        />
+      </div>
+
+      <div className="mt-6 flex justify-end gap-3">
+
+        <button
+          onClick={() => {
+            setSelectedRequest(null);
+            setActionType(null);
+            setAdminRemarks("");
+          }}
+          disabled={updating}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+
+        <button
+          disabled={
+            updating ||
+            (actionType === "rejected" &&
+              !adminRemarks.trim())
+          }
+          onClick={async () => {
+            try {
+              setUpdating(true);
+
+              await updateStatus(
+                selectedRequest.room_reservation_id,
+                actionType,
+                adminRemarks.trim() || undefined
+              );
+
+              setSelectedRequest(null);
+              setActionType(null);
+              setAdminRemarks("");
+            } finally {
+              setUpdating(false);
+            }
+          }}
+          className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${
+            actionType === "approved"
+              ? "bg-[#03045e] hover:bg-[#02033f]"
+              : "bg-red-600 hover:bg-red-700"
+          }`}
+        >
+          {updating
+            ? "Processing..."
+            : actionType === "approved"
+            ? "Approve"
+            : "Reject"}
+        </button>
+
+      </div>
+    </div>
+  </div>
+)}
+
               </div>
             )}
+
 
           </div>
         </div>
