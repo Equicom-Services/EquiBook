@@ -15,7 +15,7 @@ interface RoomRequest {
   request_date_time: string;
 
   room_id: number;
-  room_name: string;
+  room: string;
 
   employee_name: string;
   employee_email: string;
@@ -25,7 +25,7 @@ interface RoomRequest {
   start_time: string;
   end_time: string;
 
-  duration_minute: number;
+  duration_minutes: number;
 
   purpose: string;
 
@@ -37,7 +37,6 @@ interface RoomRequest {
 
   site: string;
 }
-
 interface RoomRequestsProps {
   status: ReservationStatus;
 }
@@ -163,27 +162,23 @@ useEffect(() => {
     );
   }
 
-  const updateStatus = async (
+const updateStatus = async (
   requestId: number,
   status: "approved" | "rejected",
   adminRemarks?: string
 ) => {
   try {
-    const params = new URLSearchParams();
-
-    params.append("status", status);
-
-    if (adminRemarks) {
-      params.append("admin_remarks", adminRemarks);
-    }
-
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/${requestId}/status?${params.toString()}`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/${requestId}`,
       {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          status,
+          admin_remarks: adminRemarks || null,
+        }),
       }
     );
 
@@ -245,7 +240,7 @@ useEffect(() => {
                   </p>
 
                   <p className="mt-1 text-sm font-medium text-slate-700">
-                    {request.room_name}
+                    {request.room}
                   </p>
                 </div>
 

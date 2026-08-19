@@ -6,6 +6,21 @@ interface RoomRequestFormProps {
   selectedDate: string;
 }
 
+interface Site{
+  site_id: number;
+  site_name: string
+}
+
+interface Room{
+  room_id: number;
+  room_code: string;
+  room_name: string;
+  capacity: number | null;
+  location: string | null;
+  is_active: boolean;
+  site_id: number;
+}
+
 interface BookingSchedule {
   id: number;
   date: string;
@@ -22,8 +37,70 @@ export default function RoomRequestForm({
     site: "",
     room: "",
     purpose: "",
+    site_id: "",
+    room_id: ""
   });
 
+
+type TimeOption = {
+  value: string;
+  label: string;
+  disabled: boolean;
+};
+
+const getTimeOptions = (selectedDate: string): TimeOption[] => {
+  const options: TimeOption[] = [];
+
+  const now = new Date();
+
+  const today = new Date();
+  const todayString = `${today.getFullYear()}-${String(
+    today.getMonth() + 1
+  ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  for (let hour = 0; hour < 24; hour++) {
+    for (const minute of [0, 30]) {
+      const value = `${String(hour).padStart(2, "0")}:${String(
+        minute
+      ).padStart(2, "0")}`;
+
+      const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+
+      const period = hour < 12 ? "AM" : "PM";
+
+      const label = `${hour12}:${String(minute).padStart(
+        2,
+        "0"
+      )} ${period}`;
+
+      let disabled = false;
+
+      // Disable times that have already passed if the selected date is today
+      if (selectedDate === todayString) {
+        const selectedTime = new Date();
+
+        selectedTime.setHours(hour, minute, 0, 0);
+
+        if (selectedTime <= now) {
+          disabled = true;
+        }
+      }
+
+      options.push({
+        value,
+        label,
+        disabled,
+      });
+    }
+  }
+
+  return options;
+};
+const today = new Date().toISOString().split("T")[0];
+const [sites, setSites] = useState<Site[]>([]);
+const [rooms, setRooms] = useState<Room[]>([]);
+const [loadingSites, setLoadingSites] = useState(true);
+const [loadingRooms, setLoadingRooms] = useState(false);
   const [bookingSchedules, setBookingSchedules] = useState<
     BookingSchedule[]
   >([
@@ -62,6 +139,64 @@ export default function RoomRequestForm({
       );
     });
   }, [selectedDate]);
+
+  useEffect(() => {
+  const fetchSites = async () => {
+    try {
+      setLoadingSites(true);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/sites`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch sites.");
+      }
+
+      const data: Site[] = await response.json();
+
+      setSites(data);
+    } catch (error) {
+      console.error("Error fetching sites:", error);
+    } finally {
+      setLoadingSites(false);
+    }
+  };
+
+  fetchSites();
+}, []);
+
+  useEffect(() => {
+  if (!formData.site_id) {
+    setRooms([]);
+    return;
+  }
+
+  const fetchRooms = async () => {
+    try {
+      setLoadingRooms(true);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/rooms?site_id=${formData.site_id}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch rooms.");
+      }
+
+      const data: Room[] = await response.json();
+
+      setRooms(data);
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      setRooms([]);
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
+  fetchRooms();
+}, [formData.site_id]);
 
   /*
    * Employee information
@@ -142,12 +277,12 @@ export default function RoomRequestForm({
       return;
     }
 
-    if (!formData.site) {
+    if (!formData.site_id) {
       alert("Please select a site.");
       return;
     }
 
-    if (!formData.room) {
+    if (!formData.room_id) {
       alert("Please select a room.");
       return;
     }
@@ -188,11 +323,11 @@ export default function RoomRequestForm({
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                room_id: Number(formData.room),
+                room_id: Number(formData.room_id),
                 room_name:
-                  formData.room === "1"
+                  formData.room_id === "1"
                     ? "Meeting Room 1"
-                    : formData.room === "2"
+                    : formData.room_id === "2"
                     ? "Meeting Room 2"
                     : "Conference Room",
 
@@ -204,7 +339,7 @@ export default function RoomRequestForm({
                 end_time: schedule.end_time,
 
                 purpose: formData.purpose,
-                site: formData.site,
+                site: formData.site_id,
               }),
             }
           )
@@ -258,6 +393,8 @@ export default function RoomRequestForm({
         site: "",
         room: "",
         purpose: "",
+        site_id: "",
+        room_id: ""
       });
 
       setBookingSchedules([
@@ -316,47 +453,75 @@ export default function RoomRequestForm({
             className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
           />
         </div>
+{/* Site */}
+<div>
+  <label className="mb-1 block text-sm font-medium text-slate-700">
+    Site
+  </label>
 
-        {/* Site */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            Site
-          </label>
+  <select
+    name="site_id"
+    value={formData.site_id}
+    onChange={(e) => {
+      setFormData((prev) => ({
+        ...prev,
+        site_id: e.target.value,
+        room_id: "",
+      }));
+    }}
+    required
+    disabled={loadingSites}
+    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 disabled:bg-slate-100"
+  >
+    <option value="">
+      {loadingSites ? "Loading sites..." : "Select site"}
+    </option>
 
-          <select
-            name="site"
-            value={formData.site}
-            onChange={handleChange}
-            required
-            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
-          >
-            <option value="">Select site</option>
-            <option value="Main Office">Main Office</option>
-            <option value="Branch Office">Branch Office</option>
-          </select>
-        </div>
+    {sites.map((site) => (
+      <option
+        key={site.site_id}
+        value={site.site_id}
+      >
+        {site.site_name}
+      </option>
+    ))}
+  </select>
+</div>
+{/* Room */}
+<div>
+  <label className="mb-1 block text-sm font-medium text-slate-700">
+    Room
+  </label>
 
-        {/* Room */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            Room
-          </label>
+  <select
+    name="room_id"
+    value={formData.room_id}
+    onChange={handleChange}
+    required
+    disabled={!formData.site_id || loadingRooms}
+    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 disabled:bg-slate-100"
+  >
+    <option value="">
+      {!formData.site_id
+        ? "Select a site first"
+        : loadingRooms
+        ? "Loading rooms..."
+        : rooms.length === 0
+        ? "No rooms available"
+        : "Select room"}
+    </option>
 
-          <select
-            name="room"
-            value={formData.room}
-            onChange={handleChange}
-            required
-            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
-          >
-            <option value="">Select room</option>
-            <option value="1">Meeting Room 1</option>
-            <option value="2">Meeting Room 2</option>
-            <option value="3">Conference Room</option>
-          </select>
-        </div>
-      </div>
-
+    {rooms.map((room) => (
+      <option
+        key={room.room_id}
+        value={room.room_id}
+      >
+        {room.room_code} — {room.room_name}
+      </option>
+    ))}
+  </select>
+</div>
+</div>
       {/* Reservation Schedules */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -407,62 +572,83 @@ export default function RoomRequestForm({
                   Date
                 </label>
 
-                <input
-                  type="date"
-                  value={schedule.date}
-                  onChange={(e) =>
-                    handleScheduleChange(
-                      schedule.id,
-                      "date",
-                      e.target.value
-                    )
-                  }
-                  required
-                  className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
-                />
+<input
+  type="date"
+  value={schedule.date}
+  min={today}
+  onChange={(e) =>
+    handleScheduleChange(
+      schedule.id,
+      "date",
+      e.target.value
+    )
+  }
+  required
+  className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
+/>
               </div>
 
-              {/* Start Time */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Start Time
-                </label>
+<div>
+  <label className="mb-1 block text-sm font-medium text-slate-700">
+    Start Time
+  </label>
 
-                <input
-                  type="time"
-                  value={schedule.start_time}
-                  onChange={(e) =>
-                    handleScheduleChange(
-                      schedule.id,
-                      "start_time",
-                      e.target.value
-                    )
-                  }
-                  required
-                  className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
-                />
-              </div>
+  <select
+    value={schedule.start_time}
+    onChange={(e) =>
+      handleScheduleChange(
+        schedule.id,
+        "start_time",
+        e.target.value
+      )
+    }
+    required
+    className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
+  >
+    <option value="">Select start time</option>
 
-              {/* End Time */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  End Time
-                </label>
+{getTimeOptions(schedule.date).map((time: TimeOption) => (
+      <option
+        key={time.value}
+        value={time.value}
+        disabled={time.disabled}
+      >
+        {time.label}
+      </option>
+    ))}
+  </select>
+</div>
 
-                <input
-                  type="time"
-                  value={schedule.end_time}
-                  onChange={(e) =>
-                    handleScheduleChange(
-                      schedule.id,
-                      "end_time",
-                      e.target.value
-                    )
-                  }
-                  required
-                  className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
-                />
-              </div>
+<div>
+  <label className="mb-1 block text-sm font-medium text-slate-700">
+    End Time
+  </label>
+
+  <select
+    value={schedule.end_time}
+    onChange={(e) =>
+      handleScheduleChange(
+        schedule.id,
+        "end_time",
+        e.target.value
+      )
+    }
+    required
+    className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
+  >
+    <option value="">Select end time</option>
+
+{getTimeOptions(schedule.date).map((time: TimeOption) => (
+      <option
+        key={time.value}
+        value={time.value}
+        disabled={time.disabled}
+      >
+        {time.label}
+      </option>
+    ))}
+  </select>
+</div>
             </div>
           </div>
         ))}

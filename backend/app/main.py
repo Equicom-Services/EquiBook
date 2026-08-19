@@ -4,12 +4,13 @@ from dotenv import load_dotenv
 from app.core.config import settings
 from app.routers import room_requests
 from app.core.database import Base, engine
-
+from app.routers import sites
+from app.routers import room
 
 from app.routers import dashboard
 from app.routers import auth
 from app.routers import admin
-
+from app.routers import room
 
 from app.dependencies.auth import get_current_admin
 from app.models.admin import Admin
@@ -40,8 +41,19 @@ app.include_router(
     auth.router,
     prefix="/api"
 )
+app.include_router(
+    room.router,
+    prefix="/api"
+)
+app.include_router(
+    sites.router,
+    prefix="/api",
+)
 
-
+app.include_router(
+    room.router,
+    prefix="/api",
+)
 app.include_router(
     admin.router,
     prefix="/api"

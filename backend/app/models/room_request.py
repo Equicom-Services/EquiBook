@@ -7,6 +7,7 @@ from sqlalchemy import (
     String,
     Text,
     Time,
+    ForeignKey,
 )
 
 from app.core.database import Base
@@ -28,6 +29,7 @@ class RoomRequest(Base):
 
     room_id = Column(
         BigInteger,
+        ForeignKey("rooms.room_id"),
         nullable=False,
     )
 
@@ -90,11 +92,6 @@ class RoomRequest(Base):
     calendar_event_id = Column(
         String(255),
         nullable=True,
-    )
-
-    site = Column(
-        String(100),
-        nullable=False,
     )
 
     created_at = Column(
