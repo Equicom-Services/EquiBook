@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Calendar from "@/components/shared/Calendar";
 import RoomBookingDetails from "./RoomBookingDetails";
 import RoomRequestForm from "./RoomRequestForm";
+import { request } from "http";
 
 interface RoomBooking {
   id: string;
@@ -11,9 +12,10 @@ interface RoomBooking {
   start: string;
   end: string;
   room: string;
+  site: string;
   employee: string;
   purpose: string;
-  status: "approved";
+  status: "approved" | "pending";
 }
 
 interface RoomRequestResponse {
@@ -47,6 +49,11 @@ interface RoomRequestResponse {
   site: string;
 }
 
+interface SiteResponse {
+  site_id: number;
+  site_name: string;
+}
+
 export default function RoomBookingPage() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
@@ -55,72 +62,122 @@ export default function RoomBookingPage() {
   const [bookings, setBookings] = useState<RoomBooking[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-useEffect(() => {
-  async function fetchBookings() {
-    try {
-      setIsLoading(true);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>("");
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/approved`,
-        {
-          method: "GET",
-          cache: "no-store",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch room bookings: ${response.status}`
+  useEffect(() => {
+    async function fetchBranches() {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/sites`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
         );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch branches: ${response.status}`
+          );
+        }
+
+        const data: SiteResponse[] = await response.json();
+
+        const activeBranches = data
+          .map((site) => site.site_name);
+
+        setBranches(activeBranches);
+
+        if (activeBranches.length > 0) {
+          setSelectedBranch(activeBranches[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching branches:", error);
       }
-
-      const data: RoomRequestResponse[] =
-        await response.json();
-
-      console.log("Approved room bookings from API:", data);
-
-      const actualBookings: RoomBooking[] = data
-        .filter(
-          (request) =>
-            request.status.toLowerCase() === "approved"
-        )
-        .map((request) => ({
-          id: String(request.room_reservation_id),
-
-          title: request.room,
-
-          start: `${request.reservation_date}T${request.start_time}`,
-
-          end: `${request.reservation_date}T${request.end_time}`,
-
-          room: request.room,
-
-          employee: request.employee_name,
-
-          purpose: request.purpose,
-
-          status: "approved",
-        }));
-
-      setBookings(actualBookings);
-    } catch (error) {
-      console.error(
-        "Error fetching room bookings:",
-        error
-      );
-
-      setBookings([]);
-    } finally {
-      setIsLoading(false);
     }
-  }
 
-  fetchBookings();
-}, []);
+    fetchBranches();
+  }, []);
+
+  useEffect(() => {
+    async function fetchBookings() {
+      try {
+        setIsLoading(true);
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/active`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch room bookings: ${response.status}`
+          );
+        }
+
+        const data: RoomRequestResponse[] =
+          await response.json();
+
+        console.log("Approved room bookings from API:", data);
+
+        const actualBookings: RoomBooking[] = data
+          .filter((request) => {
+            const status = request.status.toLowerCase();
+
+            return status === "approved" || status === "pending";
+          })
+          .map((request) => ({
+            id: String(request.room_reservation_id),
+
+            title: request.room,
+
+            start: `${request.reservation_date}T${request.start_time}`,
+
+            end: `${request.reservation_date}T${request.end_time}`,
+
+            room: request.room,
+
+            site: request.site,
+
+            employee: request.employee_name,
+
+            purpose: request.purpose,
+
+            status:
+              request.status.toLowerCase() as "approved" | "pending",
+          }));
+
+        setBookings(actualBookings);
+      } catch (error) {
+        console.error(
+          "Error fetching room bookings:",
+          error
+        );
+
+        setBookings([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchBookings();
+  }, []);
+
+  /*
+   * Filter bookings by selected branch.
+   */
+  const branchBookings = bookings.filter(
+    (booking) => booking.site === selectedBranch
+  );
+
   /*
    * Get bookings for the selected date.
    */
-  const selectedBookings = bookings.filter(
+  const selectedBookings = branchBookings.filter(
     (booking) =>
       booking.start.split("T")[0] === selectedDate
   );
@@ -128,7 +185,7 @@ useEffect(() => {
   /*
    * Convert database bookings into Calendar events.
    */
-  const calendarEvents = bookings.map((booking) => ({
+  const calendarEvents = branchBookings.map((booking) => ({
     id: booking.id,
     title: booking.room,
     start: booking.start,
@@ -162,13 +219,46 @@ useEffect(() => {
 
           {/* Calendar */}
           <div className="rounded-md bg-white p-6">
-            <h2 className="mb-1 text-lg font-semibold">
-              Bookings Overview
-            </h2>
 
-            <p className="mb-5 text-sm text-slate-500">
-              Select a date to view room bookings.
-            </p>
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="mb-1 text-lg font-semibold">
+                  Bookings Overview
+                </h2>
+
+                <p className="text-sm text-slate-500">
+                  Select a date to view room bookings.
+                </p>
+              </div>
+
+              {/* Branch Dropdown */}
+              <div>
+                <label
+                  htmlFor="branch"
+                  className="mb-1 block text-xs font-medium text-slate-500"
+                >
+                  Branch
+                </label>
+
+                <select
+                  id="branch"
+                  value={selectedBranch}
+                  onChange={(e) =>
+                    setSelectedBranch(e.target.value)
+                  }
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                >
+                  {branches.map((branch) => (
+                    <option
+                      key={branch}
+                      value={branch}
+                    >
+                      {branch}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             <Calendar
               events={calendarEvents}

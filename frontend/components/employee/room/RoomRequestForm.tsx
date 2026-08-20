@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
+import RoomRequestConfirmationModal from "./RoomRequestConfirmationModal";
+import { interactionSettingsStore } from "@fullcalendar/core/internal";
 interface RoomRequestFormProps {
   selectedDate: string;
 }
@@ -28,6 +29,13 @@ interface BookingSchedule {
   end_time: string;
 }
 
+interface ApprovedBooking {
+  room_id: number;
+  reservation_date: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+}
 export default function RoomRequestForm({
   selectedDate,
 }: RoomRequestFormProps) {
@@ -48,7 +56,61 @@ type TimeOption = {
   disabled: boolean;
 };
 
-const getTimeOptions = (selectedDate: string): TimeOption[] => {
+// const getTimeOptions = (selectedDate: string): TimeOption[] => {
+//   const options: TimeOption[] = [];
+
+//   const now = new Date();
+
+//   const today = new Date();
+//   const todayString = `${today.getFullYear()}-${String(
+//     today.getMonth() + 1
+//   ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+//   for (let hour = 0; hour < 24; hour++) {
+//     for (const minute of [0, 30]) {
+//       const value = `${String(hour).padStart(2, "0")}:${String(
+//         minute
+//       ).padStart(2, "0")}`;
+
+//       const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+
+//       const period = hour < 12 ? "AM" : "PM";
+
+//       const label = `${hour12}:${String(minute).padStart(
+//         2,
+//         "0"
+//       )} ${period}`;
+
+//       let disabled = false;
+
+//       // Disable times that have already passed if the selected date is today
+//       if (selectedDate === todayString) {
+//         const selectedTime = new Date();
+
+//         selectedTime.setHours(hour, minute, 0, 0);
+
+//         if (selectedTime <= now) {
+//           disabled = true;
+//         }
+//       }
+
+//       options.push({
+//         value,
+//         label,
+//         disabled,
+//       });
+//     }
+//   }
+
+//   return options;
+// };
+
+const getTimeOptions = (
+  selectedDate: string,
+  roomId: string,
+  scheduleId: number,
+  field: "start_time" | "end_time"
+): TimeOption[] => {
   const options: TimeOption[] = [];
 
   const now = new Date();
@@ -57,6 +119,21 @@ const getTimeOptions = (selectedDate: string): TimeOption[] => {
   const todayString = `${today.getFullYear()}-${String(
     today.getMonth() + 1
   ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  // Get approved bookings for this specific room and date
+  const roomBookings = approvedBookings.filter(
+    (booking) =>
+      String(booking.room_id) === roomId &&
+      booking.reservation_date === selectedDate &&
+      booking.status === "APPROVED"
+  );
+
+  // Get the current schedule
+  const currentSchedule = bookingSchedules.find(
+    (schedule) => schedule.id === scheduleId
+  );
+
+  const selectedStartTime = currentSchedule?.start_time || "";
 
   for (let hour = 0; hour < 24; hour++) {
     for (const minute of [0, 30]) {
@@ -75,13 +152,81 @@ const getTimeOptions = (selectedDate: string): TimeOption[] => {
 
       let disabled = false;
 
-      // Disable times that have already passed if the selected date is today
+      /*
+       * 1. Disable times that have already passed
+       *    if the selected date is today.
+       */
       if (selectedDate === todayString) {
         const selectedTime = new Date();
 
         selectedTime.setHours(hour, minute, 0, 0);
 
         if (selectedTime <= now) {
+          disabled = true;
+        }
+      }
+
+      /*
+       * 2. Disable times that are inside an approved booking.
+       */
+      const selectedMinutes = hour * 60 + minute;
+
+      for (const booking of roomBookings) {
+        const [startHour, startMinute] = booking.start_time
+          .slice(0, 5)
+          .split(":")
+          .map(Number);
+
+        const [endHour, endMinute] = booking.end_time
+          .slice(0, 5)
+          .split(":")
+          .map(Number);
+
+        const bookingStartMinutes =
+          startHour * 60 + startMinute;
+
+        const bookingEndMinutes =
+          endHour * 60 + endMinute;
+
+        /*
+         * Start time:
+         * Disable times from booking start up to,
+         * but not including, booking end.
+         */
+        if (field === "start_time") {
+          if (
+            selectedMinutes >= bookingStartMinutes &&
+            selectedMinutes < bookingEndMinutes
+          ) {
+            disabled = true;
+          }
+        }
+
+        /*
+         * End time:
+         * Disable times that are inside an existing booking.
+         */
+        if (field === "end_time") {
+          if (
+            selectedMinutes > bookingStartMinutes &&
+            selectedMinutes < bookingEndMinutes
+          ) {
+            disabled = true;
+          }
+        }
+      }
+
+      /*
+       * 3. End time must be later than selected start time.
+       */
+      if (field === "end_time" && selectedStartTime) {
+        const [startHour, startMinute] = selectedStartTime
+          .split(":")
+          .map(Number);
+
+        const startMinutes = startHour * 60 + startMinute;
+
+        if (selectedMinutes <= startMinutes) {
           disabled = true;
         }
       }
@@ -96,11 +241,18 @@ const getTimeOptions = (selectedDate: string): TimeOption[] => {
 
   return options;
 };
+const [showConfirmation, setShowConfirmation] = useState(false);
+const [submitting, setSubmitting] = useState(false);
 const today = new Date().toISOString().split("T")[0];
 const [sites, setSites] = useState<Site[]>([]);
 const [rooms, setRooms] = useState<Room[]>([]);
 const [loadingSites, setLoadingSites] = useState(true);
 const [loadingRooms, setLoadingRooms] = useState(false);
+const [approvedBookings, setApprovedBookings] = useState<ApprovedBooking[]>([]);
+const [loadingApprovedBookings, setLoadingApprovedBookings] = useState(false);
+
+
+
   const [bookingSchedules, setBookingSchedules] = useState<
     BookingSchedule[]
   >([
@@ -112,10 +264,7 @@ const [loadingRooms, setLoadingRooms] = useState(false);
     },
   ]);
 
-  /*
-   * Keep the first reservation date synchronized
-   * with the date selected from the calendar.
-   */
+
   useEffect(() => {
     setBookingSchedules((prev) => {
       if (prev.length === 0) {
@@ -198,6 +347,34 @@ const [loadingRooms, setLoadingRooms] = useState(false);
   fetchRooms();
 }, [formData.site_id]);
 
+
+useEffect(() => {
+  const fetchApprovedBookings = async () => {
+    try {
+      setLoadingApprovedBookings(true);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/approved`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch approved bookings.");
+      }
+
+      const data: ApprovedBooking[] = await response.json();
+
+      setApprovedBookings(data);
+    } catch (error) {
+      console.error("Error fetching approved bookings:", error);
+      setApprovedBookings([]);
+    } finally {
+      setLoadingApprovedBookings(false);
+    }
+  };
+
+  fetchApprovedBookings();
+}, []);
+
   /*
    * Employee information
    */
@@ -261,160 +438,177 @@ const [loadingRooms, setLoadingRooms] = useState(false);
   /*
    * Submit all reservation dates
    */
-  async function handleSubmit(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
+async function handleSubmit(
+  e: React.FormEvent<HTMLFormElement>
+) {
+  e.preventDefault();
 
-    // Basic validation
-    if (!formData.name) {
-      alert("Please enter your name.");
-      return;
-    }
+  // Basic validation
+  if (!formData.name) {
+    alert("Please enter your name.");
+    return;
+  }
 
-    if (!formData.company_email) {
-      alert("Please enter your company email.");
-      return;
-    }
+  if (!formData.company_email) {
+    alert("Please enter your company email.");
+    return;
+  }
 
-    if (!formData.site_id) {
-      alert("Please select a site.");
-      return;
-    }
+  if (!formData.site_id) {
+    alert("Please select a site.");
+    return;
+  }
 
-    if (!formData.room_id) {
-      alert("Please select a room.");
-      return;
-    }
+  if (!formData.room_id) {
+    alert("Please select a room.");
+    return;
+  }
 
-    if (!formData.purpose) {
-      alert("Please enter the purpose.");
-      return;
-    }
+  if (!formData.purpose) {
+    alert("Please enter the purpose.");
+    return;
+  }
 
-    for (const schedule of bookingSchedules) {
-      if (
-        !schedule.date ||
-        !schedule.start_time ||
-        !schedule.end_time
-      ) {
-        alert(
-          "Please complete the date, start time, and end time for every reservation."
-        );
-        return;
-      }
-
-      if (schedule.start_time >= schedule.end_time) {
-        alert(
-          `Invalid time for ${schedule.date}. End time must be later than start time.`
-        );
-        return;
-      }
-    }
-
-    try {
-      const responses = await Promise.all(
-        bookingSchedules.map((schedule) =>
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                room_id: Number(formData.room_id),
-                room_name:
-                  formData.room_id === "1"
-                    ? "Meeting Room 1"
-                    : formData.room_id === "2"
-                    ? "Meeting Room 2"
-                    : "Conference Room",
-
-                employee_name: formData.name,
-                employee_email: formData.company_email,
-
-                reservation_date: schedule.date,
-                start_time: schedule.start_time,
-                end_time: schedule.end_time,
-
-                purpose: formData.purpose,
-                site: formData.site_id,
-              }),
-            }
-          )
-        )
-      );
-
-      /*
-       * Check every request
-       */
-      for (const response of responses) {
-        if (!response.ok) {
-          let errorMessage = "Failed to submit room request.";
-
-          try {
-            const error = await response.json();
-
-            if (typeof error.detail === "string") {
-              errorMessage = error.detail;
-            } else if (Array.isArray(error.detail)) {
-              errorMessage = error.detail
-                .map((item: any) => item.msg)
-                .join(", ");
-            }
-          } catch {
-            // Keep default error message
-          }
-
-          throw new Error(errorMessage);
-        }
-      }
-
-      /*
-       * Parse successful responses
-       */
-      const data = await Promise.all(
-        responses.map((response) => response.json())
-      );
-
-      console.log("Room requests submitted:", data);
-
+  for (const schedule of bookingSchedules) {
+    if (
+      !schedule.date ||
+      !schedule.start_time ||
+      !schedule.end_time
+    ) {
       alert(
-        `${data.length} room request(s) submitted successfully!`
+        "Please complete the date, start time, and end time for every reservation."
       );
+      return;
+    }
 
-      /*
-       * Reset form
-       */
-      setFormData({
-        name: "",
-        company_email: "",
-        site: "",
-        room: "",
-        purpose: "",
-        site_id: "",
-        room_id: ""
-      });
-
-      setBookingSchedules([
-        {
-          id: Date.now(),
-          date: selectedDate,
-          start_time: "",
-          end_time: "",
-        },
-      ]);
-    } catch (error) {
-      console.error("Room request error:", error);
-
+    if (schedule.start_time >= schedule.end_time) {
       alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to submit room request."
+        `Invalid time for ${schedule.date}. End time must be later than start time.`
       );
+      return;
     }
   }
+
+  // Open confirmation modal
+  setShowConfirmation(true);
+}
+async function confirmSubmit() {
+  try {
+    setSubmitting(true);
+
+    const responses = await Promise.all(
+      bookingSchedules.map((schedule) =>
+        fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              room_id: Number(formData.room_id),
+
+              room_name: (() => {
+                const selectedRoom = rooms.find(
+                  (room) =>
+                    String(room.room_id) === formData.room_id
+                );
+
+                return selectedRoom?.room_name || "";
+              })(),
+
+              employee_name: formData.name,
+              employee_email: formData.company_email,
+
+              reservation_date: schedule.date,
+              start_time: schedule.start_time,
+              end_time: schedule.end_time,
+
+              purpose: formData.purpose,
+
+              site: formData.site_id,
+            }),
+          }
+        )
+      )
+    );
+
+    /*
+     * Check every request
+     */
+    for (const response of responses) {
+      if (!response.ok) {
+        let errorMessage = "Failed to submit room request.";
+
+        try {
+          const error = await response.json();
+
+          if (typeof error.detail === "string") {
+            errorMessage = error.detail;
+          } else if (Array.isArray(error.detail)) {
+            errorMessage = error.detail
+              .map((item: any) => item.msg)
+              .join(", ");
+          }
+        } catch {
+          // Keep default error message
+        }
+
+        throw new Error(errorMessage);
+      }
+    }
+
+    /*
+     * Parse successful responses
+     */
+    const data = await Promise.all(
+      responses.map((response) => response.json())
+    );
+
+    console.log("Room requests submitted:", data);
+
+    // Close confirmation modal
+    setShowConfirmation(false);
+
+    alert(
+      `${data.length} room request(s) submitted successfully!`
+    );
+
+    /*
+     * Reset form
+     */
+    setFormData({
+      name: "",
+      company_email: "",
+      site: "",
+      room: "",
+      purpose: "",
+      site_id: "",
+      room_id: "",
+    });
+
+    setRooms([]);
+
+    setBookingSchedules([
+      {
+        id: Date.now(),
+        date: selectedDate,
+        start_time: "",
+        end_time: "",
+      },
+    ]);
+  } catch (error) {
+    console.error("Room request error:", error);
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Failed to submit room request."
+    );
+  } finally {
+    setSubmitting(false);
+  }
+}
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -493,12 +687,25 @@ const [loadingRooms, setLoadingRooms] = useState(false);
     Room
   </label>
 
-  <select
-    name="room_id"
-    value={formData.room_id}
-    onChange={handleChange}
-    required
-    disabled={!formData.site_id || loadingRooms}
+<select
+  name="room_id"
+  value={formData.room_id}
+  onChange={(e) => {
+    setFormData((prev) => ({
+      ...prev,
+      room_id: e.target.value,
+    }));
+
+    setBookingSchedules((prev) =>
+      prev.map((schedule) => ({
+        ...schedule,
+        start_time: "",
+        end_time: "",
+      }))
+    );
+  }}
+  required
+  disabled={!formData.site_id || loadingRooms}
     className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 disabled:bg-slate-100"
   >
     <option value="">
@@ -607,7 +814,12 @@ const [loadingRooms, setLoadingRooms] = useState(false);
   >
     <option value="">Select start time</option>
 
-{getTimeOptions(schedule.date).map((time: TimeOption) => (
+{getTimeOptions(
+  schedule.date,
+  formData.room_id,
+  schedule.id,
+  "start_time"
+).map((time: TimeOption) => (
       <option
         key={time.value}
         value={time.value}
@@ -638,7 +850,12 @@ const [loadingRooms, setLoadingRooms] = useState(false);
   >
     <option value="">Select end time</option>
 
-{getTimeOptions(schedule.date).map((time: TimeOption) => (
+{getTimeOptions(
+  schedule.date,
+  formData.room_id,
+  schedule.id,
+  "end_time"
+).map((time: TimeOption) => (
       <option
         key={time.value}
         value={time.value}
@@ -678,6 +895,16 @@ const [loadingRooms, setLoadingRooms] = useState(false);
       >
         Submit Room Request
       </button>
+      <RoomRequestConfirmationModal
+  isOpen={showConfirmation}
+  formData={formData}
+  sites={sites}
+  rooms={rooms}
+  bookingSchedules={bookingSchedules}
+  onEdit={() => setShowConfirmation(false)}
+  onConfirm={confirmSubmit}
+  submitting={submitting}
+/>
     </form>
   );
 }

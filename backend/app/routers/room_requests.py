@@ -395,6 +395,147 @@ def get_approved_room_bookings(
         })
 
     return response
+
+
+# ============================================================
+# GET ACTIVE ROOM BOOKINGS
+# PUBLIC - EMPLOYEE CALENDAR
+#
+# Returns APPROVED and PENDING room reservations.
+# REJECTED requests are excluded.
+# No admin authentication required.
+# ============================================================
+
+@router.get(
+    "/active",
+    response_model=list[RoomRequestResponse],
+)
+def get_active_room_bookings(
+    db: Session = Depends(get_db),
+):
+    results = (
+        db.query(
+            RoomRequest,
+            Room.room_name,
+            Site.site_name,
+        )
+        .join(
+            Room,
+            Room.room_id == RoomRequest.room_id,
+        )
+        .join(
+            Site,
+            Site.site_id == Room.site_id,
+        )
+        .filter(
+            RoomRequest.status.in_([
+                "APPROVED",
+                "PENDING",
+            ])
+        )
+        .order_by(
+            RoomRequest.reservation_date.asc(),
+            RoomRequest.start_time.asc(),
+        )
+        .all()
+    )
+
+    response = []
+
+    for room_request, room_name, site_name in results:
+
+        response.append({
+            "room_reservation_id":
+                room_request.room_reservation_id,
+
+            "request_date_time":
+                room_request.request_date_time,
+
+            "room_id":
+                room_request.room_id,
+
+            "employee_name":
+                room_request.employee_name,
+
+            "employee_email":
+                room_request.employee_email,
+
+            "reservation_date":
+                room_request.reservation_date,
+
+            "start_time":
+                room_request.start_time,
+
+            "end_time":
+                room_request.end_time,
+
+            "duration_minutes":
+                room_request.duration_minutes,
+
+            "purpose":
+                room_request.purpose,
+
+            "status":
+                room_request.status,
+
+            "admin_remarks":
+                room_request.admin_remarks,
+
+            "approved_rejected_by":
+                room_request.approved_rejected_by,
+
+            "approved_rejected_date_time":
+                room_request.approved_rejected_date_time,
+
+            "calendar_event_id":
+                room_request.calendar_event_id,
+
+            "created_at":
+                room_request.created_at,
+
+            "updated_at":
+                room_request.updated_at,
+
+            "room":
+                room_name,
+
+            "site":
+                site_name,
+        })
+
+    return response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ============================================================
 # UPDATE ROOM REQUEST STATUS
 # ADMIN ONLY
