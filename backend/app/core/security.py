@@ -69,7 +69,6 @@ oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/auth/login"
 )
 
-
 def get_current_admin(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
@@ -96,14 +95,25 @@ def get_current_admin(
             },
         )
 
-    admin = db.query(Admin).filter(
-        Admin.id == int(admin_id)
-    ).first()
+    admin = (
+        db.query(Admin)
+        .filter(Admin.id == int(admin_id))
+        .first()
+    )
 
     if admin is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Admin not found",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            },
+        )
+
+    if not admin.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin account is inactive",
             headers={
                 "WWW-Authenticate": "Bearer"
             },

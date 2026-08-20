@@ -29,7 +29,10 @@ interface RoomRequest {
 
   purpose: string;
 
-  status: "pending" | "approved" | "rejected";
+  status:
+    | "pending"
+    | "approved"
+    | "rejected";
 
   admin_remarks: string | null;
 
@@ -37,6 +40,7 @@ interface RoomRequest {
 
   site: string;
 }
+
 interface RoomRequestsProps {
   status: ReservationStatus;
 }
@@ -44,37 +48,63 @@ interface RoomRequestsProps {
 export default function RoomRequests({
   status,
 }: RoomRequestsProps) {
-  const [requests, setRequests] = useState<RoomRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-const [selectedRequest, setSelectedRequest] =
-  useState<RoomRequest | null>(null);
+  const [requests, setRequests] =
+    useState<RoomRequest[]>([]);
 
-const [actionType, setActionType] =
-  useState<"approved" | "rejected" | null>(null);
+  const [loading, setLoading] =
+    useState(true);
 
-const [adminRemarks, setAdminRemarks] =
-  useState("");
+  const [error, setError] =
+    useState("");
 
-const [updating, setUpdating] =
-  useState(false);
+  const [selectedRequest, setSelectedRequest] =
+    useState<RoomRequest | null>(null);
 
+  const [actionType, setActionType] =
+    useState<
+      "approved" | "rejected" | null
+    >(null);
+
+  const [adminRemarks, setAdminRemarks] =
+    useState("");
+
+  const [updating, setUpdating] =
+    useState(false);
+
+
+  // ==========================================================
+  // FETCH REQUESTS
+  // ==========================================================
 
   const fetchRequests = async () => {
     try {
       setLoading(true);
       setError("");
 
-const response = await fetch(
-  `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests`,
-  {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  }
-);
+      const response = await apiFetch(
+        "/api/room-requests",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      if (response.status === 401) {
+        localStorage.removeItem(
+          "access_token"
+        );
+
+        window.location.href =
+          "/admin/login";
+
+        return;
+      }
+
+      if (response.status === 403) {
+        throw new Error(
+          "You are not authorized to view these room requests."
+        );
+      }
 
       if (!response.ok) {
         throw new Error(
@@ -83,42 +113,140 @@ const response = await fetch(
       }
 
       const data = await response.json();
-      const normalizedata: RoomRequest[] = data.map((request: any) => ({
-        ...request,
-        status: request.status.toLowerCase(),
-      }));
-      setRequests(normalizedata);
+
+      const normalizedData: RoomRequest[] =
+        data.map((request: any) => ({
+          ...request,
+          status:
+            request.status.toLowerCase(),
+        }));
+
+      setRequests(normalizedData);
+
     } catch (error) {
-      console.error("Error fetching room requests:", error);
+      console.error(
+        "Error fetching room requests:",
+        error
+      );
 
       setError(
-        "Unable to load room requests. Please try again."
+        error instanceof Error
+          ? error.message
+          : "Unable to load room requests."
       );
+
     } finally {
       setLoading(false);
     }
   };
 
-useEffect(() => {
-  fetchRequests();
 
-  const interval = setInterval(() => {
+  // ==========================================================
+  // INITIAL FETCH + AUTO REFRESH
+  // ==========================================================
+
+  useEffect(() => {
     fetchRequests();
-  }, 5000);
 
-  return () => clearInterval(interval);
-}, []);
-  
+    const interval =
+      setInterval(() => {
+        fetchRequests();
+      }, 5000);
 
-  const filteredRequests = useMemo(() => {
-    if (status === "all") {
-      return requests;
+    return () =>
+      clearInterval(interval);
+  }, []);
+
+
+  // ==========================================================
+  // FILTER BY STATUS
+  // ==========================================================
+
+  const filteredRequests =
+    useMemo(() => {
+      if (status === "all") {
+        return requests;
+      }
+
+      return requests.filter(
+        (request) =>
+          request.status === status
+      );
+    }, [requests, status]);
+
+
+  // ==========================================================
+  // UPDATE STATUS
+  // ==========================================================
+
+  const updateStatus = async (
+    requestId: number,
+    newStatus:
+      | "approved"
+      | "rejected",
+    remarks?: string
+  ) => {
+    try {
+      const response = await apiFetch(
+        `/api/room-requests/${requestId}`,
+        {
+          method: "PATCH",
+
+          body: JSON.stringify({
+            status: newStatus,
+            admin_remarks:
+              remarks || null,
+          }),
+        }
+      );
+
+      if (response.status === 401) {
+        localStorage.removeItem(
+          "access_token"
+        );
+
+        window.location.href =
+          "/admin/login";
+
+        return;
+      }
+
+      if (response.status === 403) {
+        throw new Error(
+          "You are not authorized to modify this room request."
+        );
+      }
+
+      if (!response.ok) {
+        const error =
+          await response.json();
+
+        throw new Error(
+          error.detail ||
+            "Failed to update request."
+        );
+      }
+
+      await fetchRequests();
+
+    } catch (error) {
+      console.error(
+        "Error updating request:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to update request."
+      );
     }
+  };
 
-    return requests.filter(
-      (request) => request.status === status
-    );
-  }, [requests, status]);
+
+  // ==========================================================
+  // LOADING
+  // ==========================================================
 
   if (loading) {
     return (
@@ -129,6 +257,11 @@ useEffect(() => {
       </div>
     );
   }
+
+
+  // ==========================================================
+  // ERROR
+  // ==========================================================
 
   if (error) {
     return (
@@ -147,7 +280,14 @@ useEffect(() => {
     );
   }
 
-  if (filteredRequests.length === 0) {
+
+  // ==========================================================
+  // EMPTY
+  // ==========================================================
+
+  if (
+    filteredRequests.length === 0
+  ) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
         <h3 className="text-sm font-semibold text-slate-900">
@@ -155,264 +295,330 @@ useEffect(() => {
         </h3>
 
         <p className="mt-1 text-sm text-slate-500">
-          There are no {status === "all" ? "" : status} room
-          requests at the moment.
+          There are no{" "}
+          {status === "all"
+            ? ""
+            : status}{" "}
+          room requests at the moment.
         </p>
       </div>
     );
   }
 
-const updateStatus = async (
-  requestId: number,
-  status: "approved" | "rejected",
-  adminRemarks?: string
-) => {
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/${requestId}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status,
-          admin_remarks: adminRemarks || null,
-        }),
-      }
-    );
 
-    if (!response.ok) {
-      const error = await response.json();
-
-      throw new Error(
-        error.detail || "Failed to update request."
-      );
-    }
-
-    await fetchRequests();
-  } catch (error) {
-    console.error("Error updating request:", error);
-  }
-};
-
-
+  // ==========================================================
+  // UI
+  // ==========================================================
 
   return (
     <div className="space-y-3">
-      {filteredRequests.map((request) => (
-        <div
-          key={request.room_reservation_id}
-          className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-        >
-          <div className="flex items-start justify-between gap-6">
 
-            {/* Left */}
-            <div className="min-w-0 flex-1">
+      {filteredRequests.map(
+        (request) => (
+          <div
+            key={
+              request.room_reservation_id
+            }
+            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
 
-              <div className="flex items-center gap-3">
-                <h3 className="font-semibold text-slate-900">
-                  {request.employee_name}
-                </h3>
+            <div className="flex items-start justify-between gap-6">
 
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    request.status.toLowerCase() === "pending"
-                      ? "bg-amber-100 text-amber-700"
-                      : request.status.toLowerCase() === "approved"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {request.status}
-                </span>
-              </div>
+              {/* LEFT */}
+              <div className="min-w-0 flex-1">
 
-              <p className="mt-1 text-sm text-slate-500">
-                {request.employee_email}
-              </p>
+                <div className="flex items-center gap-3">
 
-              <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 md:grid-cols-4">
+                  <h3 className="font-semibold text-slate-900">
+                    {request.employee_name}
+                  </h3>
 
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Room
-                  </p>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      request.status ===
+                      "pending"
+                        ? "bg-amber-100 text-amber-700"
+                        : request.status ===
+                          "approved"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {request.status}
+                  </span>
 
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {request.room}
-                  </p>
                 </div>
 
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Site
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {request.site}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Date
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {request.reservation_date}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Time
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {request.start_time} - {request.end_time}
-                  </p>
-                </div>
-
-              </div>
-
-              <div className="mt-4">
-                <p className="text-xs text-slate-400">
-                  Purpose
+                <p className="mt-1 text-sm text-slate-500">
+                  {request.employee_email}
                 </p>
 
-                <p className="mt-1 text-sm text-slate-700">
-                  {request.purpose}
-                </p>
+
+                <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 md:grid-cols-4">
+
+                  <div>
+                    <p className="text-xs text-slate-400">
+                      Room
+                    </p>
+
+                    <p className="mt-1 text-sm font-medium text-slate-700">
+                      {request.room}
+                    </p>
+                  </div>
+
+
+                  <div>
+                    <p className="text-xs text-slate-400">
+                      Site
+                    </p>
+
+                    <p className="mt-1 text-sm font-medium text-slate-700">
+                      {request.site}
+                    </p>
+                  </div>
+
+
+                  <div>
+                    <p className="text-xs text-slate-400">
+                      Date
+                    </p>
+
+                    <p className="mt-1 text-sm font-medium text-slate-700">
+                      {request.reservation_date}
+                    </p>
+                  </div>
+
+
+                  <div>
+                    <p className="text-xs text-slate-400">
+                      Time
+                    </p>
+
+                    <p className="mt-1 text-sm font-medium text-slate-700">
+                      {request.start_time}{" "}
+                      -{" "}
+                      {request.end_time}
+                    </p>
+                  </div>
+
+                </div>
+
+
+                <div className="mt-4">
+
+                  <p className="text-xs text-slate-400">
+                    Purpose
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-700">
+                    {request.purpose}
+                  </p>
+
+                </div>
+
               </div>
+
+
+              {/* ACTIONS */}
+
+              {request.status ===
+                "pending" && (
+                <div className="flex shrink-0 gap-2">
+
+                  <button
+                    onClick={() => {
+                      setSelectedRequest(
+                        request
+                      );
+
+                      setActionType(
+                        "rejected"
+                      );
+
+                      setAdminRemarks("");
+                    }}
+                    className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                  >
+                    Reject
+                  </button>
+
+
+                  <button
+                    onClick={() => {
+                      setSelectedRequest(
+                        request
+                      );
+
+                      setActionType(
+                        "approved"
+                      );
+
+                      setAdminRemarks("");
+                    }}
+                    className="rounded-lg bg-[#03045e] px-3 py-2 text-sm font-medium text-white hover:bg-[#02033f]"
+                  >
+                    Approve
+                  </button>
+
+                </div>
+              )}
 
             </div>
 
-            {/* Actions */}
-            {request.status.toLowerCase() === "pending" && (
-              <div className="flex shrink-0 gap-2">
-<button
-  onClick={() => {
-    setSelectedRequest(request);
-    setActionType("rejected");
-    setAdminRemarks("");
-  }}
-  className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
->
-  Reject
-</button>
 
-<button
-  onClick={() => {
-    setSelectedRequest(request);
-    setActionType("approved");
-    setAdminRemarks("");
-  }}
-  className="rounded-lg bg-[#03045e] px-3 py-2 text-sm font-medium text-white hover:bg-[#02033f]"
->
-  Approve
-</button>
-{selectedRequest && actionType && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-    <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            {/* ==================================================
+                CONFIRMATION MODAL
+            ================================================== */}
 
-      <h2 className="text-lg font-semibold text-slate-900">
-        {actionType === "approved"
-          ? "Approve Room Request"
-          : "Reject Room Request"}
-      </h2>
+            {selectedRequest &&
+              actionType && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
 
-      <p className="mt-2 text-sm text-slate-500">
-        {actionType === "approved"
-          ? "Are you sure you want to approve this room reservation?"
-          : "Please provide a reason for rejecting this request."}
-      </p>
+                  <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
 
-      <div className="mt-5">
-        <label className="text-sm font-medium text-slate-700">
-          Remarks
-          {actionType === "rejected" && (
-            <span className="text-red-500"> *</span>
-          )}
-        </label>
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      {actionType ===
+                      "approved"
+                        ? "Approve Room Request"
+                        : "Reject Room Request"}
+                    </h2>
 
-        <textarea
-          value={adminRemarks}
-          onChange={(e) =>
-            setAdminRemarks(e.target.value)
-          }
-          placeholder={
-            actionType === "approved"
-              ? "Optional remarks..."
-              : "Reason for rejection..."
-          }
-          rows={4}
-          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
-        />
-      </div>
 
-      <div className="mt-6 flex justify-end gap-3">
+                    <p className="mt-2 text-sm text-slate-500">
+                      {actionType ===
+                      "approved"
+                        ? "Are you sure you want to approve this room reservation?"
+                        : "Please provide a reason for rejecting this request."}
+                    </p>
 
-        <button
-          onClick={() => {
-            setSelectedRequest(null);
-            setActionType(null);
-            setAdminRemarks("");
-          }}
-          disabled={updating}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Cancel
-        </button>
 
-        <button
-          disabled={
-            updating ||
-            (actionType === "rejected" &&
-              !adminRemarks.trim())
-          }
-          onClick={async () => {
-            try {
-              setUpdating(true);
+                    <div className="mt-5">
 
-              await updateStatus(
-                selectedRequest.room_reservation_id,
-                actionType,
-                adminRemarks.trim() || undefined
-              );
+                      <label className="text-sm font-medium text-slate-700">
+                        Remarks
 
-              setSelectedRequest(null);
-              setActionType(null);
-              setAdminRemarks("");
-            } finally {
-              setUpdating(false);
-            }
-          }}
-          className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${
-            actionType === "approved"
-              ? "bg-[#03045e] hover:bg-[#02033f]"
-              : "bg-red-600 hover:bg-red-700"
-          }`}
-        >
-          {updating
-            ? "Processing..."
-            : actionType === "approved"
-            ? "Approve"
-            : "Reject"}
-        </button>
+                        {actionType ===
+                          "rejected" && (
+                          <span className="text-red-500">
+                            {" "}
+                            *
+                          </span>
+                        )}
+                      </label>
 
-      </div>
-    </div>
-  </div>
-)}
 
-              </div>
-            )}
+                      <textarea
+                        value={
+                          adminRemarks
+                        }
+                        onChange={(e) =>
+                          setAdminRemarks(
+                            e.target.value
+                          )
+                        }
+                        placeholder={
+                          actionType ===
+                          "approved"
+                            ? "Optional remarks..."
+                            : "Reason for rejection..."
+                        }
+                        rows={4}
+                        className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
+                      />
 
+                    </div>
+
+
+                    <div className="mt-6 flex justify-end gap-3">
+
+                      <button
+                        onClick={() => {
+                          setSelectedRequest(
+                            null
+                          );
+
+                          setActionType(
+                            null
+                          );
+
+                          setAdminRemarks("");
+                        }}
+                        disabled={updating}
+                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+
+
+                      <button
+                        disabled={
+                          updating ||
+                          (actionType ===
+                            "rejected" &&
+                            !adminRemarks.trim())
+                        }
+                        onClick={async () => {
+                          if (
+                            !selectedRequest ||
+                            !actionType
+                          ) {
+                            return;
+                          }
+
+                          try {
+                            setUpdating(
+                              true
+                            );
+
+                            await updateStatus(
+                              selectedRequest.room_reservation_id,
+                              actionType,
+                              adminRemarks.trim() ||
+                                undefined
+                            );
+
+                            setSelectedRequest(
+                              null
+                            );
+
+                            setActionType(
+                              null
+                            );
+
+                            setAdminRemarks("");
+
+                          } finally {
+                            setUpdating(
+                              false
+                            );
+                          }
+                        }}
+                        className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${
+                          actionType ===
+                          "approved"
+                            ? "bg-[#03045e] hover:bg-[#02033f]"
+                            : "bg-red-600 hover:bg-red-700"
+                        }`}
+                      >
+                        {updating
+                          ? "Processing..."
+                          : actionType ===
+                            "approved"
+                          ? "Approve"
+                          : "Reject"}
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                </div>
+              )}
 
           </div>
-        </div>
-      ))}
+        )
+      )}
+
     </div>
   );
 }

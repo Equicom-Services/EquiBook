@@ -8,13 +8,32 @@ if (!API_URL) {
 
 export async function apiFetch(
   endpoint: string,
-  options?: RequestInit
+  options: RequestInit = {}
 ) {
-  return fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token")
+      : null;
+
+  const headers = new Headers(options.headers);
+
+  headers.set(
+    "Content-Type",
+    "application/json"
+  );
+
+  if (token) {
+    headers.set(
+      "Authorization",
+      `Bearer ${token}`
+    );
+  }
+
+  return fetch(
+    `${API_URL}${endpoint}`,
+    {
+      ...options,
+      headers,
+    }
+  );
 }

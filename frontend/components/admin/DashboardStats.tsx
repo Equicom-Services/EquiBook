@@ -36,18 +36,35 @@ useEffect(() => {
       setLoading(true);
       setError("");
 
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        throw new Error("Authentication token not found.");
+      }
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/room-stats`,
         {
+          method: "GET",
           cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 
+      const responseText = await response.text();
+
+      console.log("Dashboard stats status:", response.status);
+      console.log("Dashboard stats response:", responseText);
+
       if (!response.ok) {
-        throw new Error("Failed to fetch dashboard statistics.");
+        throw new Error(
+          `Failed to fetch dashboard statistics. Status: ${response.status}`
+        );
       }
 
-      const data: Stats = await response.json();
+      const data: Stats = JSON.parse(responseText);
 
       setStats(data);
     } catch (error) {

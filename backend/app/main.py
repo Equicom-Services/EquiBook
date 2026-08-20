@@ -10,9 +10,8 @@ from app.routers import room
 from app.routers import dashboard
 from app.routers import auth
 from app.routers import admin
-from app.routers import room
 
-from app.dependencies.auth import get_current_admin
+from app.core.security import get_current_admin
 from app.models.admin import Admin
 
 
@@ -50,10 +49,7 @@ app.include_router(
     prefix="/api",
 )
 
-app.include_router(
-    room.router,
-    prefix="/api",
-)
+
 app.include_router(
     admin.router,
     prefix="/api"
