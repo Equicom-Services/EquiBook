@@ -42,10 +42,11 @@ interface AdminRoomBookingFormProps {
 }
 
 interface Admin {
-  id: number;
+  admin_id: number;
   name: string;
   email: string;
-  site: string;
+  site_id: number;
+  site_name: string;
 }
 
 interface Room {
@@ -201,73 +202,47 @@ const [showConfirmation, setShowConfirmation] =
   // site by name.
   // =========================================================
 
-  useEffect(() => {
-    if (!admin?.site) {
-      return;
-    }
+useEffect(() => {
+  if (!admin?.site_id) {
+    return;
+  }
 
-    const fetchRooms = async () => {
-      try {
-        setLoadingRooms(true);
+  const fetchRooms = async () => {
+    try {
+      setLoadingRooms(true);
 
-        // Get sites
-        const sitesResponse = await fetch(
-          `${API_URL}/api/sites`
-        );
+      const roomsResponse = await fetch(
+        `${API_URL}/api/rooms?site_id=${admin.site_id}`
+      );
 
-        if (!sitesResponse.ok) {
-          throw new Error("Failed to fetch sites.");
-        }
-
-        const sites = await sitesResponse.json();
-
-        const adminSite = sites.find(
-          (site: {
-            site_id: number;
-            site_name: string;
-          }) =>
-            site.site_name === admin.site
-        );
-
-        if (!adminSite) {
-          throw new Error(
-            `Your assigned site "${admin.site}" was not found.`
-          );
-        }
-
-        // Get rooms belonging to admin's site
-        const roomsResponse = await fetch(
-          `${API_URL}/api/rooms?site_id=${adminSite.site_id}`
-        );
-
-        if (!roomsResponse.ok) {
-          throw new Error("Failed to fetch rooms.");
-        }
-
-        const roomsData: Room[] =
-          await roomsResponse.json();
-
-        setRooms(roomsData);
-      } catch (error) {
-        console.error(
-          "Error fetching admin rooms:",
-          error
-        );
-
-        setRooms([]);
-
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Failed to load rooms."
-        );
-      } finally {
-        setLoadingRooms(false);
+      if (!roomsResponse.ok) {
+        throw new Error("Failed to fetch rooms.");
       }
-    };
 
-    fetchRooms();
-  }, [admin, API_URL]);
+      const roomsData: Room[] =
+        await roomsResponse.json();
+
+      setRooms(roomsData);
+    } catch (error) {
+      console.error(
+        "Error fetching admin rooms:",
+        error
+      );
+
+      setRooms([]);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load rooms."
+      );
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
+  fetchRooms();
+}, [admin, API_URL]);
 
   // =========================================================
   // GET ACTIVE BOOKINGS
@@ -831,7 +806,7 @@ const confirmSubmit = async () => {
               value={
                 loadingAdmin
                   ? "Loading..."
-                  : admin?.site || ""
+                  : admin?.site_name || ""
               }
               readOnly
               className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none"

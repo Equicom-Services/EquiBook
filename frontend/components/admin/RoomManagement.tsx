@@ -83,18 +83,21 @@ const fetchData = async () => {
 
     setSites(sitesData);
 
-    // Find the admin's site
-    const adminSite = sitesData.find(
-      (site) =>
-        site.site_name.trim().toLowerCase() ===
-        admin.site.trim().toLowerCase()
-    );
+if (!admin.site_id) {
+  throw new Error(
+    "Your admin account does not have a site assigned."
+  );
+}
 
-    if (!adminSite) {
-      throw new Error(
-        `Site "${admin.site}" was not found.`
-      );
-    }
+const adminSite = sitesData.find(
+  (site) => site.site_id === admin.site_id
+);
+
+if (!adminSite) {
+  throw new Error(
+    `Site ID "${admin.site_id}" was not found.`
+  );
+}
 
     // Fetch ONLY rooms belonging to admin's site
     const roomsResponse = await apiFetch(
