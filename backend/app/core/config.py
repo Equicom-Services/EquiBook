@@ -11,6 +11,10 @@ class Settings(BaseSettings):
 
     FRONTEND_URL: str
 
+    SMTP_HOST: str
+    SMTP_PORT: int
+    SMTP_FROM_EMAIL: str
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
