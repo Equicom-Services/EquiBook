@@ -57,6 +57,8 @@ class RoomRequestResponse(BaseModel):
     admin_remarks: str | None = None
 
     approved_rejected_by: int | None = None
+    approved_rejected_by_name: str | None = None
+    approved_rejected_by_email: str | None = None
 
     approved_rejected_date_time: datetime | None = None
 

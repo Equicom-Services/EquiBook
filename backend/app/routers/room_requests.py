@@ -210,6 +210,8 @@ def get_room_requests(
             RoomRequest,
             Room.room_name,
             Site.site_name,
+            Admin.name.label("approved_rejected_by_name"),
+            Admin.email.label("approved_rejected_by_email"),
         )
         .join(
             Room,
@@ -218,6 +220,10 @@ def get_room_requests(
         .join(
             Site,
             Site.site_id == Room.site_id,
+        )
+        .outerjoin(
+            Admin,
+            Admin.id == RoomRequest.approved_rejected_by,
         )
         .filter(
             Site.site_name == current_admin.site
@@ -230,7 +236,13 @@ def get_room_requests(
 
     response = []
 
-    for room_request, room_name, site_name in results:
+    for (
+        room_request,
+        room_name,
+        site_name,
+        approved_rejected_by_name,
+        approved_rejected_by_email,
+    ) in results:
 
         response.append({
             "room_reservation_id":
@@ -272,6 +284,12 @@ def get_room_requests(
             "approved_rejected_by":
                 room_request.approved_rejected_by,
 
+            "approved_rejected_by_name":
+                approved_rejected_by_name,
+
+            "approved_rejected_by_email":
+                approved_rejected_by_email,
+
             "approved_rejected_date_time":
                 room_request.approved_rejected_date_time,
 
@@ -292,7 +310,6 @@ def get_room_requests(
         })
 
     return response
-
 # ============================================================
 # GET APPROVED ROOM BOOKINGS
 # ADMIN - CALENDAR

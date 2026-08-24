@@ -4,11 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import AdminRoomBookingForm from "./AdminRoomBookingForm";
 import { apiFetch } from "@/lib/api";
 import {
+  Check,
+  X,
   MoreVertical,
   Pencil,
   Trash2,
-  X,
-  Check,
+  DoorOpen,
+  MapPin,
+  CalendarDays,
+  Clock3,
+  CalendarCheck,
+  FileText,
+  MessageSquare,
+  Mail,
+  ShieldCheck,
+  ShieldX,
 } from "lucide-react";
 type ReservationStatus =
   | "all"
@@ -19,7 +29,6 @@ type ReservationStatus =
 
 interface RoomRequest {
   room_reservation_id: number;
-
   request_date_time: string;
 
   room_id: number;
@@ -32,7 +41,10 @@ interface RoomRequest {
 
   start_time: string;
   end_time: string;
-
+  approved_rejected_by: number | null;
+  approved_rejected_by_name: string | null;
+  approved_rejected_by_email: string | null;
+  approved_rejected_date_time: string | null;
   duration_minutes: number;
 
   purpose: string;
@@ -45,7 +57,6 @@ interface RoomRequest {
 
   admin_remarks: string | null;
 
-  approved_rejected_date_time: string | null;
 
   site: string;
 }
@@ -444,413 +455,510 @@ const cancelBooking = async (requestId: number) => {
   // ==========================================================
 
 return (
-  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
-    {filteredRequests.map(
-      (request) => (
-        <div
-          key={request.room_reservation_id}
-          className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"
-        >
+  {filteredRequests.map((request) => (
+    <div
+      key={request.room_reservation_id}
+      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+    >
 
-          <div className="flex items-start justify-between gap-6">
+      {/* HEADER */}
+      <div className="flex items-start justify-between gap-4">
 
-            {/* LEFT */}
-            <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1">
 
-              <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
 
-                <h3 className="font-semibold text-slate-900">
-                  {request.employee_name}
-                </h3>
+            <h3 className="truncate text-sm font-semibold text-slate-900">
+              {request.employee_name}
+            </h3>
 
-                <span
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    request.status === "pending"
-                      ? "bg-amber-100 text-amber-700"
-                      : request.status === "approved"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {request.status}
-                </span>
-
-              </div>
-
-              <p className="mt-1 text-sm text-slate-500">
-                {request.employee_email}
-              </p>
-
-              <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 md:grid-cols-4">
-
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Room
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {request.room}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Site
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {request.site}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Date
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {request.reservation_date}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Time
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {request.start_time}{" "}
-                    -{" "}
-                    {request.end_time}
-                  </p>
-                </div>
-
-              </div>
-
-              <div className="mt-4">
-
-                <p className="text-xs text-slate-400">
-                  Purpose
-                </p>
-
-                <p className="mt-1 text-sm text-slate-700">
-                  {request.purpose}
-                </p>
-
-              </div>
-
-            </div>
-
-
-            {/* =================================================
-                ACTIONS
-            ================================================= */}
-
-            <div className="relative flex shrink-0 gap-2">
-
-              {/* PENDING */}
-              {request.status === "pending" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedRequest(request);
-                      setActionType("rejected");
-                      setAdminRemarks("");
-                    }}
-                    className="flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
-                  >
-                    <X size={16} />
-                    Reject
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedRequest(request);
-                      setActionType("approved");
-                      setAdminRemarks("");
-                    }}
-                    className="flex items-center gap-2 rounded-md bg-[#03045e] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#02033f]"
-                  >
-                    <Check size={16} />
-                    Approve
-                  </button>
-                </>
-              )}
-
-
-              {/* APPROVED */}
-              {request.status === "approved" && (
-                <div className="relative">
-
-                  {/* THREE DOTS BUTTON */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenMenuId(
-                        openMenuId ===
-                          request.room_reservation_id
-                          ? null
-                          : request.room_reservation_id
-                      )
-                    }
-                    className="rounded-md border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
-                    aria-label="Booking actions"
-                  >
-                    <MoreVertical size={18} />
-                  </button>
-
-
-                  {/* DROPDOWN MENU */}
-                  {openMenuId ===
-                    request.room_reservation_id && (
-                    <div className="absolute right-0 top-full z-30 mt-2 w-32 rounded-md border border-slate-200 bg-white p-1 shadow-lg">
-
-                      {/* EDIT */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingRequest(request);
-                          setOpenMenuId(null);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                      >
-                        <Pencil size={15} />
-                        Edit
-                      </button>
-
-
-                      {/* CANCEL */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCancelRequest(request);
-                          setOpenMenuId(null);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
-                      >
-                        <Trash2 size={15} />
-                        Cancel
-                      </button>
-
-                    </div>
-                  )}
-
-                </div>
-              )}
-
-            </div>
+            <span
+              className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                request.status === "pending"
+                  ? "bg-amber-100 text-amber-700"
+                  : request.status === "approved"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+            >
+              {request.status}
+            </span>
 
           </div>
 
-
-          {/* ==================================================
-              CONFIRMATION MODAL
-          ================================================== */}
-
-          {selectedRequest &&
-            actionType && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-
-                <div className="w-full max-w-md rounded-md bg-white p-6 shadow-xl">
-
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    {actionType === "approved"
-                      ? "Approve Room Request"
-                      : "Reject Room Request"}
-                  </h2>
-
-                  <p className="mt-2 text-sm text-slate-500">
-                    {actionType === "approved"
-                      ? "Are you sure you want to approve this room reservation?"
-                      : "Please provide a reason for rejecting this request."}
-                  </p>
-
-                  <div className="mt-5">
-
-                    <label className="text-sm font-medium text-slate-700">
-                      Remarks
-
-                      {actionType === "rejected" && (
-                        <span className="text-red-500">
-                          {" "}
-                          *
-                        </span>
-                      )}
-                    </label>
-
-                    <textarea
-                      value={adminRemarks}
-                      onChange={(e) =>
-                        setAdminRemarks(e.target.value)
-                      }
-                      placeholder={
-                        actionType === "approved"
-                          ? "Optional remarks..."
-                          : "Reason for rejection..."
-                      }
-                      rows={4}
-                      className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
-                    />
-
-                  </div>
-
-                  <div className="mt-6 flex justify-end gap-3">
-
-                    <button
-                      onClick={() => {
-                        setSelectedRequest(null);
-                        setActionType(null);
-                        setAdminRemarks("");
-                      }}
-                      disabled={updating}
-                      className="flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      <X size={16} />
-                      Cancel
-                    </button>
-
-                    <button
-                      disabled={
-                        updating ||
-                        (actionType === "rejected" &&
-                          !adminRemarks.trim())
-                      }
-                      onClick={async () => {
-                        if (
-                          !selectedRequest ||
-                          !actionType
-                        ) {
-                          return;
-                        }
-
-                        try {
-                          setUpdating(true);
-
-                          await updateStatus(
-                            selectedRequest.room_reservation_id,
-                            actionType,
-                            adminRemarks.trim() ||
-                              undefined
-                          );
-
-                          setSelectedRequest(null);
-                          setActionType(null);
-                          setAdminRemarks("");
-
-                        } finally {
-                          setUpdating(false);
-                        }
-                      }}
-                      className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${
-                        actionType === "approved"
-                          ? "bg-[#03045e] hover:bg-[#02033f]"
-                          : "bg-red-600 hover:bg-red-700"
-                      }`}
-                    >
-                      {updating ? (
-                        "Processing..."
-                      ) : actionType === "approved" ? (
-                        <>
-                          <Check size={16} />
-                          Approve
-                        </>
-                      ) : (
-                        <>
-                          <X size={16} />
-                          Reject
-                        </>
-                      )}
-                    </button>
-
-                  </div>
-
-                </div>
-
-              </div>
-            )}
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+            <Mail size={12} />
+            <span className="truncate">
+              {request.employee_email}
+            </span>
+          </div>
 
         </div>
-      )
-    )}
 
 
-    {/* =========================================================
-        CANCEL BOOKING CONFIRMATION
-    ========================================================= */}
+        {/* ACTIONS */}
+        <div className="relative flex shrink-0 gap-1.5">
 
-    {cancelRequest && (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          {/* PENDING */}
+          {request.status === "pending" && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRequest(request);
+                  setActionType("rejected");
+                  setAdminRemarks("");
+                }}
+                className="flex items-center gap-1.5 rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+              >
+                <X size={14} />
+                Reject
+              </button>
 
-        <div className="w-full max-w-md rounded-md bg-white p-6 shadow-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRequest(request);
+                  setActionType("approved");
+                  setAdminRemarks("");
+                }}
+                className="flex items-center gap-1.5 rounded-md bg-[#03045e] px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-[#02033f]"
+              >
+                <Check size={14} />
+                Approve
+              </button>
+            </>
+          )}
 
-          <h2 className="text-lg font-semibold text-slate-900">
-            Cancel Room Booking
-          </h2>
 
-          <p className="mt-2 text-sm text-slate-500">
-            Are you sure you want to cancel this room reservation?
-          </p>
+          {/* APPROVED */}
+          {request.status === "approved" && (
+            <div className="relative">
 
-          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <button
+                type="button"
+                onClick={() =>
+                  setOpenMenuId(
+                    openMenuId === request.room_reservation_id
+                      ? null
+                      : request.room_reservation_id
+                  )
+                }
+                className="rounded-md border border-slate-200 p-1.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+                aria-label="Booking actions"
+              >
+                <MoreVertical size={16} />
+              </button>
 
-            <p className="text-sm font-semibold text-slate-800">
-              {cancelRequest.employee_name}
-            </p>
 
-            <p className="mt-1 text-sm text-slate-500">
-              {cancelRequest.room}
-            </p>
+              {openMenuId === request.room_reservation_id && (
+                <div className="absolute right-0 top-full z-30 mt-2 w-32 rounded-md border border-slate-200 bg-white p-1 shadow-lg">
 
-            <p className="mt-1 text-sm text-slate-500">
-              {cancelRequest.reservation_date}
-            </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingRequest(request);
+                      setOpenMenuId(null);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <Pencil size={14} />
+                    Edit
+                  </button>
 
-            <p className="text-sm text-slate-500">
-              {cancelRequest.start_time} -{" "}
-              {cancelRequest.end_time}
-            </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCancelRequest(request);
+                      setOpenMenuId(null);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                  >
+                    <Trash2 size={14} />
+                    Cancel
+                  </button>
 
-          </div>
+                </div>
+              )}
 
-          <div className="mt-6 flex justify-end gap-3">
-
-            <button
-              type="button"
-              onClick={() => setCancelRequest(null)}
-              disabled={cancelling}
-              className="flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <X size={16} />
-              Keep Booking
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                cancelBooking(
-                  cancelRequest.room_reservation_id
-                )
-              }
-              disabled={cancelling}
-              className="flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Trash2 size={16} />
-
-              {cancelling
-                ? "Cancelling..."
-                : "Yes, Cancel Booking"}
-            </button>
-
-          </div>
+            </div>
+          )}
 
         </div>
 
       </div>
-    )}
 
-  </div>
+
+      {/* BOOKING INFORMATION */}
+      <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 md:grid-cols-4">
+
+        {/* ROOM */}
+        <div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <DoorOpen size={13} />
+            <span>Room</span>
+          </div>
+
+          <p className="mt-0.5 text-sm font-medium text-slate-700">
+            {request.room}
+          </p>
+        </div>
+
+
+        {/* SITE */}
+        <div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <MapPin size={13} />
+            <span>Site</span>
+          </div>
+
+          <p className="mt-0.5 text-sm font-medium text-slate-700">
+            {request.site}
+          </p>
+        </div>
+
+
+        {/* RESERVATION DATE */}
+        <div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <CalendarDays size={13} />
+            <span>Reservation Date</span>
+          </div>
+
+          <p className="mt-0.5 text-sm font-medium text-slate-700">
+            {request.reservation_date}
+          </p>
+        </div>
+
+
+        {/* TIME */}
+        <div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <Clock3 size={13} />
+            <span>Time</span>
+          </div>
+
+          <p className="mt-0.5 text-sm font-medium text-slate-700">
+            {request.start_time} - {request.end_time}
+          </p>
+        </div>
+
+
+        {/* DATE BOOKED */}
+        <div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <CalendarCheck size={13} />
+            <span>Date Booked</span>
+          </div>
+
+          <p className="mt-0.5 text-sm font-medium text-slate-700">
+            {request.request_date_time
+              ? new Date(
+                  request.request_date_time
+                ).toLocaleString()
+              : "N/A"}
+          </p>
+        </div>
+
+      </div>
+
+
+      {/* PURPOSE */}
+      <div className="mt-3 border-t border-slate-100 pt-3">
+
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <FileText size={13} />
+          <span>Purpose</span>
+        </div>
+
+        <p className="mt-0.5 text-sm text-slate-700">
+          {request.purpose}
+        </p>
+
+      </div>
+
+
+      {/* APPROVAL / REJECTION DETAILS */}
+      {request.status !== "pending" && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+
+            {/* REMARKS */}
+            <div>
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <MessageSquare size={13} />
+                <span>Remarks</span>
+              </div>
+
+              <p className="mt-0.5 text-sm text-slate-700">
+                {request.admin_remarks || "No remarks"}
+              </p>
+            </div>
+
+
+            {/* APPROVED / REJECTED BY */}
+            <div>
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
+
+                {request.status === "approved" ? (
+                  <ShieldCheck size={13} />
+                ) : (
+                  <ShieldX size={13} />
+                )}
+
+                <span>
+                  {request.status === "approved"
+                    ? "Approved By"
+                    : "Rejected By"}
+                </span>
+
+              </div>
+
+              <p className="mt-0.5 text-sm font-medium text-slate-700">
+                {request.approved_rejected_by_name || "N/A"}
+              </p>
+
+              {request.approved_rejected_by_email && (
+                <p className="mt-0.5 text-xs text-slate-400">
+                  {request.approved_rejected_by_email}
+                </p>
+              )}
+
+            </div>
+
+
+            {/* APPROVED / REJECTED DATE */}
+            <div>
+
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <CalendarCheck size={13} />
+
+                <span>
+                  {request.status === "approved"
+                    ? "Approved Date"
+                    : "Rejected Date"}
+                </span>
+              </div>
+
+              <p className="mt-0.5 text-sm text-slate-700">
+                {request.approved_rejected_date_time
+                  ? new Date(
+                      request.approved_rejected_date_time
+                    ).toLocaleString()
+                  : "N/A"}
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+
+      {/* ==================================================
+          CONFIRMATION MODAL
+      ================================================== */}
+
+      {selectedRequest &&
+        actionType && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+
+            <div className="w-full max-w-md rounded-md bg-white p-6 shadow-xl">
+
+              <h2 className="text-lg font-semibold text-slate-900">
+                {actionType === "approved"
+                  ? "Approve Room Request"
+                  : "Reject Room Request"}
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-500">
+                {actionType === "approved"
+                  ? "Are you sure you want to approve this room reservation?"
+                  : "Please provide a reason for rejecting this request."}
+              </p>
+
+              <div className="mt-5">
+
+                <label className="text-sm font-medium text-slate-700">
+                  Remarks
+
+                  {actionType === "rejected" && (
+                    <span className="text-red-500"> *</span>
+                  )}
+                </label>
+
+                <textarea
+                  value={adminRemarks}
+                  onChange={(e) =>
+                    setAdminRemarks(e.target.value)
+                  }
+                  placeholder={
+                    actionType === "approved"
+                      ? "Optional remarks..."
+                      : "Reason for rejection..."
+                  }
+                  rows={4}
+                  className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
+                />
+
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+
+                <button
+                  onClick={() => {
+                    setSelectedRequest(null);
+                    setActionType(null);
+                    setAdminRemarks("");
+                  }}
+                  disabled={updating}
+                  className="flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <X size={16} />
+                  Cancel
+                </button>
+
+                <button
+                  disabled={
+                    updating ||
+                    (actionType === "rejected" &&
+                      !adminRemarks.trim())
+                  }
+                  onClick={async () => {
+                    if (
+                      !selectedRequest ||
+                      !actionType
+                    ) {
+                      return;
+                    }
+
+                    try {
+                      setUpdating(true);
+
+                      await updateStatus(
+                        selectedRequest.room_reservation_id,
+                        actionType,
+                        adminRemarks.trim() ||
+                          undefined
+                      );
+
+                      setSelectedRequest(null);
+                      setActionType(null);
+                      setAdminRemarks("");
+
+                    } finally {
+                      setUpdating(false);
+                    }
+                  }}
+                  className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${
+                    actionType === "approved"
+                      ? "bg-[#03045e] hover:bg-[#02033f]"
+                      : "bg-red-600 hover:bg-red-700"
+                  }`}
+                >
+                  {updating ? (
+                    "Processing..."
+                  ) : actionType === "approved" ? (
+                    <>
+                      <Check size={16} />
+                      Approve
+                    </>
+                  ) : (
+                    <>
+                      <X size={16} />
+                      Reject
+                    </>
+                  )}
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+
+      {/* =========================================================
+          CANCEL BOOKING CONFIRMATION
+      ========================================================= */}
+
+      {cancelRequest && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+
+          <div className="w-full max-w-md rounded-md bg-white p-6 shadow-xl">
+
+            <h2 className="text-lg font-semibold text-slate-900">
+              Cancel Room Booking
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Are you sure you want to cancel this room reservation?
+            </p>
+
+            <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+
+              <p className="text-sm font-semibold text-slate-800">
+                {cancelRequest.employee_name}
+              </p>
+
+              <p className="mt-1 text-sm text-slate-500">
+                {cancelRequest.room}
+              </p>
+
+              <p className="mt-1 text-sm text-slate-500">
+                {cancelRequest.reservation_date}
+              </p>
+
+              <p className="text-sm text-slate-500">
+                {cancelRequest.start_time} -{" "}
+                {cancelRequest.end_time}
+              </p>
+
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+
+              <button
+                type="button"
+                onClick={() => setCancelRequest(null)}
+                disabled={cancelling}
+                className="flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                <X size={16} />
+                Keep Booking
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  cancelBooking(
+                    cancelRequest.room_reservation_id
+                  )
+                }
+                disabled={cancelling}
+                className="flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 size={16} />
+
+                {cancelling
+                  ? "Cancelling..."
+                  : "Yes, Cancel Booking"}
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+    </div>
+  ))}
+</div>
 );
 }
