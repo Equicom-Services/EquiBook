@@ -34,21 +34,40 @@ interface FormData {
 
 interface RoomRequestConfirmationModalProps {
   isOpen: boolean;
-  formData: FormData;
-  sites: Site[];
+
+  // Employee form
+  formData?: FormData;
+  sites?: Site[];
+
+  // Admin form
+  employeeName?: string;
+  employeeEmail?: string;
+  roomId?: string;
+  purpose?: string;
+
+  // Shared
   rooms: Room[];
   bookingSchedules: BookingSchedule[];
+
   onEdit: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   submitting?: boolean;
 }
 
 export default function RoomRequestConfirmationModal({
   isOpen,
+
   formData,
-  sites,
+  sites = [],
+
+  employeeName,
+  employeeEmail,
+  roomId,
+  purpose,
+
   rooms,
   bookingSchedules,
+
   onEdit,
   onConfirm,
   submitting = false,
@@ -57,35 +76,87 @@ export default function RoomRequestConfirmationModal({
     return null;
   }
 
+  // ============================================================
+  // Support BOTH employee and admin forms
+  // ============================================================
+
+  const displayName =
+    formData?.name ??
+    employeeName ??
+    "";
+
+  const displayEmail =
+    formData?.company_email ??
+    employeeEmail ??
+    "";
+
+  const displayPurpose =
+    formData?.purpose ??
+    purpose ??
+    "";
+
+  const selectedRoomId =
+    formData?.room_id ??
+    roomId ??
+    "";
+
+  const selectedSiteId =
+    formData?.site_id ??
+    "";
+
   const selectedSite = sites.find(
-    (site) => String(site.site_id) === formData.site_id
+    (site) =>
+      String(site.site_id) === selectedSiteId
   );
 
   const selectedRoom = rooms.find(
-    (room) => String(room.room_id) === formData.room_id
+    (room) =>
+      String(room.room_id) === selectedRoomId
   );
 
+  // ============================================================
+  // Format helpers
+  // ============================================================
+
   const formatDate = (date: string) => {
-    if (!date) return "-";
+    if (!date) {
+      return "-";
+    }
 
-    const parsedDate = new Date(`${date}T00:00:00`);
+    const parsedDate =
+      new Date(`${date}T00:00:00`);
 
-    return parsedDate.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    return parsedDate.toLocaleDateString(
+      "en-US",
+      {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }
+    );
   };
 
   const formatTime = (time: string) => {
-    if (!time) return "-";
+    if (!time) {
+      return "-";
+    }
 
-    const [hours, minutes] = time.split(":");
+    const [hours, minutes] =
+      time.split(":");
+
     const hour = Number(hours);
 
-    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    const hour12 =
+      hour === 0
+        ? 12
+        : hour > 12
+        ? hour - 12
+        : hour;
 
-    const period = hour >= 12 ? "PM" : "AM";
+    const period =
+      hour >= 12
+        ? "PM"
+        : "AM";
 
     return `${hour12}:${minutes} ${period}`;
   };
@@ -93,63 +164,96 @@ export default function RoomRequestConfirmationModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-2xl">
-        {/* Header */}
+
+        {/* ======================================================
+            HEADER
+        ====================================================== */}
+
         <div className="border-b border-slate-200 px-6 py-5">
           <h2 className="text-xl font-bold text-slate-800">
             Confirm Room Reservation
           </h2>
 
           <p className="mt-1 text-sm text-slate-500">
-            Please review the details below before submitting your request.
+            Please review the details below before submitting
+            your reservation.
           </p>
         </div>
 
-        {/* Receipt */}
+        {/* ======================================================
+            CONTENT
+        ====================================================== */}
+
         <div className="space-y-6 px-6 py-6">
-          {/* Employee Information */}
+
+          {/* ====================================================
+              REQUESTER INFORMATION
+          ==================================================== */}
+
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Employee Information
+              Requester Information
             </h3>
 
             <div className="rounded-lg border border-slate-200 bg-slate-50">
               <div className="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-x md:divide-y-0">
+
+                {/* Name */}
+
                 <div className="p-4">
-                  <p className="text-xs text-slate-400">Name</p>
+                  <p className="text-xs text-slate-400">
+                    Name
+                  </p>
+
                   <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {formData.name}
+                    {displayName || "-"}
                   </p>
                 </div>
+
+                {/* Email */}
 
                 <div className="p-4">
                   <p className="text-xs text-slate-400">
                     Company Email
                   </p>
+
                   <p className="mt-1 break-all text-sm font-semibold text-slate-800">
-                    {formData.company_email}
+                    {displayEmail || "-"}
                   </p>
                 </div>
+
               </div>
             </div>
           </div>
 
-          {/* Room Information */}
+          {/* ====================================================
+              ROOM INFORMATION
+          ==================================================== */}
+
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
               Room Information
             </h3>
 
             <div className="rounded-lg border border-slate-200 bg-slate-50">
+
               <div className="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-x md:divide-y-0">
+
+                {/* Site */}
+
                 <div className="p-4">
                   <p className="text-xs text-slate-400">
                     Site
                   </p>
 
                   <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {selectedSite?.site_name || "-"}
+                    {selectedSite?.site_name ||
+                      formData?.site ||
+                      "-"}
                   </p>
                 </div>
+
+                {/* Room */}
 
                 <div className="p-4">
                   <p className="text-xs text-slate-400">
@@ -159,68 +263,94 @@ export default function RoomRequestConfirmationModal({
                   <p className="mt-1 text-sm font-semibold text-slate-800">
                     {selectedRoom
                       ? `${selectedRoom.room_code} — ${selectedRoom.room_name}`
-                      : "-"}
+                      : formData?.room || "-"}
                   </p>
                 </div>
+
               </div>
             </div>
           </div>
 
-          {/* Reservation Schedule */}
+          {/* ====================================================
+              RESERVATION SCHEDULE
+          ==================================================== */}
+
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
               Reservation Schedule
             </h3>
 
             <div className="space-y-3">
-              {bookingSchedules.map((schedule, index) => (
-                <div
-                  key={schedule.id}
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-4"
-                >
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Reservation {index + 1}
-                    </span>
+
+              {bookingSchedules.map(
+                (schedule, index) => (
+                  <div
+                    key={schedule.id}
+                    className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+                  >
+
+                    <div className="mb-3">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Reservation {index + 1}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+
+                      {/* Date */}
+
+                      <div>
+                        <p className="text-xs text-slate-400">
+                          Date
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                          {formatDate(
+                            schedule.date
+                          )}
+                        </p>
+                      </div>
+
+                      {/* Start */}
+
+                      <div>
+                        <p className="text-xs text-slate-400">
+                          Start Time
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                          {formatTime(
+                            schedule.start_time
+                          )}
+                        </p>
+                      </div>
+
+                      {/* End */}
+
+                      <div>
+                        <p className="text-xs text-slate-400">
+                          End Time
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                          {formatTime(
+                            schedule.end_time
+                          )}
+                        </p>
+                      </div>
+
+                    </div>
                   </div>
+                )
+              )}
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div>
-                      <p className="text-xs text-slate-400">
-                        Date
-                      </p>
-
-                      <p className="mt-1 text-sm font-semibold text-slate-800">
-                        {formatDate(schedule.date)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-slate-400">
-                        Start Time
-                      </p>
-
-                      <p className="mt-1 text-sm font-semibold text-slate-800">
-                        {formatTime(schedule.start_time)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-slate-400">
-                        End Time
-                      </p>
-
-                      <p className="mt-1 text-sm font-semibold text-slate-800">
-                        {formatTime(schedule.end_time)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
 
-          {/* Purpose */}
+          {/* ====================================================
+              PURPOSE
+          ==================================================== */}
+
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
               Purpose
@@ -228,22 +358,32 @@ export default function RoomRequestConfirmationModal({
 
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="whitespace-pre-wrap text-sm text-slate-700">
-                {formData.purpose}
+                {displayPurpose || "-"}
               </p>
             </div>
           </div>
 
-          {/* Warning */}
-<div className="rounded-lg bg-[#03045e] p-4">
-  <p className="text-sm font-medium text-white">
-    Please make sure all information is correct before
-    submitting your reservation request.
-  </p>
-</div>
+          {/* ====================================================
+              WARNING
+          ==================================================== */}
+
+          <div className="rounded-lg bg-[#03045e] p-4">
+            <p className="text-sm font-medium text-white">
+              Please make sure all information is correct
+              before submitting your reservation.
+            </p>
+          </div>
+
         </div>
 
-        {/* Footer */}
+        {/* ======================================================
+            FOOTER
+        ====================================================== */}
+
         <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+
+          {/* Edit */}
+
           <button
             type="button"
             onClick={onEdit}
@@ -253,15 +393,21 @@ export default function RoomRequestConfirmationModal({
             Edit
           </button>
 
+          {/* Confirm */}
+
           <button
             type="button"
             onClick={onConfirm}
             disabled={submitting}
             className="rounded-md bg-[#03045e] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? "Submitting..." : "Confirm & Submit"}
+            {submitting
+              ? "Submitting..."
+              : "Confirm & Submit"}
           </button>
+
         </div>
+
       </div>
     </div>
   );

@@ -354,7 +354,7 @@ useEffect(() => {
       setLoadingApprovedBookings(true);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/approved`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/active`
       );
 
       if (!response.ok) {

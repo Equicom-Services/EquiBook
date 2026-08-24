@@ -16,6 +16,18 @@ class RoomRequestCreate(BaseModel):
 
     purpose: str
 
+class RoomBookingUpdate(BaseModel):
+    room_id: int
+
+    employee_name: str
+    employee_email: str
+
+    reservation_date: date
+
+    start_time: time
+    end_time: time
+
+    purpose: str
 
 class RoomRequestStatusUpdate(BaseModel):
     status: str

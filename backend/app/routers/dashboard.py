@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -27,19 +27,6 @@ def get_room_stats(
     Return room reservation statistics for the
     currently logged-in admin's assigned site only.
     """
-
-    # --------------------------------------------------------
-    # Base query:
-    #
-    # Room Request
-    #      ↓
-    # Room
-    #      ↓
-    # Site
-    #
-    # Only requests belonging to current_admin.site
-    # are included.
-    # --------------------------------------------------------
 
     base_query = (
         db.query(RoomRequest)
@@ -98,9 +85,22 @@ def get_room_stats(
         .count()
     )
 
+    # --------------------------------------------------------
+    # Cancelled
+    # --------------------------------------------------------
+
+    cancelled = (
+        base_query
+        .filter(
+            func.upper(RoomRequest.status) == "CANCELLED"
+        )
+        .count()
+    )
+
     return {
         "total": total,
         "approved": approved,
         "rejected": rejected,
         "pending": pending,
+        "cancelled": cancelled,
     }
