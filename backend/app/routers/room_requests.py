@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -18,6 +18,11 @@ from app.schemas.room_request import (
     RoomBookingUpdate,
 )
 
+from app.services.email_service import send_email
+from app.services.email_templates import (
+    booking_submitted_email,
+    booking_status_email,
+)
 
 router = APIRouter(
     prefix="/room-requests",
@@ -36,6 +41,7 @@ router = APIRouter(
 )
 def create_room_request(
     request: RoomRequestCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     # --------------------------------------------------------
@@ -129,6 +135,45 @@ def create_room_request(
         )
         .first()
     )
+
+        # --------------------------------------------------------
+    # Notify admins belonging to this site
+    # --------------------------------------------------------
+
+    admins = (
+        db.query(Admin)
+        .filter(
+            Admin.site == site.site_name
+        )
+        .all()
+    )
+
+    admin_emails = [
+        admin.email
+        for admin in admins
+        if admin.email
+    ]
+
+    if admin_emails:
+
+        html_body = booking_submitted_email(
+            employee_name=new_request.employee_name,
+            employee_email=new_request.employee_email,
+            room=room.room_name,
+            site=site.site_name if site else "",
+            reservation_date=new_request.reservation_date,
+            start_time=new_request.start_time,
+            end_time=new_request.end_time,
+            purpose=new_request.purpose,
+        )
+
+        background_tasks.add_task(
+            send_email,
+            admin_emails,
+            "New Room Booking Request",
+            html_body,
+        )
+
 
     return {
         "room_reservation_id":
@@ -1050,6 +1095,7 @@ def update_admin_room_booking(
 )
 def cancel_admin_room_booking(
     request_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
@@ -1120,6 +1166,44 @@ def cancel_admin_room_booking(
     db.commit()
     db.refresh(room_request)
 
+    html_body = booking_status_email(
+            employee_name=room_request.employee_name,
+            status="cancelled",
+            room=room.room_name,
+            site=site.site_name,
+            reservation_date=room_request.reservation_date,
+            start_time=room_request.start_time,
+            end_time=room_request.end_time,
+            purpose=room_request.purpose,
+            remarks=room_request.admin_remarks,
+    )
+
+    background_tasks.add_task(
+        send_email,
+        [room_request.employee_email],
+        "Room Booking Cancelled",
+        html_body,
+    )
+
+    html_body = booking_status_email(
+        employee_name=room_request.employee_name,
+        status="cancelled",
+        room=room.room_name,
+        site=site.site_name,
+        reservation_date=room_request.reservation_date,
+        start_time=room_request.start_time,
+        end_time=room_request.end_time,
+        purpose=room_request.purpose,
+        remarks=room_request.admin_remarks,
+    )
+
+    background_tasks.add_task(
+        send_email,
+        [room_request.employee_email],
+        "Room Booking Cancelled",
+        html_body,
+    )
+
     return {
         "room_reservation_id":
             room_request.room_reservation_id,
@@ -1180,7 +1264,6 @@ def cancel_admin_room_booking(
     }
 
 
-
 # ============================================================
 # UPDATE ROOM REQUEST STATUS
 # ADMIN ONLY
@@ -1196,6 +1279,7 @@ def cancel_admin_room_booking(
 def update_room_request_status(
     request_id: int,
     status_update: RoomRequestStatusUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
@@ -1269,10 +1353,41 @@ def update_room_request_status(
         "APPROVED",
         "REJECTED",
     }:
-        raise HTTPException(
-            status_code=400,
-            detail="This room request has already been finalized.",
+
+        status_text = (
+            "approved"
+            if room_request.status == "APPROVED"
+            else "rejected"
         )
+
+        html_body = booking_status_email(
+            employee_name=room_request.employee_name,
+            status=status_text,
+            room=room.room_name,
+            site=site.site_name,
+            reservation_date=room_request.reservation_date,
+            start_time=room_request.start_time,
+            end_time=room_request.end_time,
+            purpose=room_request.purpose,
+            remarks=room_request.admin_remarks,
+        )
+
+        subject = (
+            "Room Booking Approved"
+            if room_request.status == "APPROVED"
+            else "Room Booking Rejected"
+        )
+
+        background_tasks.add_task(
+            send_email,
+            [room_request.employee_email],
+            subject,
+            html_body,
+        )
+        # raise HTTPException(
+        #     status_code=400,
+        #     detail="This room request has already been finalized.",
+        # )
 
     # --------------------------------------------------------
     # Rejection requires remarks
@@ -1377,6 +1492,56 @@ def update_room_request_status(
 
     db.commit()
     db.refresh(room_request)
+
+    # --------------------------------------------------------
+    # Send approval email to employee
+    # --------------------------------------------------------
+
+    if room_request.status == "APPROVED":
+
+        html_body = booking_status_email(
+            employee_name=room_request.employee_name,
+            status="approved",
+            room=room.room_name,
+            site=site.site_name,
+            reservation_date=room_request.reservation_date,
+            start_time=room_request.start_time,
+            end_time=room_request.end_time,
+            purpose=room_request.purpose,
+            remarks=room_request.admin_remarks,
+        )
+
+        background_tasks.add_task(
+            send_email,
+            [room_request.employee_email],
+            "Room Booking Approved",
+            html_body,
+        )
+
+    # --------------------------------------------------------
+    # Send rejection email to employee
+    # --------------------------------------------------------
+
+    elif room_request.status == "REJECTED":
+
+        html_body = booking_status_email(
+            employee_name=room_request.employee_name,
+            status="rejected",
+            room=room.room_name,
+            site=site.site_name,
+            reservation_date=room_request.reservation_date,
+            start_time=room_request.start_time,
+            end_time=room_request.end_time,
+            purpose=room_request.purpose,
+            remarks=room_request.admin_remarks,
+        )
+
+        background_tasks.add_task(
+            send_email,
+            [room_request.employee_email],
+            "Room Booking Rejected",
+            html_body,
+        )
 
     # --------------------------------------------------------
     # Return updated request
