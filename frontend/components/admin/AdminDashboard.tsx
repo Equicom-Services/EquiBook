@@ -1,7 +1,14 @@
 "use client";
-import { CalendarDays } from "lucide-react";
+
 import { useEffect, useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+
+import {
+  CalendarDays,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
+
 import ReservationToggle from "./ReservationToggle";
 import DashboardStats from "./DashboardStats";
 import GenerateReport from "./GenerateReport";
@@ -10,7 +17,6 @@ import RoomRequests from "./RoomRequests";
 import RideRequests from "./RideRequests";
 import Calendar from "@/components/shared/Calendar";
 import { apiFetch } from "@/lib/api";
-import { Plus } from "lucide-react";
 import AdminRoomBookingForm from "./AdminRoomBookingForm";
 
 type ReservationType = "room" | "ride";
@@ -21,7 +27,7 @@ type ReservationStatus =
   | "approved"
   | "rejected";
 
-interface ApprovedBooking {
+interface ApprovedRoomBooking {
   room_reservation_id: number;
   room_id: number;
   room: string;
@@ -34,12 +40,35 @@ interface ApprovedBooking {
   status: string;
 }
 
+interface ApprovedRideBooking {
+  ride_reservation_id: number;
+  employee_name: string;
+  employee_email: string;
+  site_id: number;
+  site?: string;
+  travel_date: string;
+  departure_time: string;
+  roundtrip: boolean;
+  return_pickup: string | null;
+  pickup_location: string;
+  pickup_maps_link: string | null;
+  dropoff_destination: string;
+  drop_off_maps_link: string | null;
+  return_drop_off_location: string | null;
+  return_drop_off_maps_link: string | null;
+  purpose: string;
+  passenger_count: number;
+  vehicle_type: string | null;
+  status: string;
+}
+
 interface Admin {
   admin_id: number;
   name: string;
   email: string;
   site_id: number;
 }
+
 interface Room {
   room_id: number;
   room_code: string;
@@ -49,6 +78,7 @@ interface Room {
   is_active: boolean;
   site_id: number;
 }
+
 interface CalendarEvent {
   id: string;
   title: string;
@@ -58,13 +88,10 @@ interface CalendarEvent {
 }
 
 export default function AdminDashboard() {
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // const [selectedRoom, setSelectedRoom] = useState<string>("all");
-
-const [searchQuery, setSearchQuery] = useState("");
-
-const [showAdminRoomBooking, setShowAdminRoomBooking] =
-  useState(false);
+  const [showAdminRoomBooking, setShowAdminRoomBooking] =
+    useState(false);
 
   const [activeType, setActiveType] =
     useState<ReservationType>("room");
@@ -75,17 +102,28 @@ const [showAdminRoomBooking, setShowAdminRoomBooking] =
   const [showCalendar, setShowCalendar] =
     useState(false);
 
-  const [approvedBookings, setApprovedBookings] =
-    useState<ApprovedBooking[]>([]);
-
   const [admin, setAdmin] =
     useState<Admin | null>(null);
-  
-const [rooms, setRooms] =
-  useState<Room[]>([]);
 
-const [selectedRoom, setSelectedRoom] =
-  useState<string>("all");
+  // ==========================================================
+  // ROOM FILTER
+  // ==========================================================
+
+  const [rooms, setRooms] = useState<Room[]>([]);
+
+  const [selectedRoom, setSelectedRoom] =
+    useState<string>("all");
+
+  // ==========================================================
+  // CALENDAR
+  // ==========================================================
+
+  const [approvedRoomBookings, setApprovedRoomBookings] =
+    useState<ApprovedRoomBooking[]>([]);
+
+  const [approvedRideBookings, setApprovedRideBookings] =
+    useState<ApprovedRideBooking[]>([]);
+
   const [calendarLoading, setCalendarLoading] =
     useState(false);
 
@@ -93,101 +131,98 @@ const [selectedRoom, setSelectedRoom] =
     useState("");
 
   // ==========================================================
+  // RESTORE RESERVATION TYPE
+  // ==========================================================
+
+  useEffect(() => {
+    const savedType = localStorage.getItem(
+      "admin_reservation_type"
+    );
+
+    if (savedType === "room" || savedType === "ride") {
+      setActiveType(savedType);
+    }
+  }, []);
+  // ==========================================================
   // FETCH ADMIN
   // ==========================================================
 
-useEffect(() => {
-  const fetchAdmin = async () => {
-    try {
-      const response = await apiFetch(
-        "/api/admin/me",
-        {
-          method: "GET",
-          cache: "no-store",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to fetch admin information."
+  useEffect(() => {
+    const fetchAdmin = async () => {
+      try {
+        const response = await apiFetch(
+          "/api/admin/me",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
         );
-      }
 
-      const data = await response.json();
-
-console.log(
-  "ADMIN DATA:",
-  JSON.stringify(data, null, 2)
-);
-
-      setAdmin(data);
-    } catch (error) {
-      console.error(
-        "Error fetching admin:",
-        error
-      );
-    }
-  };
-
-  fetchAdmin();
-}, []);
-
-useEffect(() => {
-  if (!admin) return;
-
-  const fetchRooms = async () => {
-    try {
-      console.log(
-        "Fetching rooms for site:",
-        admin.site_id
-      );
-
-      const response = await apiFetch(
-        `/api/rooms?site_id=${admin.site_id}&active_only=true`,
-        {
-          method: "GET",
-          cache: "no-store",
+        if (!response.ok) {
+          throw new Error(
+            "Failed to fetch admin information."
+          );
         }
-      );
 
-      if (!response.ok) {
-        const errorText = await response.text();
+        const data: Admin = await response.json();
 
+        setAdmin(data);
+      } catch (error) {
         console.error(
-          "Rooms API error:",
-          response.status,
-          errorText
-        );
-
-        throw new Error(
-          `Failed to fetch rooms: ${response.status}`
+          "Error fetching admin:",
+          error
         );
       }
+    };
 
-      const data: Room[] =
-        await response.json();
-
-      console.log("Rooms:", data);
-
-      setRooms(data);
-    } catch (error) {
-      console.error(
-        "Error fetching rooms:",
-        error
-      );
-
-      setRooms([]);
-    }
-  };
-
-  fetchRooms();
-}, [admin]);
+    fetchAdmin();
+  }, []);
 
   // ==========================================================
-  // FETCH APPROVED BOOKINGS
+  // FETCH ROOMS
   // ==========================================================
 
-  const fetchApprovedBookings = async () => {
+  useEffect(() => {
+    if (!admin) return;
+
+    const fetchRooms = async () => {
+      try {
+        const response = await apiFetch(
+          `/api/rooms?site_id=${admin.site_id}&active_only=true`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch rooms: ${response.status}`
+          );
+        }
+
+        const data: Room[] =
+          await response.json();
+
+        setRooms(data);
+      } catch (error) {
+        console.error(
+          "Error fetching rooms:",
+          error
+        );
+
+        setRooms([]);
+      }
+    };
+
+    fetchRooms();
+  }, [admin]);
+
+  // ==========================================================
+  // FETCH APPROVED ROOM BOOKINGS
+  // ==========================================================
+
+  const fetchApprovedRoomBookings = async () => {
     try {
       setCalendarLoading(true);
       setCalendarError("");
@@ -202,68 +237,199 @@ useEffect(() => {
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch approved bookings: ${response.status}`
+          `Failed to fetch approved room bookings: ${response.status}`
         );
       }
 
-      const data: ApprovedBooking[] =
+      const data: ApprovedRoomBooking[] =
         await response.json();
 
-      setApprovedBookings(data);
+      setApprovedRoomBookings(data);
     } catch (error) {
       console.error(
-        "Error fetching approved bookings:",
+        "Error fetching approved room bookings:",
         error
       );
 
       setCalendarError(
         error instanceof Error
           ? error.message
-          : "Unable to load calendar bookings."
+          : "Unable to load room calendar bookings."
       );
     } finally {
       setCalendarLoading(false);
     }
   };
 
+  // ==========================================================
+  // FETCH APPROVED RIDE BOOKINGS
+  // ==========================================================
 
+  const fetchApprovedRideBookings = async () => {
+    try {
+      setCalendarLoading(true);
+      setCalendarError("");
 
-const filteredCalendarBookings = useMemo(() => {
-  if (!admin) return [];
+      const response = await apiFetch(
+        "/api/ride-reservations/approved",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
 
-  return approvedBookings.filter((booking) => {
-    const matchesSite =
-      booking.site_id === admin.site_id;
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch approved ride bookings: ${response.status}`
+        );
+      }
 
-    const matchesRoom =
-      selectedRoom === "all" ||
-      String(booking.room_id) === selectedRoom;
+      const data: ApprovedRideBooking[] =
+        await response.json();
 
-    return (
-      matchesSite &&
-      matchesRoom &&
-      booking.status.toLowerCase() === "approved"
-    );
-  });
-}, [
-  approvedBookings,
-  admin,
-  selectedRoom,
-]);
+      setApprovedRideBookings(data);
+    } catch (error) {
+      console.error(
+        "Error fetching approved ride bookings:",
+        error
+      );
 
-const calendarEvents = filteredCalendarBookings.map(
-  (booking) => ({
-    id: String(booking.room_reservation_id),
+      setCalendarError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load ride calendar bookings."
+      );
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
 
-    title: `${booking.room} - ${booking.employee_name}`,
+  // ==========================================================
+  // FETCH CALENDAR DATA
+  // ==========================================================
 
-    start: `${booking.reservation_date}T${booking.start_time}`,
+  const fetchCalendarBookings = async () => {
+    if (activeType === "room") {
+      await fetchApprovedRoomBookings();
+    } else {
+      await fetchApprovedRideBookings();
+    }
+  };
 
-    end: `${booking.reservation_date}T${booking.end_time}`,
+  // ==========================================================
+  // FILTER ROOM CALENDAR BOOKINGS
+  // ==========================================================
 
-    status: "approved" as const,
-  })
-);
+  const filteredRoomCalendarBookings =
+    useMemo(() => {
+      if (!admin) return [];
+
+      return approvedRoomBookings.filter(
+        (booking) => {
+          const matchesSite =
+            booking.site_id === admin.site_id;
+
+          const matchesRoom =
+            selectedRoom === "all" ||
+            String(booking.room_id) ===
+              selectedRoom;
+
+          const matchesStatus =
+            booking.status.toLowerCase() ===
+            "approved";
+
+          return (
+            matchesSite &&
+            matchesRoom &&
+            matchesStatus
+          );
+        }
+      );
+    }, [
+      approvedRoomBookings,
+      admin,
+      selectedRoom,
+    ]);
+
+  // ==========================================================
+  // FILTER APPROVED RIDE CALENDAR BOOKINGS
+  // ==========================================================
+
+  const filteredRideCalendarBookings =
+    useMemo(() => {
+      if (!admin) return [];
+
+      return approvedRideBookings.filter(
+        (booking) => {
+          const matchesSite =
+            booking.site_id === admin.site_id;
+
+          const matchesStatus =
+            booking.status.toLowerCase() ===
+            "approved";
+
+          return (
+            matchesSite &&
+            matchesStatus
+          );
+        }
+      );
+    }, [
+      approvedRideBookings,
+      admin,
+    ]);
+
+  // ==========================================================
+  // CALENDAR EVENTS
+  // ==========================================================
+
+  const calendarEvents: CalendarEvent[] =
+    useMemo(() => {
+      if (activeType === "room") {
+        return filteredRoomCalendarBookings.map(
+          (booking) => ({
+            id: String(
+              booking.room_reservation_id
+            ),
+
+            title: `${booking.room} - ${booking.employee_name}`,
+
+            start: `${booking.reservation_date}T${booking.start_time}`,
+
+            end: `${booking.reservation_date}T${booking.end_time}`,
+
+            status: "approved",
+          })
+        );
+      }
+
+      return filteredRideCalendarBookings.map(
+        (booking) => {
+          const start =
+            `${booking.travel_date}T${booking.departure_time}`;
+
+          return {
+            id: String(
+              booking.ride_reservation_id
+            ),
+
+            title:
+              `${booking.pickup_location} → ${booking.dropoff_destination}`,
+
+            start,
+
+            end: start,
+
+            status: "approved",
+          };
+        }
+      );
+    }, [
+      activeType,
+      filteredRoomCalendarBookings,
+      filteredRideCalendarBookings,
+    ]);
+
   // ==========================================================
   // OPEN CALENDAR
   // ==========================================================
@@ -271,189 +437,272 @@ const calendarEvents = filteredCalendarBookings.map(
   const openCalendar = async () => {
     setShowCalendar(true);
 
-    await fetchApprovedBookings();
+    await fetchCalendarBookings();
   };
 
   // ==========================================================
-  // FILTER BOOKINGS BY ADMIN SITE
+  // RESERVATION TYPE CHANGE
   // ==========================================================
 
+const handleReservationTypeChange = (
+  type: ReservationType
+) => {
+  setActiveType(type);
+
+  localStorage.setItem(
+    "admin_reservation_type",
+    type
+  );
+
+  // Reset status when switching
+  // between Room and Ride.
+  setActiveStatus("all");
+
+  // Reset search when switching
+  // between reservation types.
+  setSearchQuery("");
+
+  // Room-specific filter.
+  if (type === "room") {
+    setSelectedRoom("all");
+  }
+};
 
   // ==========================================================
-  // CALENDAR EVENTS
+  // RENDER
   // ==========================================================
 
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-6 py-8">
 
-{/* Dashboard Header */}
-<div className="flex items-start justify-between gap-4">
-  <div>
-    <h1 className="text-2xl font-semibold text-slate-900">
-      Admin Dashboard
-    </h1>
+        {/* ==================================================
+            DASHBOARD HEADER
+        ================================================== */}
 
-    <p className="mt-1 text-sm text-slate-500">
-      Review and manage employee reservation requests.
-    </p>
-  </div>
+        <div className="flex items-start justify-between gap-4">
 
-  {/* Header Actions */}
-  <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              Admin Dashboard
+            </h1>
 
-    {/* Search Input */}
-    <div className="flex w-72 items-center rounded-lg border border-slate-300 bg-white px-3 py-2.5 shadow-sm">
-      <Search
-        size={18}
-        className="shrink-0 text-slate-400"
-      />
+            <p className="mt-1 text-sm text-slate-500">
+              Review and manage employee reservation requests.
+            </p>
+          </div>
 
-      <input
-        type="text"
-        value={searchQuery}
-        onChange={(e) =>
-          setSearchQuery(e.target.value)
-        }
-        placeholder="Search bookings..."
-        className="ml-2 w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-      />
+          {/* Header Actions */}
 
-      {searchQuery && (
-        <button
-          type="button"
-          onClick={() => setSearchQuery("")}
-          className="shrink-0 text-slate-400 hover:text-slate-600"
-        >
-          <X size={18} />
-        </button>
-      )}
-    </div>
-      {/* Admin Book Room */}
-  <button
-    type="button"
-    onClick={() => setShowAdminRoomBooking(true)}
-    className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-  >
-    <Plus size={18} />
-    Book Room
-  </button>
-  {showAdminRoomBooking && (
-  <AdminRoomBookingForm
-    onClose={() => setShowAdminRoomBooking(false)}
-    onSuccess={() => {
-      // refresh bookings
-    }}
-  />
-)}
+          <div className="flex items-center gap-3">
 
-    {/* Generate Report */}
-    <GenerateReport
-      reservationType={activeType}
-    />
+            {/* Search */}
 
-  </div>
-</div>
-        {/* Room / Ride Toggle */}
+            <div className="flex w-72 items-center rounded-lg border border-slate-300 bg-white px-3 py-2.5 shadow-sm">
+
+              <Search
+                size={18}
+                className="shrink-0 text-slate-400"
+              />
+
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) =>
+                  setSearchQuery(e.target.value)
+                }
+                placeholder={
+                  activeType === "room"
+                    ? "Search room bookings..."
+                    : "Search ride bookings..."
+                }
+                className="ml-2 w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+              />
+
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSearchQuery("")
+                  }
+                  className="shrink-0 text-slate-400 hover:text-slate-600"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+
+            {/* ==================================================
+                BOOK ROOM
+            ================================================== */}
+
+            {activeType === "room" && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowAdminRoomBooking(true)
+                  }
+                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                >
+                  <Plus size={18} />
+                  Book Room
+                </button>
+
+                {showAdminRoomBooking && (
+                  <AdminRoomBookingForm
+                    onClose={() =>
+                      setShowAdminRoomBooking(false)
+                    }
+                    onSuccess={() => {
+                      fetchApprovedRoomBookings();
+                    }}
+                  />
+                )}
+              </>
+            )}
+
+            {/* ==================================================
+                GENERATE REPORT
+            ================================================== */}
+
+            <GenerateReport
+              reservationType={activeType}
+            />
+
+          </div>
+        </div>
+
+        {/* ==================================================
+            ROOM / RIDE TOGGLE
+        ================================================== */}
+
         <div className="mt-6">
           <ReservationToggle
             activeType={activeType}
-            onChange={(type) => {
-              setActiveType(type);
-              setActiveStatus("all");
-            }}
+            onChange={handleReservationTypeChange}
           />
         </div>
 
-        {/* Dashboard Statistics */}
+        {/* ==================================================
+            DASHBOARD STATISTICS
+        ================================================== */}
+
         <div className="mt-6">
           <DashboardStats
             reservationType={activeType}
           />
         </div>
 
-        {/* Requests Section */}
+        {/* ==================================================
+            REQUESTS SECTION
+        ================================================== */}
+
         <section className="mt-8">
 
-  {/* Requests Header */}
-<div className="flex items-center justify-between gap-4">
-  <div>
-    <h2 className="text-lg font-semibold text-slate-900">
-      {activeType === "room"
-        ? "Room Requests"
-        : "Ride Requests"}
-    </h2>
+          {/* Requests Header */}
 
-    <p className="mt-1 text-sm text-slate-500">
-      Review employee requests and take appropriate action.
-    </p>
-  </div>
+          <div className="flex items-center justify-between gap-4">
 
-  {/* Filters */}
-  <div className="flex items-center gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">
+                {activeType === "room"
+                  ? "Room Requests"
+                  : "Ride Requests"}
+              </h2>
 
-    {/* Room Filter */}
-    {activeType === "room" && (
-      <select
-        value={selectedRoom}
-        onChange={(e) =>
-          setSelectedRoom(e.target.value)
-        }
-        className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm outline-none focus:border-blue-500"
-      >
-        <option value="all">
-          All Rooms
-        </option>
+              <p className="mt-1 text-sm text-slate-500">
+                Review employee requests and take appropriate action.
+              </p>
+            </div>
 
-{rooms.map((room) => (
-  <option
-    key={room.room_id}
-    value={String(room.room_id)}
-  >
-    {room.room_name}
-  </option>
-))}
-      </select>
-    )}
+            {/* Filters */}
 
-    {/* Status Filter */}
-    <ReservationStatusFilter
-      activeStatus={activeStatus}
-      onChange={setActiveStatus}
-    />
+            <div className="flex items-center gap-3">
 
-  </div>
-</div>
+              {/* ==================================================
+                  ROOM FILTER ONLY
+              ================================================== */}
 
-{/* Request List */}
-<div className="mt-5">
-  {activeType === "room" ? (
-    <RoomRequests
-      status={activeStatus}
-      searchQuery={searchQuery}
-      roomId={selectedRoom}
-    />
-  ) : (
-    <RideRequests
-      status={activeStatus}
-    />
-  )}
-</div>
+              {activeType === "room" && (
+                <select
+                  value={selectedRoom}
+                  onChange={(e) =>
+                    setSelectedRoom(
+                      e.target.value
+                    )
+                  }
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm outline-none focus:border-blue-500"
+                >
+                  <option value="all">
+                    All Rooms
+                  </option>
+
+                  {rooms.map((room) => (
+                    <option
+                      key={room.room_id}
+                      value={String(
+                        room.room_id
+                      )}
+                    >
+                      {room.room_name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* ==================================================
+                  STATUS FILTER
+              ================================================== */}
+
+              <ReservationStatusFilter
+                activeStatus={activeStatus}
+                onChange={setActiveStatus}
+              />
+
+            </div>
+          </div>
+
+          {/* ==================================================
+              REQUEST LIST
+          ================================================== */}
+
+          <div className="mt-5">
+
+            {activeType === "room" ? (
+              <RoomRequests
+                status={activeStatus}
+                searchQuery={searchQuery}
+                roomId={selectedRoom}
+              />
+            ) : (
+              <RideRequests
+                status={activeStatus}
+                searchQuery={searchQuery}
+              />
+            )}
+
+          </div>
+
         </section>
 
         {/* ==================================================
             CALENDAR BUTTON
         ================================================== */}
 
-<button
-  type="button"
-  onClick={openCalendar}
-  aria-label="Open reservation calendar"
-  title="Reservation Calendar"
-  className="fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-[#03045e] text-white shadow-xl transition hover:scale-105 hover:bg-[#02033f]"
->
-  <CalendarDays size={30} strokeWidth={2} />
-</button>
+        <button
+          type="button"
+          onClick={openCalendar}
+          aria-label="Open reservation calendar"
+          title="Reservation Calendar"
+          className="fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-[#03045e] text-white shadow-xl transition hover:scale-105 hover:bg-[#02033f]"
+        >
+          <CalendarDays
+            size={30}
+            strokeWidth={2}
+          />
+        </button>
+
       </div>
 
       {/* ==================================================
@@ -465,20 +714,22 @@ const calendarEvents = filteredCalendarBookings.map(
 
           <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-2xl">
 
-            {/* Header */}
+            {/* Calendar Header */}
+
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
 
               <div>
+
                 <h2 className="text-lg font-semibold text-slate-900">
                   Reservation Calendar
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  Approved room reservations
-                  {admin?.site_id
-                    ? ` for your site`
-                    : ""}
+                  {activeType === "room"
+                    ? "Approved room reservations"
+                    : "Approved ride reservations"}
                 </p>
+
               </div>
 
               <button
@@ -494,37 +745,91 @@ const calendarEvents = filteredCalendarBookings.map(
             </div>
 
             {/* Calendar Content */}
+
             <div className="p-6">
+
+              {/* Calendar Filter Information */}
+
+              <div className="mb-5 flex items-center justify-between">
+
+                <div>
+
+                  <p className="text-sm font-medium text-slate-700">
+
+                    {activeType === "room"
+                      ? selectedRoom === "all"
+                        ? "All Rooms"
+                        : rooms.find(
+                            (room) =>
+                              String(
+                                room.room_id
+                              ) ===
+                              selectedRoom
+                          )?.room_name ||
+                          "Selected Room"
+                      : "Your Site"}
+
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    fetchCalendarBookings
+                  }
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Refresh
+                </button>
+
+              </div>
+
+              {/* Loading */}
 
               {calendarLoading ? (
                 <div className="rounded-lg border border-slate-200 p-10 text-center">
+
                   <p className="text-sm text-slate-500">
                     Loading calendar...
                   </p>
+
                 </div>
               ) : calendarError ? (
+
+                /* Error */
+
                 <div className="rounded-lg border border-red-200 bg-red-50 p-6">
+
                   <p className="text-sm text-red-600">
                     {calendarError}
                   </p>
 
                   <button
                     type="button"
-                    onClick={fetchApprovedBookings}
+                    onClick={
+                      fetchCalendarBookings
+                    }
                     className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
                   >
                     Try Again
                   </button>
+
                 </div>
               ) : (
+
+                /* Calendar */
+
                 <Calendar
                   events={calendarEvents}
                 />
+
               )}
 
             </div>
 
           </div>
+
         </div>
       )}
 

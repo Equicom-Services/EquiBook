@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import {
   CalendarDays,
   CheckCircle2,
@@ -39,10 +40,6 @@ export default function DashboardStats({
 
   useEffect(() => {
     const fetchStats = async () => {
-      if (reservationType !== "room") {
-        return;
-      }
-
       try {
         setLoading(true);
         setError("");
@@ -53,8 +50,13 @@ export default function DashboardStats({
           throw new Error("Authentication token not found.");
         }
 
+        const endpoint =
+          reservationType === "room"
+            ? "/api/dashboard/room-stats"
+            : "/api/dashboard/ride-stats";
+
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/room-stats`,
+          `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
           {
             method: "GET",
             cache: "no-store",
@@ -79,6 +81,14 @@ export default function DashboardStats({
         console.error("Dashboard stats error:", error);
 
         setError("Unable to load statistics.");
+
+        setStats({
+          total: 0,
+          approved: 0,
+          rejected: 0,
+          pending: 0,
+          cancelled: 0,
+        });
       } finally {
         setLoading(false);
       }
@@ -87,11 +97,14 @@ export default function DashboardStats({
     fetchStats();
   }, [reservationType, refreshTrigger]);
 
+  const reservationLabel =
+    reservationType === "room" ? "Room" : "Ride";
+
   const cards = [
     {
       title: "Total Bookings",
       value: stats.total,
-      description: "Room bookings",
+      description: `${reservationLabel} bookings`,
       icon: CalendarDays,
       iconClass: "text-[#03045e]",
       iconBg: "bg-blue-50",

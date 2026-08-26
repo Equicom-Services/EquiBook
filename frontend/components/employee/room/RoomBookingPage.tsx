@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
 import Calendar from "@/components/shared/Calendar";
 import RoomBookingDetails from "./RoomBookingDetails";
 import RoomRequestForm from "./RoomRequestForm";
-import { request } from "http";
 
 interface RoomBooking {
   id: string;
@@ -21,30 +21,21 @@ interface RoomBooking {
 interface RoomRequestResponse {
   room_reservation_id: number;
   request_date_time: string;
-
   room_id: number;
-
   employee_name: string;
   employee_email: string;
-
   reservation_date: string;
   start_time: string;
   end_time: string;
-
   duration_minutes: number;
   purpose: string;
-
   status: string;
   admin_remarks: string | null;
-
   approved_rejected_by: string | null;
   approved_rejected_date_time: string | null;
-
   calendar_event_id: string | null;
-
   created_at: string;
   updated_at: string;
-
   room: string;
   site: string;
 }
@@ -60,10 +51,17 @@ export default function RoomBookingPage() {
   );
 
   const [bookings, setBookings] = useState<RoomBooking[]>([]);
+
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const [branches, setBranches] = useState<string[]>([]);
-  const [selectedBranch, setSelectedBranch] = useState<string>("");
+
+  const [selectedBranch, setSelectedBranch] =
+    useState<string>("all");
+
+  // ==========================================================
+  // FETCH BRANCHES
+  // ==========================================================
 
   useEffect(() => {
     async function fetchBranches() {
@@ -84,21 +82,23 @@ export default function RoomBookingPage() {
 
         const data: SiteResponse[] = await response.json();
 
-        const activeBranches = data
-          .map((site) => site.site_name);
+        const activeBranches = data.map(
+          (site) => site.site_name
+        );
 
         setBranches(activeBranches);
-
-        if (activeBranches.length > 0) {
-          setSelectedBranch(activeBranches[0]);
-        }
       } catch (error) {
         console.error("Error fetching branches:", error);
+        setBranches([]);
       }
     }
 
     fetchBranches();
   }, []);
+
+  // ==========================================================
+  // FETCH BOOKINGS
+  // ==========================================================
 
   useEffect(() => {
     async function fetchBookings() {
@@ -122,13 +122,19 @@ export default function RoomBookingPage() {
         const data: RoomRequestResponse[] =
           await response.json();
 
-        console.log("Approved room bookings from API:", data);
+        console.log(
+          "Approved room bookings from API:",
+          data
+        );
 
         const actualBookings: RoomBooking[] = data
           .filter((request) => {
             const status = request.status.toLowerCase();
 
-            return status === "approved" || status === "pending";
+            return (
+              status === "approved" ||
+              status === "pending"
+            );
           })
           .map((request) => ({
             id: String(request.room_reservation_id),
@@ -148,7 +154,9 @@ export default function RoomBookingPage() {
             purpose: request.purpose,
 
             status:
-              request.status.toLowerCase() as "approved" | "pending",
+              request.status.toLowerCase() as
+                | "approved"
+                | "pending",
           }));
 
         setBookings(actualBookings);
@@ -167,36 +175,113 @@ export default function RoomBookingPage() {
     fetchBookings();
   }, []);
 
-  /*
-   * Filter bookings by selected branch.
-   */
-  const branchBookings = bookings.filter(
-    (booking) => booking.site === selectedBranch
-  );
+  // ==========================================================
+  // FILTER BOOKINGS BY BRANCH
+  // ==========================================================
 
-  /*
-   * Get bookings for the selected date.
-   */
+  const branchBookings = bookings.filter((booking) => {
+    if (selectedBranch === "all") {
+      return true;
+    }
+
+    return booking.site === selectedBranch;
+  });
+
+  // ==========================================================
+  // FILTER BOOKINGS BY SELECTED DATE
+  // ==========================================================
+
   const selectedBookings = branchBookings.filter(
     (booking) =>
       booking.start.split("T")[0] === selectedDate
   );
 
-  /*
-   * Convert database bookings into Calendar events.
-   */
-  const calendarEvents = branchBookings.map((booking) => ({
-    id: booking.id,
-    title: booking.room,
-    start: booking.start,
-    end: booking.end,
-  }));
+  // ==========================================================
+  // BRANCH COLORS
+  //
+  // First branch  = Blue
+  // Second branch = Yellow
+  // Third branch  = Green
+  // Fourth branch = Red
+  //
+  // If there are more than 4 branches, colors repeat.
+  // ==========================================================
+
+  const branchColorPalette = [
+    {
+      backgroundColor: "#3b82f6",
+      borderColor: "#2563eb",
+      textColor: "#ffffff",
+    },
+    {
+      backgroundColor: "#eab308",
+      borderColor: "#ca8a04",
+      textColor: "#ffffff",
+    },
+    {
+      backgroundColor: "#22c55e",
+      borderColor: "#16a34a",
+      textColor: "#ffffff",
+    },
+    {
+      backgroundColor: "#ef4444",
+      borderColor: "#dc2626",
+      textColor: "#ffffff",
+    },
+  ];
+
+  // ==========================================================
+  // ASSIGN COLOR TO EACH BRANCH
+  // ==========================================================
+
+  const branchColors = Object.fromEntries(
+    branches.map((branch, index) => [
+      branch,
+      branchColorPalette[
+        index % branchColorPalette.length
+      ],
+    ])
+  );
+
+  // ==========================================================
+  // CALENDAR EVENTS
+  // ==========================================================
+
+  const calendarEvents = branchBookings.map((booking) => {
+    const color = branchColors[booking.site] ?? {
+      backgroundColor: "#64748b",
+      borderColor: "#475569",
+      textColor: "#ffffff",
+    };
+
+    return {
+      id: booking.id,
+
+      title: booking.room,
+
+      start: booking.start,
+
+      end: booking.end,
+
+      // Branch-based calendar color
+      backgroundColor: color.backgroundColor,
+
+      borderColor: color.borderColor,
+
+      textColor: color.textColor,
+    };
+  });
+
+  // ==========================================================
+  // RENDER
+  // ==========================================================
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-[1800px]">
 
         {/* Page Header */}
+
         <div className="mb-6 px-6">
           <h1 className="text-2xl font-semibold text-slate-900">
             Room Reservation
@@ -208,6 +293,7 @@ export default function RoomBookingPage() {
         </div>
 
         {/* Loading */}
+
         {isLoading && (
           <div className="mb-6 rounded-md bg-white p-4 text-sm text-slate-500">
             Loading room bookings...
@@ -215,12 +301,15 @@ export default function RoomBookingPage() {
         )}
 
         {/* Calendar + Bookings + Form */}
+
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr_1.2fr]">
 
           {/* Calendar */}
+
           <div className="rounded-md bg-white p-6">
 
             <div className="mb-5 flex items-center justify-between">
+
               <div>
                 <h2 className="mb-1 text-lg font-semibold">
                   Bookings Overview
@@ -232,6 +321,7 @@ export default function RoomBookingPage() {
               </div>
 
               {/* Branch Dropdown */}
+
               <div>
                 <label
                   htmlFor="branch"
@@ -248,6 +338,10 @@ export default function RoomBookingPage() {
                   }
                   className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
                 >
+                  <option value="all">
+                    All Branches
+                  </option>
+
                   {branches.map((branch) => (
                     <option
                       key={branch}
@@ -258,6 +352,7 @@ export default function RoomBookingPage() {
                   ))}
                 </select>
               </div>
+
             </div>
 
             <Calendar
@@ -266,9 +361,47 @@ export default function RoomBookingPage() {
                 setSelectedDate(date);
               }}
             />
+
+            {/* Branch Color Legend */}
+
+            {selectedBranch === "all" && branches.length > 0 && (
+              <div className="mt-5 border-t border-slate-200 pt-4">
+                <p className="mb-3 text-xs font-medium text-slate-500">
+                  Branches
+                </p>
+
+                <div className="flex flex-wrap gap-4">
+                  {branches.map((branch) => {
+                    const color =
+                      branchColors[branch];
+
+                    return (
+                      <div
+                        key={branch}
+                        className="flex items-center gap-2"
+                      >
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{
+                            backgroundColor:
+                              color.backgroundColor,
+                          }}
+                        />
+
+                        <span className="text-xs text-slate-600">
+                          {branch}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
           </div>
 
           {/* Current Bookings */}
+
           <div className="rounded-md bg-white p-6">
             <RoomBookingDetails
               selectedDate={selectedDate}
@@ -277,7 +410,9 @@ export default function RoomBookingPage() {
           </div>
 
           {/* Request Form */}
+
           <div className="rounded-md bg-white p-6">
+
             <h2 className="text-lg font-semibold">
               New Room Request
             </h2>
@@ -286,7 +421,10 @@ export default function RoomBookingPage() {
               Fill in the details below to request a room.
             </p>
 
-            <RoomRequestForm selectedDate={selectedDate} />
+            <RoomRequestForm
+              selectedDate={selectedDate}
+            />
+
           </div>
 
         </div>
