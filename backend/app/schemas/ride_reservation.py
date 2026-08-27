@@ -61,7 +61,7 @@ class RideReservationStatusUpdate(BaseModel):
 
 class RideReservationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
+    approved_rejected_by_name: str | None = None
     ride_reservation_id: int
     request_date_time: datetime
 

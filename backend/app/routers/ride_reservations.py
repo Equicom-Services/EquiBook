@@ -209,15 +209,21 @@ def get_ride_reservations(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
+
     results = (
         db.query(
             RideReservation,
             Site.site_id,
             Site.site_name,
+            Admin.name,
         )
         .join(
             Site,
             Site.site_name == RideReservation.site,
+        )
+        .outerjoin(
+            Admin,
+            Admin.id == RideReservation.approved_rejected_by,
         )
         .filter(
             RideReservation.site == current_admin.site,
@@ -230,7 +236,8 @@ def get_ride_reservations(
 
     response = []
 
-    for reservation, site_id, site_name in results:
+    for reservation, site_id, site_name, admin_name in results:
+
         response.append({
             "ride_reservation_id":
                 reservation.ride_reservation_id,
@@ -298,6 +305,9 @@ def get_ride_reservations(
             "approved_rejected_by":
                 reservation.approved_rejected_by,
 
+            "approved_rejected_by_name":
+                admin_name,
+
             "approved_rejected_date_time":
                 reservation.approved_rejected_date_time,
 
@@ -312,8 +322,6 @@ def get_ride_reservations(
         })
 
     return response
-
-
 
 
 # APPROVE ENDPOINT 
@@ -407,6 +415,131 @@ def update_ride_reservation_status(
         "pickup_maps_link": reservation.pickup_maps_link,
         "dropoff_destination": reservation.dropoff_destination,
         "drop_off_maps_link": reservation.drop_off_maps_link,
+        "return_drop_off_location":
+            reservation.return_drop_off_location,
+        "return_drop_off_maps_link":
+            reservation.return_drop_off_maps_link,
+        "purpose": reservation.purpose,
+        "passenger_count": reservation.passenger_count,
+        "vehicle_type": reservation.vehicle_type,
+        "status": reservation.status,
+        "admin_remarks": reservation.admin_remarks,
+
+        "approved_rejected_by":
+            reservation.approved_rejected_by,
+
+        "approved_rejected_by_name":
+            current_admin.name,
+
+        "approved_rejected_date_time":
+            reservation.approved_rejected_date_time,
+
+        "calendar_event_id":
+            reservation.calendar_event_id,
+
+        "created_at":
+            reservation.created_at,
+
+        "updated_at":
+            reservation.updated_at,
+    }
+
+@router.delete("/{ride_reservation_id}")
+def delete_ride_reservation(
+    ride_reservation_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
+):
+    reservation = (
+        db.query(RideReservation)
+        .filter(
+            RideReservation.ride_reservation_id == ride_reservation_id,
+            RideReservation.site == current_admin.site,
+        )
+        .first()
+    )
+
+    if not reservation:
+        raise HTTPException(
+            status_code=404,
+            detail="Ride reservation not found.",
+        )
+
+    db.delete(reservation)
+    db.commit()
+
+    return {
+        "message": "Ride reservation deleted successfully."
+    }
+
+@router.put(
+    "/{ride_reservation_id}/cancel",
+    response_model=RideReservationResponse,
+)
+def cancel_ride_reservation(
+    ride_reservation_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
+):
+    reservation = (
+        db.query(RideReservation)
+        .filter(
+            RideReservation.ride_reservation_id == ride_reservation_id,
+            RideReservation.site == current_admin.site,
+        )
+        .first()
+    )
+
+    if not reservation:
+        raise HTTPException(
+            status_code=404,
+            detail="Ride reservation not found.",
+        )
+
+    if reservation.status.upper() != "APPROVED":
+        raise HTTPException(
+            status_code=400,
+            detail="Only approved ride reservations can be cancelled.",
+        )
+
+    now = datetime.now()
+
+    reservation.status = "CANCELLED"
+    reservation.admin_remarks = "Ride reservation cancelled."
+    reservation.approved_rejected_by = current_admin.id
+    reservation.approved_rejected_date_time = now
+    reservation.updated_at = now
+
+    db.commit()
+    db.refresh(reservation)
+
+    site = (
+        db.query(Site)
+        .filter(Site.site_name == reservation.site)
+        .first()
+    )
+
+    if not site:
+        raise HTTPException(
+            status_code=404,
+            detail="Reservation site not found.",
+        )
+
+    return {
+        "ride_reservation_id": reservation.ride_reservation_id,
+        "request_date_time": reservation.request_date_time,
+        "employee_name": reservation.employee_name,
+        "employee_email": reservation.employee_email,
+        "site_id": site.site_id,
+        "site": site.site_name,
+        "travel_date": reservation.travel_date,
+        "departure_time": reservation.departure_time,
+        "roundtrip": reservation.roundtrip,
+        "return_pickup": reservation.return_pickup,
+        "pickup_location": reservation.pickup_location,
+        "pickup_maps_link": reservation.pickup_maps_link,
+        "dropoff_destination": reservation.dropoff_destination,
+        "drop_off_maps_link": reservation.drop_off_maps_link,
         "return_drop_off_location": reservation.return_drop_off_location,
         "return_drop_off_maps_link": reservation.return_drop_off_maps_link,
         "purpose": reservation.purpose,
@@ -415,14 +548,11 @@ def update_ride_reservation_status(
         "status": reservation.status,
         "admin_remarks": reservation.admin_remarks,
         "approved_rejected_by": reservation.approved_rejected_by,
-        "approved_rejected_date_time": (
-            reservation.approved_rejected_date_time
-        ),
+        "approved_rejected_date_time": reservation.approved_rejected_date_time,
         "calendar_event_id": reservation.calendar_event_id,
         "created_at": reservation.created_at,
         "updated_at": reservation.updated_at,
     }
-
 
 @router.get(
     "/approved",
@@ -436,10 +566,15 @@ def get_approved_ride_reservations(
         db.query(
             RideReservation,
             Site.site_id,
+            Admin.name,
         )
         .join(
             Site,
             Site.site_name == RideReservation.site,
+        )
+        .outerjoin(
+            Admin,
+            Admin.id == RideReservation.approved_rejected_by,
         )
         .filter(
             RideReservation.status == "APPROVED",

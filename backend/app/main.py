@@ -10,7 +10,7 @@ from app.routers import ride_reservations
 from app.routers import dashboard
 from app.routers import auth
 from app.routers import admin
-
+from app.routers import reports
 from app.core.security import get_current_admin
 from app.models.admin import Admin
 
@@ -49,7 +49,10 @@ app.include_router(
     prefix="/api",
 )
 
-
+app.include_router(
+    reports.router,
+    prefix="/api",
+)
 app.include_router(
     admin.router,
     prefix="/api"
@@ -68,6 +71,7 @@ app.include_router(
     ride_reservations.router,
     prefix="/api",
 )
+
 @app.get("/")
 def root():
     return {

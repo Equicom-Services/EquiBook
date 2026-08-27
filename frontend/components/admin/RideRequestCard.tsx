@@ -16,6 +16,9 @@ import {
   User,
   Users,
   XCircle,
+  Pencil,
+  Trash2,
+  MoreVertical
 } from "lucide-react";
 import { useState } from "react";
 
@@ -39,9 +42,10 @@ interface RideBooking {
   return_drop_off_location: string | null;
   return_drop_off_maps_link: string | null;
   vehicle_type: string | null;
-  status: "approved" | "pending" | "rejected";
+  status: "approved" | "pending" | "rejected" | "cancelled";
   admin_remarks: string | null;
   approved_rejected_by: number | null;
+approved_rejected_by_name: string | null;
   approved_rejected_date_time: string | null;
   created_at: string;
   updated_at: string;
@@ -51,20 +55,24 @@ interface RideRequestCardProps {
   booking: RideBooking;
   onStatusUpdate: (
     id: string,
-    status: "approved" | "rejected",
+    newStatus: "approved" | "rejected",
     remarks: string,
     vehicleType: string | null
   ) => Promise<void>;
+  onCancel: (id: string) => Promise<void>;
 }
 
 export default function RideRequestCard({
   booking,
   onStatusUpdate,
+  onCancel,
 }: RideRequestCardProps) {
   const [updating, setUpdating] = useState(false);
 
   const [remarks, setRemarks] = useState("");
   const [vehicleType, setVehicleType] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   const formatDate = (date: string) => {
     if (!date) return "-";
@@ -159,55 +167,118 @@ export default function RideRequestCard({
     }
   };
 
+
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
       {/* Header */}
-      <div className="flex items-start justify-between border-b border-slate-100 pb-2.5">
-        <div className="flex items-start gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700">
-            <Car className="h-4 w-4" />
+{/* Header */}
+<div className="flex items-start justify-between border-b border-slate-100 pb-2.5">
+  {/* Left: Icon + Request Info */}
+  <div className="flex items-start gap-2.5">
+    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700">
+      <Car className="h-4 w-4" />
+    </div>
+
+    <div>
+      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+        Ride Request
+      </p>
+
+      <h3 className="mt-0.5 text-sm font-semibold text-slate-900">
+        {booking.title}
+      </h3>
+
+      <p className="mt-0.5 text-[10px] text-slate-400">
+        Request #{booking.id}
+      </p>
+    </div>
+  </div>
+
+  {/* Right: Status + More Menu */}
+  <div className="flex items-start gap-2">
+    {/* Status */}
+    <div>
+      {booking.status === "approved" && (
+        <span className="inline-flex items-center gap-1 rounded-md bg-green-100 px-2 py-1 text-[10px] font-medium text-green-700">
+          <CheckCircle2 className="h-3 w-3" />
+          APPROVED
+        </span>
+      )}
+
+      {booking.status === "pending" && (
+        <span className="inline-flex items-center gap-1 rounded-md bg-yellow-100 px-2 py-1 text-[10px] font-medium text-yellow-700">
+          <Clock className="h-3 w-3" />
+          PENDING
+        </span>
+      )}
+
+      {booking.status === "rejected" && (
+        <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-[10px] font-medium text-red-700">
+          <XCircle className="h-3 w-3" />
+          REJECTED
+        </span>
+      )}
+
+      {booking.status === "cancelled" && (
+        <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-700">
+          <XCircle className="h-3 w-3" />
+          CANCELLED
+        </span>
+      )}
+    </div>
+
+    {/* More Menu */}
+    {booking.status === "approved" && (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowMenu((current) => !current)}
+          aria-label="Booking actions"
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </button>
+
+        {showMenu && (
+          <div className="absolute right-0 z-20 mt-2 w-32 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+            {/* Edit */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowMenu(false);
+
+                // Add edit logic here
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit
+            </button>
+
+            {/* Cancel */}
+            <button
+              type="button"
+              onClick={async () => {
+                setShowMenu(false);
+
+                try {
+                  await onCancel(booking.id);
+                } catch (error) {
+                  console.error("Failed to cancel ride:", error);
+                }
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+            >
+              <XCircle className="h-4 w-4" />
+              Cancel
+            </button>
           </div>
-
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-              Ride Request
-            </p>
-
-            <h3 className="mt-0.5 text-sm font-semibold text-slate-900">
-              {booking.title}
-            </h3>
-
-            <p className="mt-0.5 text-[10px] text-slate-400">
-              Request #{booking.id}
-            </p>
-          </div>
-        </div>
-
-        {/* Status */}
-        <div>
-          {booking.status === "approved" && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-green-100 px-2 py-1 text-[10px] font-medium text-green-700">
-              <CheckCircle2 className="h-3 w-3" />
-              APPROVED
-            </span>
-          )}
-
-          {booking.status === "pending" && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-yellow-100 px-2 py-1 text-[10px] font-medium text-yellow-700">
-              <Clock className="h-3 w-3" />
-              PENDING
-            </span>
-          )}
-
-          {booking.status === "rejected" && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-[10px] font-medium text-red-700">
-              <XCircle className="h-3 w-3" />
-              REJECTED
-            </span>
-          )}
-        </div>
+        )}
       </div>
-
+    )}
+  </div>
+</div>
       {/* Requester Information */}
       <div className="mt-3">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
@@ -531,17 +602,16 @@ export default function RideRequestCard({
           </div>
         )}
 
-        {booking.approved_rejected_by !== null && (
-          <div>
-            <p className="text-[10px] text-slate-400">
-              Processed By
-            </p>
-
-            <p className="mt-0.5 text-xs text-slate-600">
-              Admin #{booking.approved_rejected_by}
-            </p>
-          </div>
-        )}
+{booking.approved_rejected_by_name && (
+  <div>
+    <p className="text-[10px] text-slate-400">
+      Processed By
+    </p>
+    <p className="mt-0.5 text-xs text-slate-600">
+      {booking.approved_rejected_by_name}
+    </p>
+  </div>
+)}
       </div>
 
       {/* Actions */}
@@ -621,6 +691,56 @@ export default function RideRequestCard({
           </div>
         </div>
       )}
+      {booking.status === "approved" && (
+  <div className="relative">
+    <button
+      type="button"
+      onClick={() => setShowMenu((current) => !current)}
+      aria-label="Booking actions"
+      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+    >
+      <MoreVertical className="h-4 w-4" />
+    </button>
+
+    {showMenu && (
+      <div className="absolute right-0 z-20 mt-2 w-32 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+        {/* Edit */}
+        <button
+          type="button"
+          onClick={() => {
+            setShowMenu(false);
+
+            // Add your edit logic here
+          }}
+          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+        >
+          <Pencil className="h-4 w-4" />
+          Edit
+        </button>
+
+        {/* Cancel */}
+        <button
+          type="button"
+          onClick={async () => {
+            setShowMenu(false);
+
+            try {
+              await onCancel(booking.id);
+            } catch (error) {
+              console.error("Failed to cancel ride:", error);
+            }
+          }}
+          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+        >
+          <XCircle className="h-4 w-4" />
+          Cancel
+        </button>
+      </div>
+    )}
+  </div>
+)}
+      <div className="mt-3 flex justify-end border-t border-slate-100 pt-2.5">
+</div>
     </div>
   );
 }
