@@ -32,12 +32,21 @@ export default function Calendar({
         initialView="dayGridMonth"
         height="auto"
         events={events}
+
+        // Maximum number of events shown inside each day
+        dayMaxEvents={4}
+
+        // Clicking "+X more" opens the event popover
+        moreLinkClick="popover"
+
         dateClick={(info) => {
           onDateClick?.(info.dateStr);
         }}
+
         eventClick={(info) => {
           onEventClick?.(info.event.id);
         }}
+
         headerToolbar={{
           left: "prev",
           center: "title",
