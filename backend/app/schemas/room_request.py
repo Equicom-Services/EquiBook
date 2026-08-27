@@ -69,6 +69,7 @@ class RoomRequestResponse(BaseModel):
 
     room: str
     site: str
+    site_id: int
 
     class Config:
         from_attributes = True

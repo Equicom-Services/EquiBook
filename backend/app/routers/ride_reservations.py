@@ -725,89 +725,38 @@ def get_approved_ride_reservations(
 
     response = []
 
-    for reservation, site_id in results:
+    for reservation, site_id, admin_name in results:
         response.append({
-            "ride_reservation_id":
-                reservation.ride_reservation_id,
-
-            "request_date_time":
-                reservation.request_date_time,
-
-            "employee_name":
-                reservation.employee_name,
-
-            "employee_email":
-                reservation.employee_email,
-
-            "site_id":
-                site_id,
-
-            "site":
-                reservation.site,
-
-            "travel_date":
-                reservation.travel_date,
-
-            "departure_time":
-                reservation.departure_time,
-
-            "roundtrip":
-                reservation.roundtrip,
-
-            "return_pickup":
-                reservation.return_pickup,
-
-            "pickup_location":
-                reservation.pickup_location,
-
-            "pickup_maps_link":
-                reservation.pickup_maps_link,
-
-            "dropoff_destination":
-                reservation.dropoff_destination,
-
-            "drop_off_maps_link":
-                reservation.drop_off_maps_link,
-
-            "return_drop_off_location":
-                reservation.return_drop_off_location,
-
-            "return_drop_off_maps_link":
-                reservation.return_drop_off_maps_link,
-
-            "purpose":
-                reservation.purpose,
-
-            "passenger_count":
-                reservation.passenger_count,
-
-            "vehicle_type":
-                reservation.vehicle_type,
-
-            "status":
-                reservation.status,
-
-            "admin_remarks":
-                reservation.admin_remarks,
-
-            "approved_rejected_by":
-                reservation.approved_rejected_by,
-
-            "approved_rejected_date_time":
-                reservation.approved_rejected_date_time,
-
-            "calendar_event_id":
-                reservation.calendar_event_id,
-
-            "created_at":
-                reservation.created_at,
-
-            "updated_at":
-                reservation.updated_at,
+            "ride_reservation_id": reservation.ride_reservation_id,
+            "request_date_time": reservation.request_date_time,
+            "employee_name": reservation.employee_name,
+            "employee_email": reservation.employee_email,
+            "site_id": site_id,
+            "site": reservation.site,
+            "travel_date": reservation.travel_date,
+            "departure_time": reservation.departure_time,
+            "roundtrip": reservation.roundtrip,
+            "return_pickup": reservation.return_pickup,
+            "pickup_location": reservation.pickup_location,
+            "pickup_maps_link": reservation.pickup_maps_link,
+            "dropoff_destination": reservation.dropoff_destination,
+            "drop_off_maps_link": reservation.drop_off_maps_link,
+            "return_drop_off_location": reservation.return_drop_off_location,
+            "return_drop_off_maps_link": reservation.return_drop_off_maps_link,
+            "purpose": reservation.purpose,
+            "passenger_count": reservation.passenger_count,
+            "vehicle_type": reservation.vehicle_type,
+            "status": reservation.status,
+            "admin_remarks": reservation.admin_remarks,
+            "approved_rejected_by": reservation.approved_rejected_by,
+            "approved_rejected_date_time": reservation.approved_rejected_date_time,
+            "calendar_event_id": reservation.calendar_event_id,
+            "created_at": reservation.created_at,
+            "updated_at": reservation.updated_at,
+            "admin_name": admin_name,
         })
 
     return response
-
 
 @router.get(
     "/active",
