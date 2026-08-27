@@ -6,6 +6,14 @@ from fastapi import (
     Depends,
     HTTPException,
 )
+
+from app.services.email_service import send_email
+from app.services.email_templates import (
+    ride_booking_submitted_email,
+    ride_booking_admin_email,
+    ride_booking_status_email,
+)
+
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -145,18 +153,72 @@ def create_ride_reservation(
         if admin.email
     ]
 
-    # ---------------------------------------------------------
-    # 7. Email notification
-    # ---------------------------------------------------------
-    # TODO:
-    # if admin_emails:
-    #     html_body = ride_submitted_email(...)
-    #     background_tasks.add_task(
-    #         send_email,
-    #         admin_emails,
-    #         "New Ride Reservation Request",
-    #         html_body,
-    #     )
+# ---------------------------------------------------------
+# 7. Email notifications
+# ---------------------------------------------------------
+
+    # Email requester
+    requester_email_body = ride_booking_submitted_email(
+        employee_name=new_reservation.employee_name,
+        employee_email=new_reservation.employee_email,
+        site=new_reservation.site,
+        travel_date=new_reservation.travel_date,
+        departure_time=new_reservation.departure_time,
+        roundtrip=new_reservation.roundtrip,
+        return_pickup=new_reservation.return_pickup,
+        pickup_location=new_reservation.pickup_location,
+        pickup_maps_link=new_reservation.pickup_maps_link,
+        dropoff_destination=new_reservation.dropoff_destination,
+        drop_off_maps_link=new_reservation.drop_off_maps_link,
+        return_drop_off_location=(
+            new_reservation.return_drop_off_location
+        ),
+        return_drop_off_maps_link=(
+            new_reservation.return_drop_off_maps_link
+        ),
+        purpose=new_reservation.purpose,
+        passenger_count=new_reservation.passenger_count,
+    )
+
+    background_tasks.add_task(
+        send_email,
+        [new_reservation.employee_email],
+        "Ride Reservation Submitted",
+        requester_email_body,
+    )
+
+
+    # Email admins assigned to this site
+    if admin_emails:
+
+        admin_email_body = ride_booking_admin_email(
+            employee_name=new_reservation.employee_name,
+            employee_email=new_reservation.employee_email,
+            site=new_reservation.site,
+            travel_date=new_reservation.travel_date,
+            departure_time=new_reservation.departure_time,
+            roundtrip=new_reservation.roundtrip,
+            return_pickup=new_reservation.return_pickup,
+            pickup_location=new_reservation.pickup_location,
+            pickup_maps_link=new_reservation.pickup_maps_link,
+            dropoff_destination=new_reservation.dropoff_destination,
+            drop_off_maps_link=new_reservation.drop_off_maps_link,
+            return_drop_off_location=(
+                new_reservation.return_drop_off_location
+            ),
+            return_drop_off_maps_link=(
+                new_reservation.return_drop_off_maps_link
+            ),
+            purpose=new_reservation.purpose,
+            passenger_count=new_reservation.passenger_count,
+        )
+
+        background_tasks.add_task(
+            send_email,
+            admin_emails,
+            "New Ride Reservation Request",
+            admin_email_body,
+        )
 
     # ---------------------------------------------------------
     # 8. Return
@@ -334,6 +396,7 @@ def get_ride_reservations(
 def update_ride_reservation_status(
     ride_reservation_id: int,
     request: RideReservationStatusUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
@@ -387,6 +450,42 @@ def update_ride_reservation_status(
 
     db.commit()
     db.refresh(reservation)
+    # ---------------------------------------------------------
+# Send status email to requester
+# ---------------------------------------------------------
+
+    email_body = ride_booking_status_email(
+        employee_name=reservation.employee_name,
+        employee_email=reservation.employee_email,
+        site=reservation.site,
+        travel_date=reservation.travel_date,
+        departure_time=reservation.departure_time,
+        roundtrip=reservation.roundtrip,
+        return_pickup=reservation.return_pickup,
+        pickup_location=reservation.pickup_location,
+        pickup_maps_link=reservation.pickup_maps_link,
+        dropoff_destination=reservation.dropoff_destination,
+        drop_off_maps_link=reservation.drop_off_maps_link,
+        return_drop_off_location=(
+            reservation.return_drop_off_location
+        ),
+        return_drop_off_maps_link=(
+            reservation.return_drop_off_maps_link
+        ),
+        purpose=reservation.purpose,
+        passenger_count=reservation.passenger_count,
+        vehicle_type=reservation.vehicle_type,
+        status=reservation.status,
+        admin_remarks=reservation.admin_remarks,
+        admin_name=current_admin.name,
+    )
+
+    background_tasks.add_task(
+        send_email,
+        [reservation.employee_email],
+        f"Ride Reservation {reservation.status.capitalize()}",
+        email_body,
+    )
 
     site = (
         db.query(Site)
@@ -478,6 +577,7 @@ def delete_ride_reservation(
 )
 def cancel_ride_reservation(
     ride_reservation_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
@@ -512,6 +612,42 @@ def cancel_ride_reservation(
 
     db.commit()
     db.refresh(reservation)
+    # ---------------------------------------------------------
+# Send cancellation email to requester
+# ---------------------------------------------------------
+
+    email_body = ride_booking_status_email(
+        employee_name=reservation.employee_name,
+        employee_email=reservation.employee_email,
+        site=reservation.site,
+        travel_date=reservation.travel_date,
+        departure_time=reservation.departure_time,
+        roundtrip=reservation.roundtrip,
+        return_pickup=reservation.return_pickup,
+        pickup_location=reservation.pickup_location,
+        pickup_maps_link=reservation.pickup_maps_link,
+        dropoff_destination=reservation.dropoff_destination,
+        drop_off_maps_link=reservation.drop_off_maps_link,
+        return_drop_off_location=(
+            reservation.return_drop_off_location
+        ),
+        return_drop_off_maps_link=(
+            reservation.return_drop_off_maps_link
+        ),
+        purpose=reservation.purpose,
+        passenger_count=reservation.passenger_count,
+        vehicle_type=reservation.vehicle_type,
+        status=reservation.status,
+        admin_remarks=reservation.admin_remarks,
+        admin_name=current_admin.name,
+    )
+
+    background_tasks.add_task(
+        send_email,
+        [reservation.employee_email],
+        "Ride Reservation Cancelled",
+        email_body,
+    )
 
     site = (
         db.query(Site)
