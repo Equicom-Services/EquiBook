@@ -1,171 +1,626 @@
+"use client";
+
+import {
+  ArrowRight,
+  Building2,
+  CalendarDays,
+  Car,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Mail,
+  MapPin,
+  MapPinned,
+  MessageSquare,
+  Navigation,
+  User,
+  Users,
+  XCircle,
+} from "lucide-react";
+import { useState } from "react";
+
 interface RideBooking {
   id: string;
   title: string;
-  start: string;
-  end: string;
+  request_date_time: string;
+  travel_date: string;
+  departure_time: string;
   pickup_location: string;
+  pickup_maps_link: string | null;
   dropoff_destination: string;
+  drop_off_maps_link: string | null;
   employee: string;
+  employee_email: string;
+  site: string;
   purpose: string;
   passengers_count: number;
   roundtrip: boolean;
-  status: "approved" | "pending";
+  return_pickup: string | null;
+  return_drop_off_location: string | null;
+  return_drop_off_maps_link: string | null;
+  vehicle_type: string | null;
+  status: "approved" | "pending" | "rejected";
+  admin_remarks: string | null;
+  approved_rejected_by: number | null;
+  approved_rejected_date_time: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface RideRequestCardProps {
   booking: RideBooking;
+  onStatusUpdate: (
+    id: string,
+    status: "approved" | "rejected",
+    remarks: string,
+    vehicleType: string | null
+  ) => Promise<void>;
 }
 
 export default function RideRequestCard({
   booking,
+  onStatusUpdate,
 }: RideRequestCardProps) {
-  const startTime = new Date(
-    booking.start
-  ).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const [updating, setUpdating] = useState(false);
 
-  const endTime = new Date(
-    booking.end
-  ).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const [remarks, setRemarks] = useState("");
+  const [vehicleType, setVehicleType] = useState("");
+
+  const formatDate = (date: string) => {
+    if (!date) return "-";
+
+    const parsedDate = new Date(`${date}T00:00:00`);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return date;
+    }
+
+    return parsedDate.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const formatDateTime = (value: string | null) => {
+    if (!value) return "-";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  const formatTime = (time: string) => {
+    if (!time) return "-";
+
+    const [hours, minutes] = time.split(":");
+
+    const hour = Number(hours);
+    const minute = Number(minutes);
+
+    if (Number.isNaN(hour) || Number.isNaN(minute)) {
+      return time;
+    }
+
+    const date = new Date();
+
+    date.setHours(hour, minute, 0, 0);
+
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  const handleStatusUpdate = async (
+    status: "approved" | "rejected"
+  ) => {
+    const trimmedRemarks = remarks.trim();
+
+    if (!trimmedRemarks) {
+      alert("Please enter remarks before updating the reservation.");
+      return;
+    }
+
+    if (status === "approved" && !vehicleType) {
+      alert("Please select a transportation type before approving.");
+      return;
+    }
+
+    try {
+      setUpdating(true);
+
+      await onStatusUpdate(
+        booking.id,
+        status,
+        trimmedRemarks,
+        status === "approved" ? vehicleType : null
+      );
+
+      setRemarks("");
+      setVehicleType("");
+    } catch (error) {
+      console.error(
+        "Failed to update ride reservation:",
+        error
+      );
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4">
-      <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+    <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      {/* Header */}
+      <div className="flex items-start justify-between border-b border-slate-100 pb-2.5">
+        <div className="flex items-start gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700">
+            <Car className="h-4 w-4" />
+          </div>
 
-        {/* Title */}
-        <div>
-          <p className="text-xs text-slate-400">
-            Request
-          </p>
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              Ride Request
+            </p>
 
-          <p className="mt-1 text-sm font-semibold text-slate-900">
-            {booking.title}
-          </p>
-        </div>
+            <h3 className="mt-0.5 text-sm font-semibold text-slate-900">
+              {booking.title}
+            </h3>
 
-        {/* Employee */}
-        <div>
-          <p className="text-xs text-slate-400">
-            Requested by
-          </p>
-
-          <p className="mt-1 text-sm font-medium text-slate-900">
-            {booking.employee}
-          </p>
-        </div>
-
-        {/* Pickup */}
-        <div>
-          <p className="text-xs text-slate-400">
-            Pickup
-          </p>
-
-          <p className="mt-1 text-sm text-slate-600">
-            {booking.pickup_location}
-          </p>
-        </div>
-
-        {/* Destination */}
-        <div>
-          <p className="text-xs text-slate-400">
-            Destination
-          </p>
-
-          <p className="mt-1 text-sm text-slate-600">
-            {booking.dropoff_destination}
-          </p>
-        </div>
-
-        {/* Time */}
-        <div>
-          <p className="text-xs text-slate-400">
-            Time
-          </p>
-
-          <p className="mt-1 text-sm text-slate-600">
-            {startTime} – {endTime}
-          </p>
-        </div>
-
-        {/* Passengers */}
-        <div>
-          <p className="text-xs text-slate-400">
-            Passengers
-          </p>
-
-          <p className="mt-1 text-sm text-slate-600">
-            {booking.passengers_count}
-          </p>
-        </div>
-
-        {/* Trip Type */}
-        <div>
-          <p className="text-xs text-slate-400">
-            Trip Type
-          </p>
-
-          <p className="mt-1 text-sm text-slate-600">
-            {booking.roundtrip
-              ? "Round Trip"
-              : "One Way"}
-          </p>
+            <p className="mt-0.5 text-[10px] text-slate-400">
+              Request #{booking.id}
+            </p>
+          </div>
         </div>
 
         {/* Status */}
         <div>
-          <p className="text-xs text-slate-400">
-            Status
+          {booking.status === "approved" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-green-100 px-2 py-1 text-[10px] font-medium text-green-700">
+              <CheckCircle2 className="h-3 w-3" />
+              APPROVED
+            </span>
+          )}
+
+          {booking.status === "pending" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-yellow-100 px-2 py-1 text-[10px] font-medium text-yellow-700">
+              <Clock className="h-3 w-3" />
+              PENDING
+            </span>
+          )}
+
+          {booking.status === "rejected" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-[10px] font-medium text-red-700">
+              <XCircle className="h-3 w-3" />
+              REJECTED
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Requester Information */}
+      <div className="mt-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          Requester Information
+        </p>
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-4">
+          <div className="flex items-start gap-2">
+            <User className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div>
+              <p className="text-[10px] text-slate-400">
+                Requested by
+              </p>
+
+              <p className="mt-0.5 text-xs font-medium text-slate-900">
+                {booking.employee}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-400">
+                Email
+              </p>
+
+              <p className="mt-0.5 truncate text-xs text-slate-600">
+                {booking.employee_email}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div>
+              <p className="text-[10px] text-slate-400">
+                Site
+              </p>
+
+              <p className="mt-0.5 text-xs text-slate-600">
+                {booking.site}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div>
+              <p className="text-[10px] text-slate-400">
+                Passengers
+              </p>
+
+              <p className="mt-0.5 text-xs text-slate-600">
+                {booking.passengers_count}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Trip Information */}
+      <div className="mt-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          Trip Information
+        </p>
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-4">
+          <div className="flex items-start gap-2">
+            <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div>
+              <p className="text-[10px] text-slate-400">
+                Travel Date
+              </p>
+
+              <p className="mt-0.5 text-xs text-slate-600">
+                {formatDate(booking.travel_date)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div>
+              <p className="text-[10px] text-slate-400">
+                Departure
+              </p>
+
+              <p className="mt-0.5 text-xs text-slate-600">
+                {formatTime(booking.departure_time)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Navigation className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div>
+              <p className="text-[10px] text-slate-400">
+                Trip Type
+              </p>
+
+              <p className="mt-0.5 text-xs text-slate-600">
+                {booking.roundtrip
+                  ? "Round Trip"
+                  : "One Way"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Car className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div>
+              <p className="text-[10px] text-slate-400">
+                Vehicle
+              </p>
+
+              <p className="mt-0.5 text-xs text-slate-600">
+                {booking.vehicle_type || "Not assigned"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Route */}
+      <div className="mt-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          Route
+        </p>
+
+        <div className="rounded-md bg-slate-50 px-3 py-2">
+          <div className="flex items-start gap-2">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-slate-400">
+                Pickup
+              </p>
+
+              <p className="mt-0.5 truncate text-xs font-medium text-slate-800">
+                {booking.pickup_location}
+              </p>
+
+              {booking.pickup_maps_link && (
+                <a
+                  href={booking.pickup_maps_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
+                >
+                  <MapPinned className="h-2.5 w-2.5" />
+                  Maps
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div className="my-1 ml-1 border-l border-dashed border-slate-300 pl-4">
+            <ArrowRight className="h-3 w-3 rotate-90 text-slate-300" />
+          </div>
+
+          <div className="flex items-start gap-2">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-slate-400">
+                Drop-off
+              </p>
+
+              <p className="mt-0.5 truncate text-xs font-medium text-slate-800">
+                {booking.dropoff_destination}
+              </p>
+
+              {booking.drop_off_maps_link && (
+                <a
+                  href={booking.drop_off_maps_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
+                >
+                  <MapPinned className="h-2.5 w-2.5" />
+                  Maps
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Return Trip */}
+      {booking.roundtrip && (
+        <div className="mt-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            Return Trip
           </p>
 
-          <span
-            className={
-              booking.status === "approved"
-                ? "mt-1 inline-block rounded-md bg-green-100 px-3 py-1 text-xs font-medium text-green-700"
-                : "mt-1 inline-block rounded-md bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700"
-            }
-          >
-            {booking.status.toUpperCase()}
-          </span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-start gap-2">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-400">
+                  Return Pickup
+                </p>
+
+                <p className="mt-0.5 truncate text-xs text-slate-600">
+                  {booking.return_pickup
+                    ? formatDateTime(booking.return_pickup)
+                    : "Not specified"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-400">
+                  Return Drop-off
+                </p>
+
+                <p className="mt-0.5 truncate text-xs text-slate-600">
+                  {booking.return_drop_off_location ||
+                    "Not specified"}
+                </p>
+
+                {booking.return_drop_off_maps_link && (
+                  <a
+                    href={booking.return_drop_off_maps_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
+                  >
+                    <MapPinned className="h-2.5 w-2.5" />
+                    Maps
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Purpose */}
+      <div className="mt-3 border-t border-slate-100 pt-2.5">
+        <div className="flex items-start gap-2">
+          <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+          <div className="min-w-0">
+            <p className="text-[10px] text-slate-400">
+              Purpose
+            </p>
+
+            <p className="mt-0.5 text-xs leading-5 text-slate-600">
+              {booking.purpose}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Admin Remarks */}
+      {booking.admin_remarks && (
+        <div className="mt-2.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="flex items-start gap-2">
+            <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div className="min-w-0">
+              <p className="text-[10px] font-medium text-slate-400">
+                Admin Remarks
+              </p>
+
+              <p className="mt-0.5 text-xs leading-5 text-slate-600">
+                {booking.admin_remarks}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request / Approval Information */}
+      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-slate-100 pt-2.5 md:grid-cols-4">
+        <div>
+          <p className="text-[10px] text-slate-400">
+            Request Date
+          </p>
+
+          <p className="mt-0.5 text-xs text-slate-600">
+            {formatDateTime(booking.request_date_time)}
+          </p>
         </div>
 
-        {/* Purpose */}
-        <div className="col-span-2">
-          <p className="text-xs text-slate-400">
-            Purpose
+        <div>
+          <p className="text-[10px] text-slate-400">
+            Last Updated
           </p>
 
-          <p className="mt-1 text-sm text-slate-600">
-            {booking.purpose}
+          <p className="mt-0.5 text-xs text-slate-600">
+            {formatDateTime(booking.updated_at)}
           </p>
         </div>
 
-        {/* Actions */}
-        {booking.status === "pending" && (
-          <div className="col-span-2 flex justify-end gap-2 border-t border-slate-100 pt-3">
+        {booking.approved_rejected_date_time && (
+          <div>
+            <p className="text-[10px] text-slate-400">
+              Status Updated
+            </p>
 
-            <button
-              type="button"
-              className="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
-            >
-              Reject
-            </button>
-
-            <button
-              type="button"
-              className="rounded-md bg-[#03045e] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-            >
-              Approve
-            </button>
-
+            <p className="mt-0.5 text-xs text-slate-600">
+              {formatDateTime(
+                booking.approved_rejected_date_time
+              )}
+            </p>
           </div>
         )}
 
+        {booking.approved_rejected_by !== null && (
+          <div>
+            <p className="text-[10px] text-slate-400">
+              Processed By
+            </p>
+
+            <p className="mt-0.5 text-xs text-slate-600">
+              Admin #{booking.approved_rejected_by}
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Actions */}
+      {booking.status === "pending" && (
+        <div className="mt-3 border-t border-slate-100 pt-2.5">
+          {/* Transportation Type */}
+          <div className="mb-2.5">
+            <label className="mb-1 block text-[10px] font-medium text-slate-500">
+              Transportation Type
+            </label>
+
+            <select
+              value={vehicleType}
+              onChange={(event) =>
+                setVehicleType(event.target.value)
+              }
+              disabled={updating}
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
+            >
+              <option value="">
+                Select transportation type
+              </option>
+              <option value="Company Car">
+                Company Car
+              </option>
+              <option value="TNVS">
+                TNVS
+              </option>
+            </select>
+          </div>
+
+          {/* Remarks */}
+          <div className="mb-2.5">
+            <label className="mb-1 block text-[10px] font-medium text-slate-500">
+              Admin Remarks
+            </label>
+
+            <textarea
+              value={remarks}
+              onChange={(event) =>
+                setRemarks(event.target.value)
+              }
+              disabled={updating}
+              rows={2}
+              placeholder="Enter remarks..."
+              className="w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
+            />
+          </div>
+
+          {/* Buttons */}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={updating}
+              onClick={() =>
+                handleStatusUpdate("rejected")
+              }
+              className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+
+              {updating ? "Updating..." : "Reject"}
+            </button>
+
+            <button
+              type="button"
+              disabled={updating}
+              onClick={() =>
+                handleStatusUpdate("approved")
+              }
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#03045e] px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+
+              {updating ? "Updating..." : "Approve"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

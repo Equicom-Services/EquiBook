@@ -1,20 +1,39 @@
-interface RideBooking {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-  pickup_location: string;
-  dropoff_destination: string;
-  employee: string;
-  purpose: string;
-  passengers_count: number;
+interface RideReservation {
+  ride_reservation_id: number;
+
+  employee_name: string;
+  employee_email: string;
+
+  site_id: number;
+  site?: string;
+
+  travel_date: string;
+  departure_time: string;
+
   roundtrip: boolean;
-  status: "approved" | "pending";
+  return_pickup: string | null;
+
+  pickup_location: string;
+  pickup_maps_link: string | null;
+
+  dropoff_destination: string;
+  drop_off_maps_link: string | null;
+
+  return_drop_off_location: string | null;
+  return_drop_off_maps_link: string | null;
+
+  purpose: string;
+  passenger_count: number;
+
+  vehicle_type: string | null;
+
+  status: string;
+  admin_remarks: string | null;
 }
 
 interface RideBookingDetailsProps {
   selectedDate: string;
-  bookings: RideBooking[];
+  bookings: RideReservation[];
 }
 
 export default function RideBookingDetails({
@@ -44,15 +63,8 @@ export default function RideBookingDetails({
       ) : (
         <div className="mt-5 space-y-4">
           {bookings.map((booking) => {
-            const startTime = new Date(
-              booking.start
-            ).toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-            });
-
-            const endTime = new Date(
-              booking.end
+            const departureTime = new Date(
+              `${booking.travel_date}T${booking.departure_time}`
             ).toLocaleTimeString("en-US", {
               hour: "numeric",
               minute: "2-digit",
@@ -60,61 +72,93 @@ export default function RideBookingDetails({
 
             return (
               <div
-                key={booking.id}
+                key={booking.ride_reservation_id}
                 className="rounded-md border border-slate-200 p-4"
               >
                 <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                  {/* Booking / Title */}
+
+                  {/* Booking */}
                   <div>
-                    <p className="text-xs text-slate-400">Booking</p>
+                    <p className="text-xs text-slate-400">
+                      Booking
+                    </p>
+
                     <h3 className="mt-1 font-semibold text-slate-900">
-                      {booking.title}
+                      Ride #{booking.ride_reservation_id}
                     </h3>
                   </div>
 
                   {/* Route */}
                   <div>
-                    <p className="text-xs text-slate-400">Route</p>
-                    <p className="mt-1 text-sm font-medium text-slate-900">
-                      {booking.pickup_location} → {booking.dropoff_destination}
+                    <p className="text-xs text-slate-400">
+                      Route
                     </p>
+
+                    <p className="mt-1 text-sm font-medium text-slate-900">
+                      {booking.pickup_location} →{" "}
+                      {booking.dropoff_destination}
+                    </p>
+
                     {booking.roundtrip && (
                       <span className="mt-1 inline-block text-xs font-semibold text-[#03045e]">
-                        (Roundtrip)
+                        Roundtrip
                       </span>
                     )}
                   </div>
 
-                  {/* Time */}
+                  {/* Departure */}
                   <div>
-                    <p className="text-xs text-slate-400">Time</p>
+                    <p className="text-xs text-slate-400">
+                      Departure
+                    </p>
+
                     <p className="mt-1 text-sm text-slate-500">
-                      {startTime} – {endTime}
+                      {departureTime}
                     </p>
                   </div>
 
                   {/* Requested By */}
                   <div>
-                    <p className="text-xs text-slate-400">Requested by</p>
+                    <p className="text-xs text-slate-400">
+                      Requested by
+                    </p>
+
                     <p className="mt-1 text-sm text-slate-500">
-                      {booking.employee}
+                      {booking.employee_name}
                     </p>
                   </div>
 
                   {/* Passengers */}
                   <div>
-                    <p className="text-xs text-slate-400">Passengers</p>
+                    <p className="text-xs text-slate-400">
+                      Passengers
+                    </p>
+
                     <p className="mt-1 text-sm text-slate-600">
-                      {booking.passengers_count}{" "}
-                      {booking.passengers_count === 1
+                      {booking.passenger_count}{" "}
+                      {booking.passenger_count === 1
                         ? "passenger"
                         : "passengers"}
                     </p>
                   </div>
 
+                  {/* Site */}
+                  <div>
+                    <p className="text-xs text-slate-400">
+                      Site
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-600">
+                      {booking.site ?? `Site #${booking.site_id}`}
+                    </p>
+                  </div>
+
                   {/* Purpose */}
                   <div>
-                    <p className="text-xs text-slate-400">Purpose</p>
+                    <p className="text-xs text-slate-400">
+                      Purpose
+                    </p>
+
                     <p className="mt-1 text-sm text-slate-600">
                       {booking.purpose}
                     </p>
@@ -124,14 +168,17 @@ export default function RideBookingDetails({
                   <div className="col-span-2 flex items-end justify-end">
                     <span
                       className={
-                        booking.status === "approved"
+                        booking.status === "APPROVED"
                           ? "rounded-md bg-green-100 px-3 py-1 text-xs font-medium text-green-700"
-                          : "rounded-md bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700"
+                          : booking.status === "PENDING"
+                            ? "rounded-md bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700"
+                            : "rounded-md bg-red-100 px-3 py-1 text-xs font-medium text-red-700"
                       }
                     >
-                      {booking.status.toUpperCase()}
+                      {booking.status}
                     </span>
                   </div>
+
                 </div>
               </div>
             );

@@ -56,55 +56,6 @@ type TimeOption = {
   disabled: boolean;
 };
 
-// const getTimeOptions = (selectedDate: string): TimeOption[] => {
-//   const options: TimeOption[] = [];
-
-//   const now = new Date();
-
-//   const today = new Date();
-//   const todayString = `${today.getFullYear()}-${String(
-//     today.getMonth() + 1
-//   ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-//   for (let hour = 0; hour < 24; hour++) {
-//     for (const minute of [0, 30]) {
-//       const value = `${String(hour).padStart(2, "0")}:${String(
-//         minute
-//       ).padStart(2, "0")}`;
-
-//       const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-
-//       const period = hour < 12 ? "AM" : "PM";
-
-//       const label = `${hour12}:${String(minute).padStart(
-//         2,
-//         "0"
-//       )} ${period}`;
-
-//       let disabled = false;
-
-//       // Disable times that have already passed if the selected date is today
-//       if (selectedDate === todayString) {
-//         const selectedTime = new Date();
-
-//         selectedTime.setHours(hour, minute, 0, 0);
-
-//         if (selectedTime <= now) {
-//           disabled = true;
-//         }
-//       }
-
-//       options.push({
-//         value,
-//         label,
-//         disabled,
-//       });
-//     }
-//   }
-
-//   return options;
-// };
-
 const getTimeOptions = (
   selectedDate: string,
   roomId: string,
