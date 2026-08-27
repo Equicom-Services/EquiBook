@@ -691,54 +691,7 @@ export default function RideRequestCard({
           </div>
         </div>
       )}
-      {booking.status === "approved" && (
-  <div className="relative">
-    <button
-      type="button"
-      onClick={() => setShowMenu((current) => !current)}
-      aria-label="Booking actions"
-      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50"
-    >
-      <MoreVertical className="h-4 w-4" />
-    </button>
 
-    {showMenu && (
-      <div className="absolute right-0 z-20 mt-2 w-32 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
-        {/* Edit */}
-        <button
-          type="button"
-          onClick={() => {
-            setShowMenu(false);
-
-            // Add your edit logic here
-          }}
-          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-        >
-          <Pencil className="h-4 w-4" />
-          Edit
-        </button>
-
-        {/* Cancel */}
-        <button
-          type="button"
-          onClick={async () => {
-            setShowMenu(false);
-
-            try {
-              await onCancel(booking.id);
-            } catch (error) {
-              console.error("Failed to cancel ride:", error);
-            }
-          }}
-          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-        >
-          <XCircle className="h-4 w-4" />
-          Cancel
-        </button>
-      </div>
-    )}
-  </div>
-)}
       <div className="mt-3 flex justify-end border-t border-slate-100 pt-2.5">
 </div>
     </div>
