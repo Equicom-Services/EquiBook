@@ -9,63 +9,247 @@ def booking_submitted_email(
     purpose: str,
 ):
     return f"""
+    <!DOCTYPE html>
     <html>
-        <body style="font-family: Arial, sans-serif; color: #334155;">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Room Booking Request</title>
+    </head>
 
-            <h2 style="color: #03045e;">
-                New Room Booking Request
-            </h2>
+    <body style="
+        margin: 0;
+        padding: 0;
+        background-color: #f1f5f9;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #334155;
+    ">
 
-            <p>
-                A new room booking request has been submitted
-                and requires your review.
-            </p>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td align="center" style="padding: 40px 15px;">
 
-            <table cellpadding="8" cellspacing="0">
-                <tr>
-                    <td><strong>Employee</strong></td>
-                    <td>{employee_name}</td>
-                </tr>
+                    <table
+                        width="600"
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                        style="
+                            max-width: 600px;
+                            width: 100%;
+                            background-color: #ffffff;
+                            border-radius: 12px;
+                            overflow: hidden;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                        "
+                    >
 
-                <tr>
-                    <td><strong>Email</strong></td>
-                    <td>{employee_email}</td>
-                </tr>
+                        <!-- HEADER -->
+                        <tr>
+                            <td style="
+                                background-color: #03045e;
+                                padding: 28px 30px;
+                                text-align: center;
+                            ">
+                                <h1 style="
+                                    margin: 0;
+                                    color: #ffffff;
+                                    font-size: 24px;
+                                    font-weight: 600;
+                                ">
+                                    New Room Booking Request
+                                </h1>
 
-                <tr>
-                    <td><strong>Site</strong></td>
-                    <td>{site}</td>
-                </tr>
+                                <p style="
+                                    margin: 8px 0 0;
+                                    color: #bfdbfe;
+                                    font-size: 14px;
+                                ">
+                                    Action required
+                                </p>
+                            </td>
+                        </tr>
 
-                <tr>
-                    <td><strong>Room</strong></td>
-                    <td>{room}</td>
-                </tr>
+                        <!-- CONTENT -->
+                        <tr>
+                            <td style="padding: 30px;">
 
-                <tr>
-                    <td><strong>Date</strong></td>
-                    <td>{reservation_date}</td>
-                </tr>
+                                <p style="
+                                    margin: 0 0 15px;
+                                    font-size: 16px;
+                                ">
+                                    Hello Admin,
+                                </p>
 
-                <tr>
-                    <td><strong>Time</strong></td>
-                    <td>
-                        {start_time} - {end_time}
-                    </td>
-                </tr>
+                                <p style="
+                                    margin: 0 0 25px;
+                                    line-height: 1.6;
+                                    font-size: 15px;
+                                ">
+                                    A new room booking request has been
+                                    submitted for your site and is waiting
+                                    for your review.
+                                </p>
 
-                <tr>
-                    <td><strong>Purpose</strong></td>
-                    <td>{purpose}</td>
-                </tr>
-            </table>
+                                <!-- BOOKING DETAILS -->
+                                <table
+                                    width="100%"
+                                    cellpadding="0"
+                                    cellspacing="0"
+                                    border="0"
+                                    style="
+                                        background-color: #f8fafc;
+                                        border-radius: 8px;
+                                        border: 1px solid #e2e8f0;
+                                    "
+                                >
 
-            <p>
-                Please log in to the admin dashboard to
-                review this request.
-            </p>
+                                    <tr>
+                                        <td colspan="2" style="
+                                            padding: 15px 18px;
+                                            background-color: #eff6ff;
+                                            border-bottom: 1px solid #dbeafe;
+                                        ">
+                                            <strong style="
+                                                color: #03045e;
+                                                font-size: 15px;
+                                            ">
+                                                Booking Details
+                                            </strong>
+                                        </td>
+                                    </tr>
 
-        </body>
+                                    <tr>
+                                        <td style="padding: 12px 18px; width: 35%;">
+                                            <strong>Employee</strong>
+                                        </td>
+                                        <td style="padding: 12px 18px;">
+                                            {employee_name}
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding: 12px 18px;">
+                                            <strong>Email</strong>
+                                        </td>
+                                        <td style="padding: 12px 18px;">
+                                            {employee_email}
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding: 12px 18px;">
+                                            <strong>Site</strong>
+                                        </td>
+                                        <td style="padding: 12px 18px;">
+                                            {site}
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding: 12px 18px;">
+                                            <strong>Room</strong>
+                                        </td>
+                                        <td style="padding: 12px 18px;">
+                                            {room}
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding: 12px 18px;">
+                                            <strong>Date</strong>
+                                        </td>
+                                        <td style="padding: 12px 18px;">
+                                            {reservation_date}
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding: 12px 18px;">
+                                            <strong>Time</strong>
+                                        </td>
+                                        <td style="padding: 12px 18px;">
+                                            {start_time} - {end_time}
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding: 12px 18px;">
+                                            <strong>Purpose</strong>
+                                        </td>
+                                        <td style="
+                                            padding: 12px 18px;
+                                            line-height: 1.5;
+                                        ">
+                                            {purpose}
+                                        </td>
+                                    </tr>
+
+                                </table>
+
+                                <!-- ACTION MESSAGE -->
+                                <table
+                                    width="100%"
+                                    cellpadding="0"
+                                    cellspacing="0"
+                                    border="0"
+                                    style="margin-top: 25px;"
+                                >
+                                    <tr>
+                                        <td style="
+                                            padding: 16px 18px;
+                                            background-color: #fef3c7;
+                                            border-left: 4px solid #f59e0b;
+                                            border-radius: 6px;
+                                        ">
+                                            <strong style="color: #92400e;">
+                                                Review Required
+                                            </strong>
+
+                                            <p style="
+                                                margin: 6px 0 0;
+                                                color: #78350f;
+                                                font-size: 14px;
+                                                line-height: 1.5;
+                                            ">
+                                                Please log in to the admin
+                                                dashboard to review and
+                                                approve or reject this
+                                                request.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                            </td>
+                        </tr>
+
+                        <!-- FOOTER -->
+                        <tr>
+                            <td style="
+                                padding: 20px 30px;
+                                background-color: #f8fafc;
+                                border-top: 1px solid #e2e8f0;
+                                text-align: center;
+                            ">
+                                <p style="
+                                    margin: 0;
+                                    color: #64748b;
+                                    font-size: 12px;
+                                ">
+                                    This is an automated notification.
+                                    Please do not reply to this email.
+                                </p>
+                            </td>
+                        </tr>
+
+                    </table>
+
+                </td>
+            </tr>
+        </table>
+
+    </body>
     </html>
     """
 
@@ -81,76 +265,312 @@ def booking_status_email(
     purpose: str,
     remarks: str | None = None,
 ):
-    status_title = status.capitalize()
+    status = status.lower()
+
+    # ---------------------------------------------------------
+    # Status-specific styling
+    # ---------------------------------------------------------
+
+    if status == "approved":
+        status_title = "Booking Approved"
+        status_message = (
+            "Great news! Your room booking request has been "
+            "approved."
+        )
+        status_color = "#16a34a"
+        status_background = "#f0fdf4"
+        status_border = "#22c55e"
+
+    elif status == "rejected":
+        status_title = "Booking Rejected"
+        status_message = (
+            "Your room booking request has been reviewed "
+            "and unfortunately was not approved."
+        )
+        status_color = "#dc2626"
+        status_background = "#fef2f2"
+        status_border = "#ef4444"
+
+    elif status == "cancelled":
+        status_title = "Booking Cancelled"
+        status_message = (
+            "Your room booking has been cancelled."
+        )
+        status_color = "#d97706"
+        status_background = "#fffbeb"
+        status_border = "#f59e0b"
+
+    else:
+        status_title = f"Booking {status.capitalize()}"
+        status_message = (
+            f"Your room booking request status is "
+            f"{status}."
+        )
+        status_color = "#03045e"
+        status_background = "#eff6ff"
+        status_border = "#3b82f6"
+
+    # ---------------------------------------------------------
+    # Optional remarks
+    # ---------------------------------------------------------
 
     remarks_html = ""
 
     if remarks:
         remarks_html = f"""
         <tr>
-            <td><strong>Remarks</strong></td>
-            <td>{remarks}</td>
+            <td colspan="2" style="padding: 15px 18px;">
+                <strong style="display: block; margin-bottom: 6px;">
+                    Admin Remarks
+                </strong>
+
+                <div style="
+                    background-color: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 6px;
+                    padding: 12px;
+                    line-height: 1.5;
+                    color: #475569;
+                ">
+                    {remarks}
+                </div>
+            </td>
         </tr>
         """
 
     return f"""
+    <!DOCTYPE html>
     <html>
-        <body style="font-family: Arial, sans-serif; color: #334155;">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{status_title}</title>
+    </head>
 
-            <h2 style="color: #03045e;">
-                Room Booking {status_title}
-            </h2>
+    <body style="
+        margin: 0;
+        padding: 0;
+        background-color: #f1f5f9;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #334155;
+    ">
 
-            <p>
-                Hello {employee_name},
-            </p>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td align="center" style="padding: 40px 15px;">
 
-            <p>
-                Your room booking request has been
-                <strong>{status.lower()}</strong>.
-            </p>
+                    <table
+                        width="600"
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                        style="
+                            max-width: 600px;
+                            width: 100%;
+                            background-color: #ffffff;
+                            border-radius: 12px;
+                            overflow: hidden;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                        "
+                    >
 
-            <table cellpadding="8" cellspacing="0">
+                        <!-- HEADER -->
+                        <tr>
+                            <td style="
+                                background-color: #03045e;
+                                padding: 28px 30px;
+                                text-align: center;
+                            ">
+                                <h1 style="
+                                    margin: 0;
+                                    color: #ffffff;
+                                    font-size: 24px;
+                                    font-weight: 600;
+                                ">
+                                    {status_title}
+                                </h1>
 
-                <tr>
-                    <td><strong>Site</strong></td>
-                    <td>{site}</td>
-                </tr>
+                                <p style="
+                                    margin: 8px 0 0;
+                                    color: #bfdbfe;
+                                    font-size: 14px;
+                                ">
+                                    Room Reservation
+                                </p>
+                            </td>
+                        </tr>
 
-                <tr>
-                    <td><strong>Room</strong></td>
-                    <td>{room}</td>
-                </tr>
+                        <!-- CONTENT -->
+                        <tr>
+                            <td style="padding: 30px;">
 
-                <tr>
-                    <td><strong>Date</strong></td>
-                    <td>{reservation_date}</td>
-                </tr>
+                                <p style="
+                                    margin: 0 0 15px;
+                                    font-size: 16px;
+                                ">
+                                    Hello {employee_name},
+                                </p>
 
-                <tr>
-                    <td><strong>Time</strong></td>
-                    <td>
-                        {start_time} - {end_time}
-                    </td>
-                </tr>
+                                <!-- STATUS MESSAGE -->
+                                <table
+                                    width="100%"
+                                    cellpadding="0"
+                                    cellspacing="0"
+                                    border="0"
+                                    style="margin-bottom: 25px;"
+                                >
+                                    <tr>
+                                        <td style="
+                                            padding: 18px;
+                                            background-color: {status_background};
+                                            border-left: 4px solid {status_border};
+                                            border-radius: 6px;
+                                        ">
+                                            <strong style="
+                                                color: {status_color};
+                                                font-size: 16px;
+                                            ">
+                                                {status_message}
+                                            </strong>
 
-                <tr>
-                    <td><strong>Purpose</strong></td>
-                    <td>{purpose}</td>
-                </tr>
+                                            <p style="
+                                                margin: 8px 0 0;
+                                                color: #475569;
+                                                font-size: 14px;
+                                                line-height: 1.5;
+                                            ">
+                                                Please see the reservation
+                                                details below.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
 
-                {remarks_html}
+                                <!-- BOOKING DETAILS -->
+                                <table
+                                    width="100%"
+                                    cellpadding="0"
+                                    cellspacing="0"
+                                    border="0"
+                                    style="
+                                        background-color: #f8fafc;
+                                        border-radius: 8px;
+                                        border: 1px solid #e2e8f0;
+                                    "
+                                >
 
-            </table>
+                                    <tr>
+                                        <td colspan="2" style="
+                                            padding: 15px 18px;
+                                            background-color: #eff6ff;
+                                            border-bottom: 1px solid #dbeafe;
+                                        ">
+                                            <strong style="
+                                                color: #03045e;
+                                                font-size: 15px;
+                                            ">
+                                                Reservation Details
+                                            </strong>
+                                        </td>
+                                    </tr>
 
-            <p>
-                Thank you.
-            </p>
+                                    <tr>
+                                        <td style="
+                                            padding: 12px 18px;
+                                            width: 35%;
+                                        ">
+                                            <strong>Site</strong>
+                                        </td>
+                                        <td style="padding: 12px 18px;">
+                                            {site}
+                                        </td>
+                                    </tr>
 
-        </body>
+                                    <tr>
+                                        <td style="padding: 12px 18px;">
+                                            <strong>Room</strong>
+                                        </td>
+                                        <td style="padding: 12px 18px;">
+                                            {room}
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding: 12px 18px;">
+                                            <strong>Date</strong>
+                                        </td>
+                                        <td style="padding: 12px 18px;">
+                                            {reservation_date}
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding: 12px 18px;">
+                                            <strong>Time</strong>
+                                        </td>
+                                        <td style="padding: 12px 18px;">
+                                            {start_time} - {end_time}
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding: 12px 18px;">
+                                            <strong>Purpose</strong>
+                                        </td>
+                                        <td style="
+                                            padding: 12px 18px;
+                                            line-height: 1.5;
+                                        ">
+                                            {purpose}
+                                        </td>
+                                    </tr>
+
+                                    {remarks_html}
+
+                                </table>
+
+                                <!-- FINAL MESSAGE -->
+                                <p style="
+                                    margin: 25px 0 0;
+                                    font-size: 14px;
+                                    line-height: 1.6;
+                                    color: #64748b;
+                                ">
+                                    Thank you for using the room reservation
+                                    system.
+                                </p>
+
+                            </td>
+                        </tr>
+
+                        <!-- FOOTER -->
+                        <tr>
+                            <td style="
+                                padding: 20px 30px;
+                                background-color: #f8fafc;
+                                border-top: 1px solid #e2e8f0;
+                                text-align: center;
+                            ">
+                                <p style="
+                                    margin: 0;
+                                    color: #64748b;
+                                    font-size: 12px;
+                                ">
+                                    This is an automated notification.
+                                    Please do not reply to this email.
+                                </p>
+                            </td>
+                        </tr>
+
+                    </table>
+
+                </td>
+            </tr>
+        </table>
+
+    </body>
     </html>
     """
-
 def ride_booking_submitted_email(
     employee_name: str,
     employee_email: str,

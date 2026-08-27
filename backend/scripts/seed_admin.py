@@ -7,10 +7,10 @@ def seed_admin():
     db = SessionLocal()
 
     try:
-        name = "Gio D"
-        email = "gio@equiservices.com"
+        name = "Hero Baceles"
+        email = "hero.baceles@equicomservices.com"
         password = "admin123"
-        site = "Binondo"
+        site = "Zapote"
 
         existing_admin = db.query(Admin).filter(
             Admin.email == email
