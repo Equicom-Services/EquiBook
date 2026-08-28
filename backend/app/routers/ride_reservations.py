@@ -25,6 +25,7 @@ from app.schemas.ride_reservation import (
     RideReservationCreate,
     RideReservationResponse,
     RideReservationStatusUpdate,
+    AdminRideReservationCreate,
 )
 
 
@@ -109,7 +110,7 @@ def create_ride_reservation(
 
         # Database column is `site`, not `site_id`
         site=site.site_name,
-
+        site_id=current_admin.site,
         travel_date=request.travel_date,
         departure_time=request.departure_time,
         roundtrip=request.roundtrip,
@@ -871,3 +872,219 @@ def get_active_ride_reservations(
         })
 
     return response
+
+# ADMIN MANUAL RIDE BOOKINGS
+
+@router.post(
+    "/admin/bookings",
+    response_model=RideReservationResponse,
+)
+def create_admin_ride_booking(
+    request: AdminRideReservationCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
+):
+    now = datetime.now()
+
+    # ---------------------------------------------------------
+    # 1. Validate requester
+    # ---------------------------------------------------------
+    if not request.employee_name.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Requester name is required.",
+        )
+
+    if not request.employee_email.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Requester email is required.",
+        )
+
+    # ---------------------------------------------------------
+    # 2. Validate passenger count
+    # ---------------------------------------------------------
+    if request.passenger_count <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Passenger count must be greater than 0.",
+        )
+
+    # ---------------------------------------------------------
+    # 3. Validate round trip
+    # ---------------------------------------------------------
+    if request.roundtrip and not request.return_pickup:
+        raise HTTPException(
+            status_code=400,
+            detail="Return pickup is required for round-trip reservations.",
+        )
+
+    # ---------------------------------------------------------
+    # 4. Vehicle is required for admin booking
+    # ---------------------------------------------------------
+    if not request.vehicle_type:
+        raise HTTPException(
+            status_code=400,
+            detail="Vehicle type is required.",
+        )
+
+    # ---------------------------------------------------------
+    # 5. Create reservation
+    # ---------------------------------------------------------
+    new_reservation = RideReservation(
+        request_date_time=now,
+        employee_name=request.employee_name.strip(),
+        employee_email=request.employee_email.strip(),
+
+        # Force admin's assigned site
+        site=current_admin.site,
+
+        travel_date=request.travel_date,
+        departure_time=request.departure_time,
+        roundtrip=request.roundtrip,
+        return_pickup=request.return_pickup,
+
+        pickup_location=request.pickup_location.strip(),
+        pickup_maps_link=request.pickup_maps_link,
+
+        dropoff_destination=request.dropoff_destination.strip(),
+        drop_off_maps_link=request.drop_off_maps_link,
+
+        return_drop_off_location=request.return_drop_off_location,
+        return_drop_off_maps_link=request.return_drop_off_maps_link,
+
+        purpose=request.purpose.strip(),
+        passenger_count=request.passenger_count,
+
+        # Admin selects vehicle immediately
+        vehicle_type=request.vehicle_type,
+
+        # Admin bookings are automatically approved
+        status="APPROVED",
+
+        admin_remarks=request.admin_remarks,
+
+        # Record admin who created/approved it
+        approved_rejected_by=current_admin.id,
+        approved_rejected_date_time=now,
+
+        calendar_event_id=None,
+        created_at=now,
+        updated_at=now,
+    )
+
+    db.add(new_reservation)
+    db.commit()
+    db.refresh(new_reservation)
+
+    # ---------------------------------------------------------
+    # 6. Get site information for API response
+    # ---------------------------------------------------------
+    site = (
+        db.query(Site)
+        .filter(Site.site_name == new_reservation.site)
+        .first()
+    )
+
+    if not site:
+        raise HTTPException(
+            status_code=404,
+            detail="Reservation site not found.",
+        )
+
+    # ---------------------------------------------------------
+    # 7. Send booking confirmation email to recipient
+    # ---------------------------------------------------------
+    email_body = ride_booking_status_email(
+        employee_name=new_reservation.employee_name,
+        employee_email=new_reservation.employee_email,
+        site=new_reservation.site,
+        travel_date=new_reservation.travel_date,
+        departure_time=new_reservation.departure_time,
+        roundtrip=new_reservation.roundtrip,
+        return_pickup=new_reservation.return_pickup,
+
+        pickup_location=new_reservation.pickup_location,
+        pickup_maps_link=new_reservation.pickup_maps_link,
+
+        dropoff_destination=new_reservation.dropoff_destination,
+        drop_off_maps_link=new_reservation.drop_off_maps_link,
+
+        return_drop_off_location=(
+            new_reservation.return_drop_off_location
+        ),
+
+        return_drop_off_maps_link=(
+            new_reservation.return_drop_off_maps_link
+        ),
+
+        purpose=new_reservation.purpose,
+        passenger_count=new_reservation.passenger_count,
+
+        vehicle_type=new_reservation.vehicle_type,
+        status=new_reservation.status,
+        admin_remarks=new_reservation.admin_remarks,
+
+        admin_name=current_admin.name,
+    )
+
+    background_tasks.add_task(
+        send_email,
+        [new_reservation.employee_email],
+        "Ride Reservation Approved",
+        email_body,
+    )
+
+    # ---------------------------------------------------------
+    # 8. Return response
+    # ---------------------------------------------------------
+    return {
+        "ride_reservation_id": new_reservation.ride_reservation_id,
+        "request_date_time": new_reservation.request_date_time,
+        "employee_name": new_reservation.employee_name,
+        "employee_email": new_reservation.employee_email,
+
+        "site_id": site.site_id,
+        "site": site.site_name,
+
+        "travel_date": new_reservation.travel_date,
+        "departure_time": new_reservation.departure_time,
+        "roundtrip": new_reservation.roundtrip,
+        "return_pickup": new_reservation.return_pickup,
+
+        "pickup_location": new_reservation.pickup_location,
+        "pickup_maps_link": new_reservation.pickup_maps_link,
+
+        "dropoff_destination": new_reservation.dropoff_destination,
+        "drop_off_maps_link": new_reservation.drop_off_maps_link,
+
+        "return_drop_off_location":
+            new_reservation.return_drop_off_location,
+
+        "return_drop_off_maps_link":
+            new_reservation.return_drop_off_maps_link,
+
+        "purpose": new_reservation.purpose,
+        "passenger_count": new_reservation.passenger_count,
+
+        "vehicle_type": new_reservation.vehicle_type,
+        "status": new_reservation.status,
+        "admin_remarks": new_reservation.admin_remarks,
+
+        "approved_rejected_by":
+            new_reservation.approved_rejected_by,
+
+        "approved_rejected_by_name":
+            current_admin.name,
+
+        "approved_rejected_date_time":
+            new_reservation.approved_rejected_date_time,
+
+        "calendar_event_id":
+            new_reservation.calendar_event_id,
+
+        "created_at": new_reservation.created_at,
+        "updated_at": new_reservation.updated_at,
+    }
+

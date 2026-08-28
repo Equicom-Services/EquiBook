@@ -24,7 +24,7 @@ export default function EmployeePage() {
             }`}
           >
             <DoorOpen className="h-3.5 w-3.5" />
-            Room
+            Rooms
           </button>
 
           <button

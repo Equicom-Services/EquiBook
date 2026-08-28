@@ -169,259 +169,280 @@ export default function RideRequestCard({
 
 
 
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      {/* Header */}
-{/* Header */}
-<div className="flex items-start justify-between border-b border-slate-100 pb-2.5">
-  {/* Left: Icon + Request Info */}
-  <div className="flex items-start gap-2.5">
-    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700">
-      <Car className="h-4 w-4" />
-    </div>
+return (
+  <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
 
-    <div>
-      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-        Ride Request
-      </p>
+    {/* HEADER */}
+    <div className="flex items-start justify-between border-b border-slate-100 pb-2.5">
+      {/* Left: Icon + Request Info */}
+      <div className="flex items-start gap-2.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700">
+          <Car className="h-4 w-4" />
+        </div>
 
-      <h3 className="mt-0.5 text-sm font-semibold text-slate-900">
-        {booking.title}
-      </h3>
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+            Ride Request
+          </p>
 
-      <p className="mt-0.5 text-[10px] text-slate-400">
-        Request #{booking.id}
-      </p>
-    </div>
-  </div>
+          <h3 className="mt-0.5 text-sm font-semibold text-slate-900">
+            {booking.title}
+          </h3>
 
-  {/* Right: Status + More Menu */}
-  <div className="flex items-start gap-2">
-    {/* Status */}
-    <div>
-      {booking.status === "approved" && (
-        <span className="inline-flex items-center gap-1 rounded-md bg-green-100 px-2 py-1 text-[10px] font-medium text-green-700">
-          <CheckCircle2 className="h-3 w-3" />
-          APPROVED
-        </span>
-      )}
+          <p className="mt-0.5 text-[10px] text-slate-400">
+            Request #{booking.id}
+          </p>
+        </div>
+      </div>
 
-      {booking.status === "pending" && (
-        <span className="inline-flex items-center gap-1 rounded-md bg-yellow-100 px-2 py-1 text-[10px] font-medium text-yellow-700">
-          <Clock className="h-3 w-3" />
-          PENDING
-        </span>
-      )}
+      {/* Right: Status + More Menu */}
+      <div className="flex items-start gap-2">
+        {/* Status */}
+        <div>
+          {booking.status === "approved" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-green-100 px-2 py-1 text-[10px] font-medium text-green-700">
+              <CheckCircle2 className="h-3 w-3" />
+              APPROVED
+            </span>
+          )}
 
-      {booking.status === "rejected" && (
-        <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-[10px] font-medium text-red-700">
-          <XCircle className="h-3 w-3" />
-          REJECTED
-        </span>
-      )}
+          {booking.status === "pending" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-yellow-100 px-2 py-1 text-[10px] font-medium text-yellow-700">
+              <Clock className="h-3 w-3" />
+              PENDING
+            </span>
+          )}
 
-      {booking.status === "cancelled" && (
-        <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-700">
-          <XCircle className="h-3 w-3" />
-          CANCELLED
-        </span>
-      )}
-    </div>
+          {booking.status === "rejected" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-[10px] font-medium text-red-700">
+              <XCircle className="h-3 w-3" />
+              REJECTED
+            </span>
+          )}
 
-    {/* More Menu */}
-    {booking.status === "approved" && (
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setShowMenu((current) => !current)}
-          aria-label="Booking actions"
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50"
-        >
-          <MoreVertical className="h-4 w-4" />
-        </button>
+          {booking.status === "cancelled" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-700">
+              <XCircle className="h-3 w-3" />
+              CANCELLED
+            </span>
+          )}
+        </div>
 
-        {showMenu && (
-          <div className="absolute right-0 z-20 mt-2 w-32 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
-            {/* Edit */}
+        {/* More Menu */}
+        {booking.status === "approved" && (
+          <div className="relative">
             <button
               type="button"
-              onClick={() => {
-                setShowMenu(false);
-
-                // Add edit logic here
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              onClick={() => setShowMenu((current) => !current)}
+              aria-label="Booking actions"
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50"
             >
-              <Pencil className="h-4 w-4" />
-              Edit
+              <MoreVertical className="h-4 w-4" />
             </button>
 
-            {/* Cancel */}
-            <button
-              type="button"
-              onClick={async () => {
-                setShowMenu(false);
+            {showMenu && (
+              <div className="absolute right-0 z-20 mt-2 w-32 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                {/* Edit */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false);
+                    // Add edit logic here
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </button>
 
-                try {
-                  await onCancel(booking.id);
-                } catch (error) {
-                  console.error("Failed to cancel ride:", error);
-                }
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-            >
-              <XCircle className="h-4 w-4" />
-              Cancel
-            </button>
+                {/* Cancel */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowMenu(false);
+
+                    try {
+                      await onCancel(booking.id);
+                    } catch (error) {
+                      console.error(
+                        "Failed to cancel ride:",
+                        error
+                      );
+                    }
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
-    )}
-  </div>
-</div>
-      {/* Requester Information */}
-      <div className="mt-3">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          Requester Information
-        </p>
+    </div>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-4">
-          <div className="flex items-start gap-2">
-            <User className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+    {/* REQUESTER INFORMATION */}
+    <div className="mt-2.5">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        Requester Information
+      </p>
 
-            <div>
-              <p className="text-[10px] text-slate-400">
-                Requested by
-              </p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-4">
 
-              <p className="mt-0.5 text-xs font-medium text-slate-900">
-                {booking.employee}
-              </p>
-            </div>
-          </div>
+        {/* Requested By */}
+        <div className="flex min-w-0 items-start gap-2">
+          <User className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
 
-          <div className="flex items-start gap-2">
-            <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-slate-400">
+              Requested by
+            </p>
 
-            <div className="min-w-0">
-              <p className="text-[10px] text-slate-400">
-                Email
-              </p>
-
-              <p className="mt-0.5 truncate text-xs text-slate-600">
-                {booking.employee_email}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-
-            <div>
-              <p className="text-[10px] text-slate-400">
-                Site
-              </p>
-
-              <p className="mt-0.5 text-xs text-slate-600">
-                {booking.site}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-
-            <div>
-              <p className="text-[10px] text-slate-400">
-                Passengers
-              </p>
-
-              <p className="mt-0.5 text-xs text-slate-600">
-                {booking.passengers_count}
-              </p>
-            </div>
+            <p className="mt-0.5 truncate text-xs font-medium text-slate-900">
+              {booking.employee}
+            </p>
           </div>
         </div>
-      </div>
 
-      {/* Trip Information */}
-      <div className="mt-3">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          Trip Information
-        </p>
+        {/* Email */}
+        <div className="flex min-w-0 items-start gap-2">
+          <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-4">
-          <div className="flex items-start gap-2">
-            <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-slate-400">
+              Email
+            </p>
 
-            <div>
-              <p className="text-[10px] text-slate-400">
-                Travel Date
-              </p>
-
-              <p className="mt-0.5 text-xs text-slate-600">
-                {formatDate(booking.travel_date)}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-
-            <div>
-              <p className="text-[10px] text-slate-400">
-                Departure
-              </p>
-
-              <p className="mt-0.5 text-xs text-slate-600">
-                {formatTime(booking.departure_time)}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Navigation className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-
-            <div>
-              <p className="text-[10px] text-slate-400">
-                Trip Type
-              </p>
-
-              <p className="mt-0.5 text-xs text-slate-600">
-                {booking.roundtrip
-                  ? "Round Trip"
-                  : "One Way"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Car className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-
-            <div>
-              <p className="text-[10px] text-slate-400">
-                Vehicle
-              </p>
-
-              <p className="mt-0.5 text-xs text-slate-600">
-                {booking.vehicle_type || "Not assigned"}
-              </p>
-            </div>
+            <p
+              className="mt-0.5 truncate text-xs text-slate-600"
+              title={booking.employee_email}
+            >
+              {booking.employee_email}
+            </p>
           </div>
         </div>
+
+        {/* Site */}
+        <div className="flex min-w-0 items-start gap-2">
+          <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+          <div className="min-w-0">
+            <p className="text-[10px] text-slate-400">
+              Site
+            </p>
+
+            <p className="mt-0.5 truncate text-xs text-slate-600">
+              {booking.site}
+            </p>
+          </div>
+        </div>
+
+        {/* Passengers */}
+        <div className="flex min-w-0 items-start gap-2">
+          <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+          <div className="min-w-0">
+            <p className="text-[10px] text-slate-400">
+              Passengers
+            </p>
+
+            <p className="mt-0.5 text-xs text-slate-600">
+              {booking.passengers_count}
+            </p>
+          </div>
+        </div>
+
       </div>
+    </div>
 
-      {/* Route */}
-      <div className="mt-3">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          Route
-        </p>
+    {/* TRIP INFORMATION */}
+    <div className="mt-2.5">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        Trip Information
+      </p>
 
-        <div className="rounded-md bg-slate-50 px-3 py-2">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-4">
+
+        {/* Travel Date */}
+        <div className="flex min-w-0 items-start gap-2">
+          <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+          <div className="min-w-0">
+            <p className="text-[10px] text-slate-400">
+              Travel Date
+            </p>
+
+            <p className="mt-0.5 truncate text-xs text-slate-600">
+              {formatDate(booking.travel_date)}
+            </p>
+          </div>
+        </div>
+
+        {/* Departure */}
+        <div className="flex min-w-0 items-start gap-2">
+          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+          <div className="min-w-0">
+            <p className="text-[10px] text-slate-400">
+              Departure
+            </p>
+
+            <p className="mt-0.5 truncate text-xs text-slate-600">
+              {formatTime(booking.departure_time)}
+            </p>
+          </div>
+        </div>
+
+        {/* Trip Type */}
+        <div className="flex min-w-0 items-start gap-2">
+          <Navigation className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+          <div className="min-w-0">
+            <p className="text-[10px] text-slate-400">
+              Trip Type
+            </p>
+
+            <p className="mt-0.5 truncate text-xs text-slate-600">
+              {booking.roundtrip
+                ? "Round Trip"
+                : "One Way"}
+            </p>
+          </div>
+        </div>
+
+        {/* Vehicle */}
+        <div className="flex min-w-0 items-start gap-2">
+          <Car className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+          <div className="min-w-0">
+            <p className="text-[10px] text-slate-400">
+              Vehicle
+            </p>
+
+            <p className="mt-0.5 truncate text-xs text-slate-600">
+              {booking.vehicle_type || "Not assigned"}
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    {/* ROUTE + PURPOSE */}
+    <div className="mt-2.5">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        Route
+      </p>
+
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+
+        {/* Pickup */}
+        <div className="min-w-0 rounded-md bg-slate-50 px-3 py-2">
           <div className="flex items-start gap-2">
             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
 
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0">
               <p className="text-[10px] text-slate-400">
                 Pickup
               </p>
@@ -443,15 +464,14 @@ export default function RideRequestCard({
               )}
             </div>
           </div>
+        </div>
 
-          <div className="my-1 ml-1 border-l border-dashed border-slate-300 pl-4">
-            <ArrowRight className="h-3 w-3 rotate-90 text-slate-300" />
-          </div>
-
+        {/* Drop-off */}
+        <div className="min-w-0 rounded-md bg-slate-50 px-3 py-2">
           <div className="flex items-start gap-2">
             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
 
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0">
               <p className="text-[10px] text-slate-400">
                 Drop-off
               </p>
@@ -474,226 +494,242 @@ export default function RideRequestCard({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Return Trip */}
-      {booking.roundtrip && (
-        <div className="mt-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            Return Trip
-          </p>
+        {/* Purpose */}
+        <div className="min-w-0 rounded-md bg-slate-50 px-3 py-2">
+          <div className="flex items-start gap-2">
+            <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-start gap-2">
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-400">
+                Purpose
+              </p>
 
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400">
-                  Return Pickup
-                </p>
-
-                <p className="mt-0.5 truncate text-xs text-slate-600">
-                  {booking.return_pickup
-                    ? formatDateTime(booking.return_pickup)
-                    : "Not specified"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400">
-                  Return Drop-off
-                </p>
-
-                <p className="mt-0.5 truncate text-xs text-slate-600">
-                  {booking.return_drop_off_location ||
-                    "Not specified"}
-                </p>
-
-                {booking.return_drop_off_maps_link && (
-                  <a
-                    href={booking.return_drop_off_maps_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
-                  >
-                    <MapPinned className="h-2.5 w-2.5" />
-                    Maps
-                  </a>
-                )}
-              </div>
+              <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-slate-600">
+                {booking.purpose}
+              </p>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Purpose */}
-      <div className="mt-3 border-t border-slate-100 pt-2.5">
+      </div>
+    </div>
+
+    {/* RETURN TRIP */}
+    {booking.roundtrip && (
+      <div className="mt-2 rounded-md bg-slate-50 px-3 py-2">
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          Return Trip
+        </p>
+
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+
+          {/* Return Pickup */}
+          <div className="flex min-w-0 items-start gap-2">
+            <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-400">
+                Return Pickup
+              </p>
+
+              <p className="mt-0.5 truncate text-xs text-slate-600">
+                {booking.return_pickup
+                  ? formatDateTime(booking.return_pickup)
+                  : "Not specified"}
+              </p>
+            </div>
+          </div>
+
+          {/* Return Drop-off */}
+          <div className="flex min-w-0 items-start gap-2">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-400">
+                Return Drop-off
+              </p>
+
+              <p className="mt-0.5 truncate text-xs text-slate-600">
+                {booking.return_drop_off_location ||
+                  "Not specified"}
+              </p>
+
+              {booking.return_drop_off_maps_link && (
+                <a
+                  href={booking.return_drop_off_maps_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
+                >
+                  <MapPinned className="h-2.5 w-2.5" />
+                  Maps
+                </a>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    )}
+
+    {/* ADMIN REMARKS */}
+    {booking.admin_remarks && (
+      <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
         <div className="flex items-start gap-2">
-          <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
 
           <div className="min-w-0">
-            <p className="text-[10px] text-slate-400">
-              Purpose
+            <p className="text-[10px] font-medium text-slate-400">
+              Admin Remarks
             </p>
 
             <p className="mt-0.5 text-xs leading-5 text-slate-600">
-              {booking.purpose}
+              {booking.admin_remarks}
             </p>
           </div>
         </div>
       </div>
+    )}
 
-      {/* Admin Remarks */}
-      {booking.admin_remarks && (
-        <div className="mt-2.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-          <div className="flex items-start gap-2">
-            <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+    {/* REQUEST / APPROVAL INFORMATION */}
+    <div className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-slate-100 pt-2 md:grid-cols-4">
 
-            <div className="min-w-0">
-              <p className="text-[10px] font-medium text-slate-400">
-                Admin Remarks
-              </p>
+      {/* Request Date */}
+      <div className="min-w-0">
+        <p className="text-[10px] text-slate-400">
+          Request Date
+        </p>
 
-              <p className="mt-0.5 text-xs leading-5 text-slate-600">
-                {booking.admin_remarks}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Request / Approval Information */}
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-slate-100 pt-2.5 md:grid-cols-4">
-        <div>
-          <p className="text-[10px] text-slate-400">
-            Request Date
-          </p>
-
-          <p className="mt-0.5 text-xs text-slate-600">
-            {formatDateTime(booking.request_date_time)}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-[10px] text-slate-400">
-            Last Updated
-          </p>
-
-          <p className="mt-0.5 text-xs text-slate-600">
-            {formatDateTime(booking.updated_at)}
-          </p>
-        </div>
-
-        {booking.approved_rejected_date_time && (
-          <div>
-            <p className="text-[10px] text-slate-400">
-              Status Updated
-            </p>
-
-            <p className="mt-0.5 text-xs text-slate-600">
-              {formatDateTime(
-                booking.approved_rejected_date_time
-              )}
-            </p>
-          </div>
-        )}
-
-{booking.approved_rejected_by_name && (
-  <div>
-    <p className="text-[10px] text-slate-400">
-      Processed By
-    </p>
-    <p className="mt-0.5 text-xs text-slate-600">
-      {booking.approved_rejected_by_name}
-    </p>
-  </div>
-)}
+        <p className="mt-0.5 truncate text-xs text-slate-600">
+          {formatDateTime(booking.request_date_time)}
+        </p>
       </div>
 
-      {/* Actions */}
-      {booking.status === "pending" && (
-        <div className="mt-3 border-t border-slate-100 pt-2.5">
-          {/* Transportation Type */}
-          <div className="mb-2.5">
-            <label className="mb-1 block text-[10px] font-medium text-slate-500">
-              Transportation Type
-            </label>
+      {/* Last Updated */}
+      <div className="min-w-0">
+        <p className="text-[10px] text-slate-400">
+          Last Updated
+        </p>
 
-            <select
-              value={vehicleType}
-              onChange={(event) =>
-                setVehicleType(event.target.value)
-              }
-              disabled={updating}
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
-            >
-              <option value="">
-                Select transportation type
-              </option>
-              <option value="Company Car">
-                Company Car
-              </option>
-              <option value="TNVS">
-                TNVS
-              </option>
-            </select>
-          </div>
+        <p className="mt-0.5 truncate text-xs text-slate-600">
+          {formatDateTime(booking.updated_at)}
+        </p>
+      </div>
 
-          {/* Remarks */}
-          <div className="mb-2.5">
-            <label className="mb-1 block text-[10px] font-medium text-slate-500">
-              Admin Remarks
-            </label>
+      {/* Status Updated */}
+      {booking.approved_rejected_date_time && (
+        <div className="min-w-0">
+          <p className="text-[10px] text-slate-400">
+            Status Updated
+          </p>
 
-            <textarea
-              value={remarks}
-              onChange={(event) =>
-                setRemarks(event.target.value)
-              }
-              disabled={updating}
-              rows={2}
-              placeholder="Enter remarks..."
-              className="w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
-            />
-          </div>
-
-          {/* Buttons */}
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              disabled={updating}
-              onClick={() =>
-                handleStatusUpdate("rejected")
-              }
-              className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <XCircle className="h-3.5 w-3.5" />
-
-              {updating ? "Updating..." : "Reject"}
-            </button>
-
-            <button
-              type="button"
-              disabled={updating}
-              onClick={() =>
-                handleStatusUpdate("approved")
-              }
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#03045e] px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-
-              {updating ? "Updating..." : "Approve"}
-            </button>
-          </div>
+          <p className="mt-0.5 truncate text-xs text-slate-600">
+            {formatDateTime(
+              booking.approved_rejected_date_time
+            )}
+          </p>
         </div>
       )}
 
-      <div className="mt-3 flex justify-end border-t border-slate-100 pt-2.5">
-</div>
+      {/* Processed By */}
+      {booking.approved_rejected_by_name && (
+        <div className="min-w-0">
+          <p className="text-[10px] text-slate-400">
+            Processed By
+          </p>
+
+          <p className="mt-0.5 truncate text-xs text-slate-600">
+            {booking.approved_rejected_by_name}
+          </p>
+        </div>
+      )}
+
     </div>
-  );
+
+    {/* ACTIONS */}
+    {booking.status === "pending" && (
+      <div className="mt-2.5 border-t border-slate-100 pt-2.5">
+
+        {/* Transportation Type */}
+        <div className="mb-2.5">
+          <label className="mb-1 block text-[10px] font-medium text-slate-500">
+            Transportation Type
+          </label>
+
+          <select
+            value={vehicleType}
+            onChange={(event) =>
+              setVehicleType(event.target.value)
+            }
+            disabled={updating}
+            className="w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
+          >
+            <option value="">
+              Select transportation type
+            </option>
+
+            <option value="Company Car">
+              Company Car
+            </option>
+
+            <option value="TNVS">
+              TNVS
+            </option>
+          </select>
+        </div>
+
+        {/* Remarks */}
+        <div className="mb-2.5">
+          <label className="mb-1 block text-[10px] font-medium text-slate-500">
+            Admin Remarks
+          </label>
+
+          <textarea
+            value={remarks}
+            onChange={(event) =>
+              setRemarks(event.target.value)
+            }
+            disabled={updating}
+            rows={2}
+            placeholder="Enter remarks..."
+            className="w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]"
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={updating}
+            onClick={() =>
+              handleStatusUpdate("rejected")
+            }
+            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <XCircle className="h-3.5 w-3.5" />
+            {updating ? "Updating..." : "Reject"}
+          </button>
+
+          <button
+            type="button"
+            disabled={updating}
+            onClick={() =>
+              handleStatusUpdate("approved")
+            }
+            className="inline-flex items-center gap-1.5 rounded-md bg-[#03045e] px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {updating ? "Updating..." : "Approve"}
+          </button>
+        </div>
+
+      </div>
+    )}
+
+    {/* Bottom spacing */}
+    <div className="mt-2 flex justify-end border-t border-slate-100 pt-2" />
+
+  </div>
+);
 }
