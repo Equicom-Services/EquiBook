@@ -110,14 +110,18 @@ async function handleSubmit(
                 </p>
             )}    
         
-         {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-2 bg-[#03045e] hover:bg-[#02034b] disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-colors duration-150 ease-in-out shadow-sm"
-          >
-            {loading ? "Signing In..." : "Sign In"}
-          </button>
+{/* Submit */}
+<button
+  type="submit"
+  disabled={loading}
+  className="w-full mt-2 bg-[#03045e] hover:bg-[#02034b] disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-colors duration-150 ease-in-out shadow-sm"
+>
+  {loading ? "Signing In..." : "Sign In"}
+</button>
+
+<p className="text-center text-xs text-slate-500 mt-4">
+  Contact DIO's for account access.
+</p>
         </form>
       </div>
     </div>
