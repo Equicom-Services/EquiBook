@@ -272,28 +272,32 @@ const [loadingApprovedBookings, setLoadingApprovedBookings] = useState(false);
     return;
   }
 
-  const fetchRooms = async () => {
-    try {
-      setLoadingRooms(true);
+const fetchRooms = async () => {
+  try {
+    setLoadingRooms(true);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/rooms?site_id=${formData.site_id}`
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/available?site_id=${formData.site_id}`
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+
+      throw new Error(
+        errorData?.detail || "Failed to fetch rooms."
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch rooms.");
-      }
-
-      const data: Room[] = await response.json();
-
-      setRooms(data);
-    } catch (error) {
-      console.error("Error fetching rooms:", error);
-      setRooms([]);
-    } finally {
-      setLoadingRooms(false);
     }
-  };
+
+    const data: Room[] = await response.json();
+
+    setRooms(data);
+  } catch (error) {
+    console.error("Error fetching rooms:", error);
+    setRooms([]);
+  } finally {
+    setLoadingRooms(false);
+  }
+};
 
   fetchRooms();
 }, [formData.site_id]);

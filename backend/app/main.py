@@ -1,19 +1,21 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+
 from app.core.config import settings
-from app.routers import room_requests
 from app.core.database import Base, engine
-from app.routers import sites
-from app.routers import room
-from app.routers import ride_reservations
-from app.routers import dashboard
+
 from app.routers import auth
 from app.routers import admin
 from app.routers import reports
+from app.routers import sites
+from app.routers import rooms
+from app.routers import room_requests
+from app.routers import ride_reservations
+from app.routers import dashboard
+
 from app.core.security import get_current_admin
 from app.models.admin import Admin
-
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
@@ -41,7 +43,7 @@ app.include_router(
     prefix="/api"
 )
 app.include_router(
-    room.router,
+    rooms.router,
     prefix="/api"
 )
 app.include_router(

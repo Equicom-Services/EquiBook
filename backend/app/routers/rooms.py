@@ -37,11 +37,10 @@ class RoomStatusUpdate(BaseModel):
 # GET ROOMS
 # ADMIN ONLY
 #
-# If site_id is supplied, only rooms from that site are
-# returned.
-#
-# The frontend currently uses:
 # GET /api/rooms?site_id={admin.site_id}
+#
+# Returns ALL rooms for the admin's assigned site,
+# including ACTIVE and INACTIVE rooms.
 # ============================================================
 
 @router.get("")
@@ -80,13 +79,69 @@ def get_rooms(
         )
 
     # --------------------------------------------------------
-    # Only return rooms belonging to admin's site
+    # Return ALL rooms belonging to admin's site
+    #
+    # Admin needs to see inactive rooms so they can enable them.
     # --------------------------------------------------------
 
     rooms = (
         db.query(Room)
         .filter(
             Room.site_id == admin_site.site_id,
+        )
+        .order_by(
+            Room.room_id.desc()
+        )
+        .all()
+    )
+
+    return rooms
+
+
+# ============================================================
+# GET AVAILABLE ROOMS
+# EMPLOYEE
+#
+# GET /api/rooms/available?site_id={site_id}
+#
+# This endpoint is intentionally NOT admin protected.
+#
+# Employees should only see ACTIVE rooms.
+# ============================================================
+
+@router.get("/available")
+def get_available_rooms(
+    site_id: int,
+    db: Session = Depends(get_db),
+):
+    # --------------------------------------------------------
+    # Make sure the site exists and is active
+    # --------------------------------------------------------
+
+    site = (
+        db.query(Site)
+        .filter(
+            Site.site_id == site_id,
+            Site.is_active == True,
+        )
+        .first()
+    )
+
+    if not site:
+        raise HTTPException(
+            status_code=404,
+            detail="Site not found.",
+        )
+
+    # --------------------------------------------------------
+    # Only return ACTIVE rooms for this site
+    # --------------------------------------------------------
+
+    rooms = (
+        db.query(Room)
+        .filter(
+            Room.site_id == site_id,
+            Room.is_active == True,
         )
         .order_by(
             Room.room_id.desc()
@@ -251,7 +306,7 @@ def update_room_status(
         )
 
     # --------------------------------------------------------
-    # Find room
+    # Find room belonging to admin's site
     # --------------------------------------------------------
 
     room = (
