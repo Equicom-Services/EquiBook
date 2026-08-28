@@ -817,28 +817,25 @@ return (
 
       </div>
 
-      {/* VEHICLE */}
+{/* VEHICLE */}
+<div>
+  <label className="mb-1 block text-sm font-medium text-slate-700">
+    Vehicle Type
+  </label>
 
-      <div>
-
-        <label className="mb-1 block text-sm font-medium text-slate-700">
-          Vehicle Type
-        </label>
-
-        <input
-          type="text"
-          value={vehicleType}
-          onChange={(e) =>
-            setVehicleType(
-              e.target.value
-            )
-          }
-          placeholder="Enter vehicle type"
-          required
-          className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
-        />
-
-      </div>
+  <select
+    value={vehicleType}
+    onChange={(e) => setVehicleType(e.target.value)}
+    required
+    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#03045e] focus:ring-2 focus:ring-blue-100"
+  >
+    <option value="" disabled>
+      Select vehicle type
+    </option>
+    <option value="Company Car">Company Car</option>
+    <option value="TNVS">TNVS</option>
+  </select>
+</div>
 
       {/* PURPOSE */}
 
