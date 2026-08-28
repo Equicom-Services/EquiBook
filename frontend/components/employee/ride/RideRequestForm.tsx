@@ -233,93 +233,82 @@ async function handleSubmit(
 }
 
 async function confirmSubmit() {
+  console.log("=== CONFIRM SUBMIT CLICKED ===");
+  console.log("Form data:", formData);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  console.log("NEXT_PUBLIC_API_URL:", apiUrl);
+  console.log(
+    "POST URL:",
+    `${apiUrl}/api/ride-reservations`
+  );
+
   try {
     setSubmitting(true);
 
+    const payload = {
+      employee_name: formData.name,
+      employee_email: formData.company_email,
+      site_id: formData.site_id,
+      travel_date: formData.travel_date,
+      departure_time: formData.departure_time,
+      roundtrip: formData.roundtrip,
+      return_pickup: formData.roundtrip
+        ? formData.return_pickup
+        : null,
+      pickup_location: formData.pickup_location,
+      pickup_maps_link:
+        formData.pickup_maps_link || null,
+      dropoff_destination:
+        formData.dropoff_destination,
+      drop_off_maps_link:
+        formData.drop_off_maps_link || null,
+      return_drop_off_location:
+        formData.roundtrip
+          ? formData.return_drop_off_location
+          : null,
+      return_drop_off_maps_link:
+        formData.roundtrip
+          ? formData.return_drop_off_maps_link || null
+          : null,
+      purpose: formData.purpose,
+      passenger_count: formData.passenger_count,
+    };
+
+    console.log("Payload being sent:", payload);
+
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/ride-reservations`,
+      `${apiUrl}/api/ride-reservations`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({
-          employee_name: formData.name,
-          employee_email: formData.company_email,
-          site_id: formData.site_id,
-
-          travel_date: formData.travel_date,
-          departure_time: formData.departure_time,
-
-          roundtrip: formData.roundtrip,
-
-          return_pickup: formData.roundtrip
-            ? formData.return_pickup
-            : null,
-
-          pickup_location: formData.pickup_location,
-
-          pickup_maps_link:
-            formData.pickup_maps_link || null,
-
-          dropoff_destination:
-            formData.dropoff_destination,
-
-          drop_off_maps_link:
-            formData.drop_off_maps_link || null,
-
-          return_drop_off_location:
-            formData.roundtrip
-              ? formData.return_drop_off_location
-              : null,
-
-          return_drop_off_maps_link:
-            formData.roundtrip
-              ? formData.return_drop_off_maps_link || null
-              : null,
-
-          purpose: formData.purpose,
-
-          passenger_count:
-            formData.passenger_count,
-        }),
+        body: JSON.stringify(payload),
       }
     );
+
+    console.log("Response received");
+    console.log("Status:", response.status);
+    console.log("OK:", response.ok);
+
+    const responseText = await response.text();
+
+    console.log("Backend response:", responseText);
 
     if (!response.ok) {
-      let errorMessage =
-        "Failed to submit ride reservation.";
-
-      try {
-        const error = await response.json();
-
-        if (typeof error.detail === "string") {
-          errorMessage = error.detail;
-        } else if (Array.isArray(error.detail)) {
-          errorMessage = error.detail
-            .map((item: any) => item.msg)
-            .join(", ");
-        }
-      } catch {
-        // Keep default error message.
-      }
-
-      throw new Error(errorMessage);
+      throw new Error(
+        `Backend returned ${response.status}: ${responseText}`
+      );
     }
 
-    const data = await response.json();
-
-    console.log(
-      "Ride reservation submitted:",
-      data
-    );
+    console.log("=== RIDE RESERVATION SUCCESS ===");
 
     setShowConfirmation(false);
 
-    alert(
-      "Ride reservation submitted successfully!"
-    );
+    alert("Ride reservation submitted successfully!");
 
     setFormData({
       name: "",
@@ -339,11 +328,10 @@ async function confirmSubmit() {
       purpose: "",
       passenger_count: 1,
     });
+
   } catch (error) {
-    console.error(
-      "Ride reservation error:",
-      error
-    );
+    console.error("=== RIDE RESERVATION ERROR ===");
+    console.error(error);
 
     alert(
       error instanceof Error
@@ -354,7 +342,6 @@ async function confirmSubmit() {
     setSubmitting(false);
   }
 }
-
   return (
     <form
       onSubmit={handleSubmit}

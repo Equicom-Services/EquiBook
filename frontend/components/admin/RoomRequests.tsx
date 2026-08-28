@@ -19,6 +19,8 @@ import {
   Mail,
   ShieldCheck,
   ShieldX,
+  Grid2X2,
+  List,
 } from "lucide-react";
 type ReservationStatus =
   | "all"
@@ -74,6 +76,8 @@ export default function RoomRequests({
 }: RoomRequestsProps) {
   const [requests, setRequests] =
     useState<RoomRequest[]>([]);
+
+    const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const [loading, setLoading] =
     useState(true);
@@ -476,11 +480,46 @@ const cancelBooking = async (requestId: number) => {
 
 return (
   <>
+  <div className="mb-4 flex justify-end">
+  <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+    <button
+      type="button"
+      onClick={() => setViewMode("grid")}
+      className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+        viewMode === "grid"
+          ? "bg-[#03045e] text-white"
+          : "text-slate-600 hover:bg-slate-50"
+      }`}
+    >
+      <Grid2X2 size={16} />
+      Grid
+    </button>
+
+    <button
+      type="button"
+      onClick={() => setViewMode("list")}
+      className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+        viewMode === "list"
+          ? "bg-[#03045e] text-white"
+          : "text-slate-600 hover:bg-slate-50"
+      }`}
+    >
+      <List size={16} />
+      List
+    </button>
+  </div>
+</div>
     {/* ==================================================
         REQUEST CARDS
     ================================================== */}
 
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div
+  className={
+    viewMode === "grid"
+      ? "grid grid-cols-1 gap-4 lg:grid-cols-2"
+      : "flex flex-col gap-3"
+  }
+>
 
       {paginatedRequests.map((request) => (
         <div

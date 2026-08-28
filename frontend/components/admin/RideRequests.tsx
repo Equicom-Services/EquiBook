@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
+import { Grid2X2, List } from "lucide-react";
+
 import RideRequestCard from "./RideRequestCard";
 
 interface RideReservationResponse {
@@ -25,8 +28,11 @@ interface RideReservationResponse {
   vehicle_type: string | null;
   status: string;
   admin_remarks: string | null;
+ 
   approved_rejected_by: number | null;
-  approved_rejected_date_time: string | null;
+  approved_rejected_by_name: string | null;
+  approved_rejected_date_time: string | null; 
+
   calendar_event_id: string | null;
   created_at: string;
   updated_at: string;
@@ -55,9 +61,10 @@ interface RideBooking {
   roundtrip: boolean;
   vehicle_type: string | null;
   request_date_time: string;
-  status: "approved" | "pending" | "rejected";
+  status: "approved" | "pending" | "rejected" | "cancelled";
   admin_remarks: string | null;
   approved_rejected_by: number | null;
+  approved_rejected_by_name: string | null;
   approved_rejected_date_time: string | null;
   calendar_event_id: string | null;
   created_at: string;
@@ -76,6 +83,8 @@ export default function RideRequests({
   const [bookings, setBookings] = useState<RideBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // ==========================================================
   // FETCH RIDE RESERVATIONS
@@ -124,45 +133,30 @@ export default function RideRequests({
             const start = `${reservation.travel_date}T${reservation.departure_time}`;
 
             return {
-              id: String(
-                reservation.ride_reservation_id
-              ),
-
+              id: String(reservation.ride_reservation_id),
               title: reservation.purpose,
-
               start,
-
               end: start,
 
+              
               employee: reservation.employee_name,
-
-              employee_email:
-                reservation.employee_email,
+              employee_email: reservation.employee_email,
 
               site: reservation.site,
-
               site_id: reservation.site_id,
 
-              travel_date:
-                reservation.travel_date,
+              travel_date: reservation.travel_date,
+              departure_time: reservation.departure_time,
 
-              departure_time:
-                reservation.departure_time,
-
-              pickup_location:
-                reservation.pickup_location,
-
-              pickup_maps_link:
-                reservation.pickup_maps_link,
+              pickup_location: reservation.pickup_location,
+              pickup_maps_link: reservation.pickup_maps_link,
 
               dropoff_destination:
                 reservation.dropoff_destination,
-
               drop_off_maps_link:
                 reservation.drop_off_maps_link,
 
-              return_pickup:
-                reservation.return_pickup,
+              return_pickup: reservation.return_pickup,
 
               return_drop_off_location:
                 reservation.return_drop_off_location,
@@ -170,14 +164,12 @@ export default function RideRequests({
               return_drop_off_maps_link:
                 reservation.return_drop_off_maps_link,
 
-              purpose:
-                reservation.purpose,
+              purpose: reservation.purpose,
 
               passengers_count:
                 reservation.passenger_count,
 
-              roundtrip:
-                reservation.roundtrip,
+              roundtrip: reservation.roundtrip,
 
               vehicle_type:
                 reservation.vehicle_type,
@@ -197,9 +189,11 @@ export default function RideRequests({
               approved_rejected_by:
                 reservation.approved_rejected_by,
 
+              approved_rejected_by_name:
+                reservation.approved_rejected_by_name,
+
               approved_rejected_date_time:
                 reservation.approved_rejected_date_time,
-
               calendar_event_id:
                 reservation.calendar_event_id,
 
@@ -306,49 +300,108 @@ export default function RideRequests({
       );
     }
 
-    const response = await fetch(
-      `${apiUrl}/api/ride-reservations/${id}/status`,
-      {
-        method: "PUT",
+const response = await fetch(
+  `${apiUrl}/api/ride-reservations/${id}/status`,
+  {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      status: newStatus.toUpperCase(),
+      admin_remarks: remarks,
+      vehicle_type: vehicleType,
+    }),
+  }
+);
 
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+const data = await response.json();
 
-        body: JSON.stringify({
-          status: newStatus.toUpperCase(),
-          admin_remarks: remarks,
-          vehicle_type: vehicleType,
-        }),
-      }
-    );
+if (!response.ok) {
+  throw new Error(
+    data?.detail ||
+      `Failed to update reservation: ${response.status}`
+  );
+}
 
-    if (!response.ok) {
-      const data = await response
-        .json()
-        .catch(() => null);
-
-      throw new Error(
-        data?.detail ||
-          `Failed to update reservation: ${response.status}`
-      );
-    }
+const updatedReservation: RideReservationResponse = data;
 
     // Update local state immediately
-    setBookings((current) =>
-      current.map((booking) =>
-        booking.id === id
-          ? {
-              ...booking,
-              status: newStatus,
-              admin_remarks: remarks,
-              vehicle_type: vehicleType,
-            }
-          : booking
-      )
-    );
+setBookings((current) =>
+  current.map((booking) =>
+    booking.id === id
+      ? {
+          ...booking,
+          status: newStatus,
+          admin_remarks: remarks,
+          vehicle_type: vehicleType,
+          approved_rejected_by:
+            updatedReservation.approved_rejected_by,
+          approved_rejected_by_name:
+            updatedReservation.approved_rejected_by_name,
+          approved_rejected_date_time:
+            updatedReservation.approved_rejected_date_time,
+          updated_at:
+            updatedReservation.updated_at,
+        }
+      : booking
+  )
+);
   };
+
+  // ==========================================================
+// DELETE RIDE RESERVATION
+// ==========================================================
+
+const cancelRideReservation = async (id: string) => {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const token = localStorage.getItem("access_token");
+
+  if (!token) {
+    throw new Error("You are not authenticated.");
+  }
+
+  const response = await fetch(
+    `${apiUrl}/api/ride-reservations/${id}/cancel`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data?.detail ||
+        `Failed to cancel reservation: ${response.status}`
+    );
+  }
+
+  const updatedReservation: RideReservationResponse = data;
+
+  setBookings((current) =>
+    current.map((booking) =>
+      booking.id === id
+        ? {
+            ...booking,
+            status: "cancelled",
+            admin_remarks: updatedReservation.admin_remarks,
+            approved_rejected_by:
+              updatedReservation.approved_rejected_by,
+            approved_rejected_by_name:
+              updatedReservation.approved_rejected_by_name,
+            approved_rejected_date_time:
+              updatedReservation.approved_rejected_date_time,
+            updated_at: updatedReservation.updated_at,
+          }
+        : booking
+    )
+  );
+};
 
   // ==========================================================
   // LOADING
@@ -397,16 +450,65 @@ export default function RideRequests({
   // ==========================================================
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {filteredBookings.map((booking) => (
-        <RideRequestCard
-          key={booking.id}
-          booking={booking}
-          onStatusUpdate={
-            updateRideReservationStatus
-          }
-        />
-      ))}
-    </div>
+    <>
+      {/* ==================================================
+          VIEW TOGGLE
+      ================================================== */}
+
+      <div className="mb-4 flex justify-end">
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+          <button
+            type="button"
+            onClick={() => setViewMode("grid")}
+            aria-label="Grid view"
+            title="Grid view"
+            className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              viewMode === "grid"
+                ? "bg-[#03045e] text-white"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <Grid2X2 size={16} />
+            Grid
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            aria-label="List view"
+            title="List view"
+            className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              viewMode === "list"
+                ? "bg-[#03045e] text-white"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <List size={16} />
+            List
+          </button>
+        </div>
+      </div>
+
+      {/* ==================================================
+          RIDE REQUESTS
+      ================================================== */}
+
+      <div
+        className={
+          viewMode === "grid"
+            ? "grid grid-cols-1 gap-4 lg:grid-cols-2"
+            : "flex flex-col gap-3"
+        }
+      >
+        {filteredBookings.map((booking) => (
+<RideRequestCard
+  key={booking.id}
+  booking={booking}
+  onStatusUpdate={updateRideReservationStatus}
+  onCancel={cancelRideReservation}
+/>
+        ))}
+      </div>
+    </>
   );
 }

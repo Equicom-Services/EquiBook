@@ -6,6 +6,14 @@ from fastapi import (
     Depends,
     HTTPException,
 )
+
+from app.services.email_service import send_email
+from app.services.email_templates import (
+    ride_booking_submitted_email,
+    ride_booking_admin_email,
+    ride_booking_status_email,
+)
+
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -145,18 +153,72 @@ def create_ride_reservation(
         if admin.email
     ]
 
-    # ---------------------------------------------------------
-    # 7. Email notification
-    # ---------------------------------------------------------
-    # TODO:
-    # if admin_emails:
-    #     html_body = ride_submitted_email(...)
-    #     background_tasks.add_task(
-    #         send_email,
-    #         admin_emails,
-    #         "New Ride Reservation Request",
-    #         html_body,
-    #     )
+# ---------------------------------------------------------
+# 7. Email notifications
+# ---------------------------------------------------------
+
+    # Email requester
+    requester_email_body = ride_booking_submitted_email(
+        employee_name=new_reservation.employee_name,
+        employee_email=new_reservation.employee_email,
+        site=new_reservation.site,
+        travel_date=new_reservation.travel_date,
+        departure_time=new_reservation.departure_time,
+        roundtrip=new_reservation.roundtrip,
+        return_pickup=new_reservation.return_pickup,
+        pickup_location=new_reservation.pickup_location,
+        pickup_maps_link=new_reservation.pickup_maps_link,
+        dropoff_destination=new_reservation.dropoff_destination,
+        drop_off_maps_link=new_reservation.drop_off_maps_link,
+        return_drop_off_location=(
+            new_reservation.return_drop_off_location
+        ),
+        return_drop_off_maps_link=(
+            new_reservation.return_drop_off_maps_link
+        ),
+        purpose=new_reservation.purpose,
+        passenger_count=new_reservation.passenger_count,
+    )
+
+    background_tasks.add_task(
+        send_email,
+        [new_reservation.employee_email],
+        "Ride Reservation Submitted",
+        requester_email_body,
+    )
+
+
+    # Email admins assigned to this site
+    if admin_emails:
+
+        admin_email_body = ride_booking_admin_email(
+            employee_name=new_reservation.employee_name,
+            employee_email=new_reservation.employee_email,
+            site=new_reservation.site,
+            travel_date=new_reservation.travel_date,
+            departure_time=new_reservation.departure_time,
+            roundtrip=new_reservation.roundtrip,
+            return_pickup=new_reservation.return_pickup,
+            pickup_location=new_reservation.pickup_location,
+            pickup_maps_link=new_reservation.pickup_maps_link,
+            dropoff_destination=new_reservation.dropoff_destination,
+            drop_off_maps_link=new_reservation.drop_off_maps_link,
+            return_drop_off_location=(
+                new_reservation.return_drop_off_location
+            ),
+            return_drop_off_maps_link=(
+                new_reservation.return_drop_off_maps_link
+            ),
+            purpose=new_reservation.purpose,
+            passenger_count=new_reservation.passenger_count,
+        )
+
+        background_tasks.add_task(
+            send_email,
+            admin_emails,
+            "New Ride Reservation Request",
+            admin_email_body,
+        )
 
     # ---------------------------------------------------------
     # 8. Return
@@ -209,15 +271,21 @@ def get_ride_reservations(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
+
     results = (
         db.query(
             RideReservation,
             Site.site_id,
             Site.site_name,
+            Admin.name,
         )
         .join(
             Site,
             Site.site_name == RideReservation.site,
+        )
+        .outerjoin(
+            Admin,
+            Admin.id == RideReservation.approved_rejected_by,
         )
         .filter(
             RideReservation.site == current_admin.site,
@@ -230,7 +298,8 @@ def get_ride_reservations(
 
     response = []
 
-    for reservation, site_id, site_name in results:
+    for reservation, site_id, site_name, admin_name in results:
+
         response.append({
             "ride_reservation_id":
                 reservation.ride_reservation_id,
@@ -298,6 +367,9 @@ def get_ride_reservations(
             "approved_rejected_by":
                 reservation.approved_rejected_by,
 
+            "approved_rejected_by_name":
+                admin_name,
+
             "approved_rejected_date_time":
                 reservation.approved_rejected_date_time,
 
@@ -314,8 +386,6 @@ def get_ride_reservations(
     return response
 
 
-
-
 # APPROVE ENDPOINT 
 
 
@@ -326,6 +396,7 @@ def get_ride_reservations(
 def update_ride_reservation_status(
     ride_reservation_id: int,
     request: RideReservationStatusUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
@@ -379,6 +450,204 @@ def update_ride_reservation_status(
 
     db.commit()
     db.refresh(reservation)
+    # ---------------------------------------------------------
+# Send status email to requester
+# ---------------------------------------------------------
+
+    email_body = ride_booking_status_email(
+        employee_name=reservation.employee_name,
+        employee_email=reservation.employee_email,
+        site=reservation.site,
+        travel_date=reservation.travel_date,
+        departure_time=reservation.departure_time,
+        roundtrip=reservation.roundtrip,
+        return_pickup=reservation.return_pickup,
+        pickup_location=reservation.pickup_location,
+        pickup_maps_link=reservation.pickup_maps_link,
+        dropoff_destination=reservation.dropoff_destination,
+        drop_off_maps_link=reservation.drop_off_maps_link,
+        return_drop_off_location=(
+            reservation.return_drop_off_location
+        ),
+        return_drop_off_maps_link=(
+            reservation.return_drop_off_maps_link
+        ),
+        purpose=reservation.purpose,
+        passenger_count=reservation.passenger_count,
+        vehicle_type=reservation.vehicle_type,
+        status=reservation.status,
+        admin_remarks=reservation.admin_remarks,
+        admin_name=current_admin.name,
+    )
+
+    background_tasks.add_task(
+        send_email,
+        [reservation.employee_email],
+        f"Ride Reservation {reservation.status.capitalize()}",
+        email_body,
+    )
+
+    site = (
+        db.query(Site)
+        .filter(Site.site_name == reservation.site)
+        .first()
+    )
+
+    if not site:
+        raise HTTPException(
+            status_code=404,
+            detail="Reservation site not found.",
+        )
+
+    return {
+        "ride_reservation_id": reservation.ride_reservation_id,
+        "request_date_time": reservation.request_date_time,
+        "employee_name": reservation.employee_name,
+        "employee_email": reservation.employee_email,
+        "site_id": site.site_id,
+        "site": site.site_name,
+        "travel_date": reservation.travel_date,
+        "departure_time": reservation.departure_time,
+        "roundtrip": reservation.roundtrip,
+        "return_pickup": reservation.return_pickup,
+        "pickup_location": reservation.pickup_location,
+        "pickup_maps_link": reservation.pickup_maps_link,
+        "dropoff_destination": reservation.dropoff_destination,
+        "drop_off_maps_link": reservation.drop_off_maps_link,
+        "return_drop_off_location":
+            reservation.return_drop_off_location,
+        "return_drop_off_maps_link":
+            reservation.return_drop_off_maps_link,
+        "purpose": reservation.purpose,
+        "passenger_count": reservation.passenger_count,
+        "vehicle_type": reservation.vehicle_type,
+        "status": reservation.status,
+        "admin_remarks": reservation.admin_remarks,
+
+        "approved_rejected_by":
+            reservation.approved_rejected_by,
+
+        "approved_rejected_by_name":
+            current_admin.name,
+
+        "approved_rejected_date_time":
+            reservation.approved_rejected_date_time,
+
+        "calendar_event_id":
+            reservation.calendar_event_id,
+
+        "created_at":
+            reservation.created_at,
+
+        "updated_at":
+            reservation.updated_at,
+    }
+
+@router.delete("/{ride_reservation_id}")
+def delete_ride_reservation(
+    ride_reservation_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
+):
+    reservation = (
+        db.query(RideReservation)
+        .filter(
+            RideReservation.ride_reservation_id == ride_reservation_id,
+            RideReservation.site == current_admin.site,
+        )
+        .first()
+    )
+
+    if not reservation:
+        raise HTTPException(
+            status_code=404,
+            detail="Ride reservation not found.",
+        )
+
+    db.delete(reservation)
+    db.commit()
+
+    return {
+        "message": "Ride reservation deleted successfully."
+    }
+
+@router.put(
+    "/{ride_reservation_id}/cancel",
+    response_model=RideReservationResponse,
+)
+def cancel_ride_reservation(
+    ride_reservation_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
+):
+    reservation = (
+        db.query(RideReservation)
+        .filter(
+            RideReservation.ride_reservation_id == ride_reservation_id,
+            RideReservation.site == current_admin.site,
+        )
+        .first()
+    )
+
+    if not reservation:
+        raise HTTPException(
+            status_code=404,
+            detail="Ride reservation not found.",
+        )
+
+    if reservation.status.upper() != "APPROVED":
+        raise HTTPException(
+            status_code=400,
+            detail="Only approved ride reservations can be cancelled.",
+        )
+
+    now = datetime.now()
+
+    reservation.status = "CANCELLED"
+    reservation.admin_remarks = "Ride reservation cancelled."
+    reservation.approved_rejected_by = current_admin.id
+    reservation.approved_rejected_date_time = now
+    reservation.updated_at = now
+
+    db.commit()
+    db.refresh(reservation)
+    # ---------------------------------------------------------
+# Send cancellation email to requester
+# ---------------------------------------------------------
+
+    email_body = ride_booking_status_email(
+        employee_name=reservation.employee_name,
+        employee_email=reservation.employee_email,
+        site=reservation.site,
+        travel_date=reservation.travel_date,
+        departure_time=reservation.departure_time,
+        roundtrip=reservation.roundtrip,
+        return_pickup=reservation.return_pickup,
+        pickup_location=reservation.pickup_location,
+        pickup_maps_link=reservation.pickup_maps_link,
+        dropoff_destination=reservation.dropoff_destination,
+        drop_off_maps_link=reservation.drop_off_maps_link,
+        return_drop_off_location=(
+            reservation.return_drop_off_location
+        ),
+        return_drop_off_maps_link=(
+            reservation.return_drop_off_maps_link
+        ),
+        purpose=reservation.purpose,
+        passenger_count=reservation.passenger_count,
+        vehicle_type=reservation.vehicle_type,
+        status=reservation.status,
+        admin_remarks=reservation.admin_remarks,
+        admin_name=current_admin.name,
+    )
+
+    background_tasks.add_task(
+        send_email,
+        [reservation.employee_email],
+        "Ride Reservation Cancelled",
+        email_body,
+    )
 
     site = (
         db.query(Site)
@@ -415,14 +684,11 @@ def update_ride_reservation_status(
         "status": reservation.status,
         "admin_remarks": reservation.admin_remarks,
         "approved_rejected_by": reservation.approved_rejected_by,
-        "approved_rejected_date_time": (
-            reservation.approved_rejected_date_time
-        ),
+        "approved_rejected_date_time": reservation.approved_rejected_date_time,
         "calendar_event_id": reservation.calendar_event_id,
         "created_at": reservation.created_at,
         "updated_at": reservation.updated_at,
     }
-
 
 @router.get(
     "/approved",
@@ -436,10 +702,15 @@ def get_approved_ride_reservations(
         db.query(
             RideReservation,
             Site.site_id,
+            Admin.name,
         )
         .join(
             Site,
             Site.site_name == RideReservation.site,
+        )
+        .outerjoin(
+            Admin,
+            Admin.id == RideReservation.approved_rejected_by,
         )
         .filter(
             RideReservation.status == "APPROVED",
@@ -454,89 +725,38 @@ def get_approved_ride_reservations(
 
     response = []
 
-    for reservation, site_id in results:
+    for reservation, site_id, admin_name in results:
         response.append({
-            "ride_reservation_id":
-                reservation.ride_reservation_id,
-
-            "request_date_time":
-                reservation.request_date_time,
-
-            "employee_name":
-                reservation.employee_name,
-
-            "employee_email":
-                reservation.employee_email,
-
-            "site_id":
-                site_id,
-
-            "site":
-                reservation.site,
-
-            "travel_date":
-                reservation.travel_date,
-
-            "departure_time":
-                reservation.departure_time,
-
-            "roundtrip":
-                reservation.roundtrip,
-
-            "return_pickup":
-                reservation.return_pickup,
-
-            "pickup_location":
-                reservation.pickup_location,
-
-            "pickup_maps_link":
-                reservation.pickup_maps_link,
-
-            "dropoff_destination":
-                reservation.dropoff_destination,
-
-            "drop_off_maps_link":
-                reservation.drop_off_maps_link,
-
-            "return_drop_off_location":
-                reservation.return_drop_off_location,
-
-            "return_drop_off_maps_link":
-                reservation.return_drop_off_maps_link,
-
-            "purpose":
-                reservation.purpose,
-
-            "passenger_count":
-                reservation.passenger_count,
-
-            "vehicle_type":
-                reservation.vehicle_type,
-
-            "status":
-                reservation.status,
-
-            "admin_remarks":
-                reservation.admin_remarks,
-
-            "approved_rejected_by":
-                reservation.approved_rejected_by,
-
-            "approved_rejected_date_time":
-                reservation.approved_rejected_date_time,
-
-            "calendar_event_id":
-                reservation.calendar_event_id,
-
-            "created_at":
-                reservation.created_at,
-
-            "updated_at":
-                reservation.updated_at,
+            "ride_reservation_id": reservation.ride_reservation_id,
+            "request_date_time": reservation.request_date_time,
+            "employee_name": reservation.employee_name,
+            "employee_email": reservation.employee_email,
+            "site_id": site_id,
+            "site": reservation.site,
+            "travel_date": reservation.travel_date,
+            "departure_time": reservation.departure_time,
+            "roundtrip": reservation.roundtrip,
+            "return_pickup": reservation.return_pickup,
+            "pickup_location": reservation.pickup_location,
+            "pickup_maps_link": reservation.pickup_maps_link,
+            "dropoff_destination": reservation.dropoff_destination,
+            "drop_off_maps_link": reservation.drop_off_maps_link,
+            "return_drop_off_location": reservation.return_drop_off_location,
+            "return_drop_off_maps_link": reservation.return_drop_off_maps_link,
+            "purpose": reservation.purpose,
+            "passenger_count": reservation.passenger_count,
+            "vehicle_type": reservation.vehicle_type,
+            "status": reservation.status,
+            "admin_remarks": reservation.admin_remarks,
+            "approved_rejected_by": reservation.approved_rejected_by,
+            "approved_rejected_date_time": reservation.approved_rejected_date_time,
+            "calendar_event_id": reservation.calendar_event_id,
+            "created_at": reservation.created_at,
+            "updated_at": reservation.updated_at,
+            "admin_name": admin_name,
         })
 
     return response
-
 
 @router.get(
     "/active",

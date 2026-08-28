@@ -232,6 +232,9 @@ def create_room_request(
 
         "site":
             site.site_name if site else "",
+
+        "site_id":
+            site.site_id if site else None,
     }
 
 
@@ -255,6 +258,7 @@ def get_room_requests(
             RoomRequest,
             Room.room_name,
             Site.site_name,
+            Site.site_id,
             Admin.name.label("approved_rejected_by_name"),
             Admin.email.label("approved_rejected_by_email"),
         )
@@ -285,6 +289,7 @@ def get_room_requests(
         room_request,
         room_name,
         site_name,
+        site_id,
         approved_rejected_by_name,
         approved_rejected_by_email,
     ) in results:
@@ -350,6 +355,9 @@ def get_room_requests(
             "room":
                 room_name,
 
+            "site_id":
+                site_id,
+
             "site":
                 site_name,
         })
@@ -375,6 +383,7 @@ def get_approved_room_bookings(
         db.query(
             RoomRequest,
             Room.room_name,
+            Site.site_id,
             Site.site_name,
         )
         .join(
@@ -398,8 +407,7 @@ def get_approved_room_bookings(
 
     response = []
 
-    for room_request, room_name, site_name in results:
-
+    for room_request, room_name, site_id, site_name in results:
         response.append({
             "room_reservation_id":
                 room_request.room_reservation_id,
@@ -454,6 +462,9 @@ def get_approved_room_bookings(
 
             "room":
                 room_name,
+
+            "site_id":
+                site_id,
 
             "site":
                 site_name,
@@ -482,6 +493,7 @@ def get_active_room_bookings(
             RoomRequest,
             Room.room_name,
             Site.site_name,
+            Site.site_id,
         )
         .join(
             Room,
@@ -506,7 +518,7 @@ def get_active_room_bookings(
 
     response = []
 
-    for room_request, room_name, site_name in results:
+    for room_request, room_name, site_name, site_id in results:
 
         response.append({
             "room_reservation_id":
@@ -565,6 +577,9 @@ def get_active_room_bookings(
 
             "site":
                 site_name,
+            
+            "site_id":
+                site_id,
         })
 
     return response
@@ -1138,7 +1153,7 @@ def cancel_admin_room_booking(
         )
 
     # ---------------------------------------------------------
-    # Prevent cancelling an already cancelled booking
+    # Prevent duplicate cancellation
     # ---------------------------------------------------------
 
     if room_request.status == "CANCELLED":
@@ -1148,7 +1163,7 @@ def cancel_admin_room_booking(
         )
 
     # ---------------------------------------------------------
-    # Cancel
+    # Cancel booking
     # ---------------------------------------------------------
 
     now = datetime.now()
@@ -1166,24 +1181,9 @@ def cancel_admin_room_booking(
     db.commit()
     db.refresh(room_request)
 
-    html_body = booking_status_email(
-            employee_name=room_request.employee_name,
-            status="cancelled",
-            room=room.room_name,
-            site=site.site_name,
-            reservation_date=room_request.reservation_date,
-            start_time=room_request.start_time,
-            end_time=room_request.end_time,
-            purpose=room_request.purpose,
-            remarks=room_request.admin_remarks,
-    )
-
-    background_tasks.add_task(
-        send_email,
-        [room_request.employee_email],
-        "Room Booking Cancelled",
-        html_body,
-    )
+    # ---------------------------------------------------------
+    # Email requester
+    # ---------------------------------------------------------
 
     html_body = booking_status_email(
         employee_name=room_request.employee_name,
@@ -1205,62 +1205,26 @@ def cancel_admin_room_booking(
     )
 
     return {
-        "room_reservation_id":
-            room_request.room_reservation_id,
-
-        "request_date_time":
-            room_request.request_date_time,
-
-        "room_id":
-            room_request.room_id,
-
-        "employee_name":
-            room_request.employee_name,
-
-        "employee_email":
-            room_request.employee_email,
-
-        "reservation_date":
-            room_request.reservation_date,
-
-        "start_time":
-            room_request.start_time,
-
-        "end_time":
-            room_request.end_time,
-
-        "duration_minutes":
-            room_request.duration_minutes,
-
-        "purpose":
-            room_request.purpose,
-
-        "status":
-            room_request.status,
-
-        "admin_remarks":
-            room_request.admin_remarks,
-
-        "approved_rejected_by":
-            room_request.approved_rejected_by,
-
+        "room_reservation_id": room_request.room_reservation_id,
+        "request_date_time": room_request.request_date_time,
+        "room_id": room_request.room_id,
+        "employee_name": room_request.employee_name,
+        "employee_email": room_request.employee_email,
+        "reservation_date": room_request.reservation_date,
+        "start_time": room_request.start_time,
+        "end_time": room_request.end_time,
+        "duration_minutes": room_request.duration_minutes,
+        "purpose": room_request.purpose,
+        "status": room_request.status,
+        "admin_remarks": room_request.admin_remarks,
+        "approved_rejected_by": room_request.approved_rejected_by,
         "approved_rejected_date_time":
             room_request.approved_rejected_date_time,
-
-        "calendar_event_id":
-            room_request.calendar_event_id,
-
-        "created_at":
-            room_request.created_at,
-
-        "updated_at":
-            room_request.updated_at,
-
-        "room":
-            room.room_name,
-
-        "site":
-            site.site_name,
+        "calendar_event_id": room_request.calendar_event_id,
+        "created_at": room_request.created_at,
+        "updated_at": room_request.updated_at,
+        "room": room.room_name,
+        "site": site.site_name,
     }
 
 
@@ -1330,7 +1294,6 @@ def update_room_request_status(
     # --------------------------------------------------------
     # Validate status
     # --------------------------------------------------------
-
     new_status = status_update.status.upper()
 
     allowed_statuses = {
@@ -1346,53 +1309,20 @@ def update_room_request_status(
         )
 
     # --------------------------------------------------------
-    # Optional: prevent changing an already finalized request
+    # Prevent changing an already finalized request
     # --------------------------------------------------------
-
     if room_request.status in {
         "APPROVED",
         "REJECTED",
     }:
-
-        status_text = (
-            "approved"
-            if room_request.status == "APPROVED"
-            else "rejected"
+        raise HTTPException(
+            status_code=400,
+            detail="This room request has already been finalized.",
         )
-
-        html_body = booking_status_email(
-            employee_name=room_request.employee_name,
-            status=status_text,
-            room=room.room_name,
-            site=site.site_name,
-            reservation_date=room_request.reservation_date,
-            start_time=room_request.start_time,
-            end_time=room_request.end_time,
-            purpose=room_request.purpose,
-            remarks=room_request.admin_remarks,
-        )
-
-        subject = (
-            "Room Booking Approved"
-            if room_request.status == "APPROVED"
-            else "Room Booking Rejected"
-        )
-
-        background_tasks.add_task(
-            send_email,
-            [room_request.employee_email],
-            subject,
-            html_body,
-        )
-        # raise HTTPException(
-        #     status_code=400,
-        #     detail="This room request has already been finalized.",
-        # )
 
     # --------------------------------------------------------
     # Rejection requires remarks
     # --------------------------------------------------------
-
     if (
         new_status == "REJECTED"
         and not status_update.admin_remarks
@@ -1403,53 +1333,48 @@ def update_room_request_status(
         )
 
     now = datetime.now()
-
 # --------------------------------------------------------
 # APPROVE REQUEST + REJECT OVERLAPPING REQUESTS
 # --------------------------------------------------------
 
     if new_status == "APPROVED":
 
-        # Find all other pending requests for:
-        # - the same room
-        # - the same reservation date
-        #
-        # Time overlap rule:
-        # existing.start_time < approved.end_time
-        # AND
-        # existing.end_time > approved.start_time
+        # --------------------------------------------------------
+        # Find overlapping pending requests
+        # --------------------------------------------------------
 
         conflicting_requests = (
             db.query(RoomRequest)
             .filter(
                 RoomRequest.room_reservation_id != request_id,
                 RoomRequest.room_id == room_request.room_id,
-                RoomRequest.reservation_date
-                    == room_request.reservation_date,
+                RoomRequest.reservation_date == room_request.reservation_date,
                 RoomRequest.status == "PENDING",
-
-                RoomRequest.start_time
-                    < room_request.end_time,
-
-                RoomRequest.end_time
-                    > room_request.start_time,
+                RoomRequest.start_time < room_request.end_time,
+                RoomRequest.end_time > room_request.start_time,
             )
             .all()
         )
 
-        # Approve the request selected by the admin
-        room_request.status = "APPROVED"
+        # --------------------------------------------------------
+        # Approve selected request
+        # --------------------------------------------------------
 
-        room_request.admin_remarks = (
-            status_update.admin_remarks
-        )
+        room_request.status = "APPROVED"
+        room_request.admin_remarks = status_update.admin_remarks
+
+        # Record admin who approved the request
+        room_request.approved_rejected_by = current_admin.id
+
+        # Record approval date/time
+        room_request.approved_rejected_date_time = now
 
         room_request.updated_at = now
 
-        room_request.approved_rejected_date_time = now
-        room_request.approved_rejected_by = current_admin.id
-
+        # --------------------------------------------------------
         # Automatically reject overlapping requests
+        # --------------------------------------------------------
+
         for conflict in conflicting_requests:
 
             conflict.status = "REJECTED"
@@ -1463,35 +1388,65 @@ def update_room_request_status(
                 f"{room_request.end_time.strftime('%H:%M')}."
             )
 
-            conflict.approved_rejected_date_time = now
             conflict.approved_rejected_by = current_admin.id
+            conflict.approved_rejected_date_time = now
             conflict.updated_at = now
 
+            # ----------------------------------------------------
+            # Notify employee whose request was auto-rejected
+            # ----------------------------------------------------
+
+            conflict_html = booking_status_email(
+                employee_name=conflict.employee_name,
+                status="rejected",
+                room=room.room_name,
+                site=site.site_name,
+                reservation_date=conflict.reservation_date,
+                start_time=conflict.start_time,
+                end_time=conflict.end_time,
+                purpose=conflict.purpose,
+                remarks=conflict.admin_remarks,
+            )
+
+            background_tasks.add_task(
+                send_email,
+                [conflict.employee_email],
+                "Room Booking Rejected",
+                conflict_html,
+            )
 
     else:
 
-        # ----------------------------------------------------
-        # NORMAL REJECTION / PENDING UPDATE
-        # ----------------------------------------------------
+        # --------------------------------------------------------
+        # Normal rejection / pending update
+        # --------------------------------------------------------
 
         room_request.status = new_status
-
-        room_request.admin_remarks = (
-            status_update.admin_remarks
-        )
-
+        room_request.admin_remarks = status_update.admin_remarks
         room_request.updated_at = now
 
         if new_status == "REJECTED":
+
             room_request.approved_rejected_date_time = now
             room_request.approved_rejected_by = current_admin.id
 
         else:
+
             room_request.approved_rejected_date_time = None
             room_request.approved_rejected_by = None
 
     db.commit()
     db.refresh(room_request)
+    print("========== APPROVAL DEBUG ==========")
+    print("current_admin.id:", current_admin.id)
+    print("current_admin.name:", current_admin.name)
+    print("room_request.status:", room_request.status)
+    print("room_request.approved_rejected_by:", room_request.approved_rejected_by)
+    print(
+        "room_request.approved_rejected_date_time:",
+        room_request.approved_rejected_date_time,
+    )
+    print("====================================")
 
     # --------------------------------------------------------
     # Send approval email to employee
@@ -1548,60 +1503,25 @@ def update_room_request_status(
     # --------------------------------------------------------
 
     return {
-        "room_reservation_id":
-            room_request.room_reservation_id,
-
-        "request_date_time":
-            room_request.request_date_time,
-
-        "room_id":
-            room_request.room_id,
-
-        "employee_name":
-            room_request.employee_name,
-
-        "employee_email":
-            room_request.employee_email,
-
-        "reservation_date":
-            room_request.reservation_date,
-
-        "start_time":
-            room_request.start_time,
-
-        "end_time":
-            room_request.end_time,
-
-        "duration_minutes":
-            room_request.duration_minutes,
-
-        "purpose":
-            room_request.purpose,
-
-        "status":
-            room_request.status,
-
-        "admin_remarks":
-            room_request.admin_remarks,
-
-        "approved_rejected_by":
-            room_request.approved_rejected_by,
-
+        "room_reservation_id": room_request.room_reservation_id,
+        "request_date_time": room_request.request_date_time,
+        "room_id": room_request.room_id,
+        "employee_name": room_request.employee_name,
+        "employee_email": room_request.employee_email,
+        "reservation_date": room_request.reservation_date,
+        "start_time": room_request.start_time,
+        "end_time": room_request.end_time,
+        "duration_minutes": room_request.duration_minutes,
+        "purpose": room_request.purpose,
+        "status": room_request.status,
+        "admin_remarks": room_request.admin_remarks,
+        "approved_rejected_by": room_request.approved_rejected_by,
         "approved_rejected_date_time":
             room_request.approved_rejected_date_time,
-
-        "calendar_event_id":
-            room_request.calendar_event_id,
-
-        "created_at":
-            room_request.created_at,
-
-        "updated_at":
-            room_request.updated_at,
-
-        "room":
-            room.room_name,
-
-        "site":
-            site.site_name,
+        "calendar_event_id": room_request.calendar_event_id,
+        "created_at": room_request.created_at,
+        "updated_at": room_request.updated_at,
+        "room": room.room_name,
+        "site_id": site.site_id,
+        "site": site.site_name,
     }
