@@ -18,6 +18,7 @@ import RideRequests from "./RideRequests";
 import Calendar from "@/components/shared/Calendar";
 import { apiFetch } from "@/lib/api";
 import AdminRoomBookingForm from "./AdminRoomBookingForm";
+import AdminRideBookingForm from "./AdminRideBookingForm";
 
 type ReservationType = "room" | "ride";
 
@@ -104,7 +105,13 @@ export default function AdminDashboard() {
 
   const [admin, setAdmin] =
     useState<Admin | null>(null);
-
+    
+ 
+  // ==========================================================
+  // ADMIN MANUAL BOOKING
+  // ==========================================================
+const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
+  
   // ==========================================================
   // ROOM FILTER
   // ==========================================================
@@ -532,36 +539,59 @@ const handleReservationTypeChange = (
               )}
             </div>
 
-            {/* ==================================================
-                BOOK ROOM
-            ================================================== */}
+{/* ==================================================
+    BOOK RESERVATION
+================================================== */}
 
-            {activeType === "room" && (
-              <>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowAdminRoomBooking(true)
-                  }
-                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-                >
-                  <Plus size={18} />
-                  Book Room
-                </button>
+{activeType === "room" ? (
+  <>
+    <button
+      type="button"
+      onClick={() =>
+        setShowAdminRoomBooking(true)
+      }
+      className="flex items-center gap-2 rounded-lg bg-[#03045e] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#02033f]"
+    >
+      <Plus size={18} />
+      Book Room
+    </button>
 
-                {showAdminRoomBooking && (
-                  <AdminRoomBookingForm
-                    onClose={() =>
-                      setShowAdminRoomBooking(false)
-                    }
-                    onSuccess={() => {
-                      fetchApprovedRoomBookings();
-                    }}
-                  />
-                )}
-              </>
-            )}
+    {showAdminRoomBooking && (
+      <AdminRoomBookingForm
+        onClose={() =>
+          setShowAdminRoomBooking(false)
+        }
+        onSuccess={() => {
+          fetchApprovedRoomBookings();
+        }}
+      />
+    )}
+  </>
+) : (
+  <>
+    <button
+      type="button"
+      onClick={() =>
+        setShowAdminRideBooking(true)
+      }
+      className="flex items-center gap-2 rounded-lg bg-[#03045e] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#02033f]"
+    >
+      <Plus size={18} />
+      Book Ride
+    </button>
 
+    {showAdminRideBooking && (
+      <AdminRideBookingForm
+        onClose={() =>
+          setShowAdminRideBooking(false)
+        }
+        onSuccess={() => {
+          fetchApprovedRideBookings();
+        }}
+      />
+    )}
+  </>
+)}
             {/* ==================================================
                 GENERATE REPORT
             ================================================== */}

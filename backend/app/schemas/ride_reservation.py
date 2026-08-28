@@ -140,3 +140,120 @@ class RideReservationResponse(BaseModel):
     created_at: datetime
 
     updated_at: datetime
+
+class AdminRideReservationCreate(BaseModel):
+    employee_name: str = Field(..., max_length=150)
+    employee_email: str = Field(..., max_length=150)
+
+    travel_date: date
+    departure_time: time
+
+    roundtrip: bool = False
+
+    return_pickup: time | None = None
+
+    pickup_location: str = Field(..., max_length=500)
+
+    pickup_maps_link: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    dropoff_destination: str = Field(
+        ...,
+        max_length=500,
+    )
+
+    drop_off_maps_link: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    return_drop_off_location: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+    return_drop_off_maps_link: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    purpose: str = Field(..., max_length=500)
+
+    passenger_count: int = Field(..., gt=0)
+
+    vehicle_type: str = Field(..., max_length=100)
+
+    admin_remarks: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    employee_name: str = Field(
+        ...,
+        max_length=150,
+    )
+
+    employee_email: str = Field(
+        ...,
+        max_length=150,
+    )
+
+    travel_date: date
+
+    departure_time: time
+
+    roundtrip: bool = False
+
+    return_pickup: datetime | None = None
+
+    pickup_location: str = Field(
+        ...,
+        max_length=500,
+    )
+
+    pickup_maps_link: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    dropoff_destination: str = Field(
+        ...,
+        max_length=500,
+    )
+
+    drop_off_maps_link: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    return_drop_off_location: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+    return_drop_off_maps_link: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    purpose: str = Field(
+        ...,
+        max_length=500,
+    )
+
+    passenger_count: int = Field(
+        ...,
+        gt=0,
+    )
+
+    vehicle_type: str = Field(
+        ...,
+        max_length=100,
+    )
+
+    admin_remarks: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
