@@ -39,11 +39,16 @@ class RideReservation(Base):
         nullable=False,
     )
 
+    site_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("sites.site_id"),
+        nullable=True,
+    )
+
     site: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
     )
-
     travel_date: Mapped[date] = mapped_column(
         Date,
         nullable=False,

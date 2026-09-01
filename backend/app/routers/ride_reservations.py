@@ -101,34 +101,31 @@ def create_ride_reservation(
     # ---------------------------------------------------------
     # 5. Create reservation
     # ---------------------------------------------------------
+
     now = datetime.now()
 
     new_reservation = RideReservation(
         request_date_time=now,
-        employee_name=request.employee_name.strip(),
-        employee_email=request.employee_email.strip(),
+        employee_name=request.employee_name,
+        employee_email=request.employee_email,
 
-        # Database column is `site`, not `site_id`
+        # Your ride_reservation_request table currently stores
+        # the site name, not site_id.
         site=site.site_name,
-        site_id=current_admin.site,
+
         travel_date=request.travel_date,
         departure_time=request.departure_time,
         roundtrip=request.roundtrip,
         return_pickup=request.return_pickup,
-        pickup_location=request.pickup_location.strip(),
+        pickup_location=request.pickup_location,
         pickup_maps_link=request.pickup_maps_link,
-        dropoff_destination=request.dropoff_destination.strip(),
+        dropoff_destination=request.dropoff_destination,
         drop_off_maps_link=request.drop_off_maps_link,
         return_drop_off_location=request.return_drop_off_location,
         return_drop_off_maps_link=request.return_drop_off_maps_link,
-        purpose=request.purpose.strip(),
+        purpose=request.purpose,
         passenger_count=request.passenger_count,
-        vehicle_type=None,
         status="PENDING",
-        admin_remarks=None,
-        approved_rejected_by=None,
-        approved_rejected_date_time=None,
-        calendar_event_id=None,
         created_at=now,
         updated_at=now,
     )

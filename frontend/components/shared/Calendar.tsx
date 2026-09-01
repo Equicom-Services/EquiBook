@@ -34,7 +34,7 @@ export default function Calendar({
         events={events}
 
         // Maximum number of events shown inside each day
-        dayMaxEvents={4}
+        dayMaxEvents={3}
 
         // Clicking "+X more" opens the event popover
         moreLinkClick="popover"
