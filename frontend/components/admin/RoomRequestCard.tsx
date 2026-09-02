@@ -1,3 +1,5 @@
+import { capitalizeFirst } from "@/lib/text";
+
 interface RoomBooking {
   id: string;
   title: string;
@@ -123,7 +125,7 @@ export default function RoomRequestCard({
           </p>
 
           <p className="mt-1 text-sm text-slate-600">
-            {booking.purpose}
+            {capitalizeFirst(booking.purpose)}
           </p>
         </div>
 

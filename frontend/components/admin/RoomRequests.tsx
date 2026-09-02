@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { capitalizeFirst } from "@/lib/text";
 import MessageDialog, {
   DialogMessage,
   MessageVariant,
@@ -1010,9 +1011,9 @@ return (
 
             <p
               className="mt-0.5 truncate text-sm text-slate-700"
-              title={request.purpose}
+              title={capitalizeFirst(request.purpose)}
             >
-              {request.purpose}
+              {capitalizeFirst(request.purpose)}
             </p>
 
           </div>
@@ -1038,11 +1039,14 @@ return (
                   <p
                     className="mt-0.5 truncate text-sm text-slate-700"
                     title={
-                      request.admin_remarks ||
-                      "No remarks"
+                      capitalizeFirst(
+                        request.admin_remarks
+                      ) || "No remarks"
                     }
                   >
-                    {request.admin_remarks || "No remarks"}
+                    {capitalizeFirst(
+                      request.admin_remarks
+                    ) || "No remarks"}
                   </p>
                 </div>
 
