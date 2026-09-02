@@ -1,5 +1,7 @@
 "use client";
 
+import { capitalizeFirst } from "@/lib/text";
+
 import {
   ArrowRight,
   Building2,
@@ -408,12 +410,12 @@ return (
 
         <span
           className="flex min-w-0 items-center gap-1.5"
-          title={booking.dropoff_destination}
+          title={capitalizeFirst(booking.dropoff_destination)}
         >
           <MapPinned className="h-3.5 w-3.5 shrink-0 text-slate-400" />
 
           <span className="truncate">
-            {booking.dropoff_destination}
+            {capitalizeFirst(booking.dropoff_destination)}
           </span>
         </span>
       </div>
@@ -563,7 +565,8 @@ return (
             </p>
 
             <p className="mt-0.5 truncate text-xs text-slate-600">
-              {booking.vehicle_type || "Not assigned"}
+              {capitalizeFirst(booking.vehicle_type) ||
+                "Not assigned"}
             </p>
           </div>
         </div>
@@ -591,9 +594,9 @@ return (
 
               <p
                 className="mt-0.5 truncate text-xs font-medium text-slate-800"
-                title={booking.pickup_location}
+                title={capitalizeFirst(booking.pickup_location)}
               >
-                {booking.pickup_location}
+                {capitalizeFirst(booking.pickup_location)}
               </p>
 
               {booking.pickup_maps_link && (
@@ -623,9 +626,9 @@ return (
 
               <p
                 className="mt-0.5 truncate text-xs font-medium text-slate-800"
-                title={booking.dropoff_destination}
+                title={capitalizeFirst(booking.dropoff_destination)}
               >
-                {booking.dropoff_destination}
+                {capitalizeFirst(booking.dropoff_destination)}
               </p>
 
               {booking.drop_off_maps_link && (
@@ -655,9 +658,9 @@ return (
 
               <p
                 className="mt-0.5 line-clamp-2 text-xs leading-5 text-slate-600"
-                title={booking.purpose}
+                title={capitalizeFirst(booking.purpose)}
               >
-                {booking.purpose}
+                {capitalizeFirst(booking.purpose)}
               </p>
             </div>
           </div>
@@ -702,8 +705,9 @@ return (
               </p>
 
               <p className="mt-0.5 truncate text-xs text-slate-600">
-                {booking.return_drop_off_location ||
-                  "Not specified"}
+                {capitalizeFirst(
+                  booking.return_drop_off_location
+                ) || "Not specified"}
               </p>
 
               {booking.return_drop_off_maps_link && (
@@ -737,9 +741,12 @@ return (
 
             <p
               className="mt-0.5 line-clamp-2 text-xs leading-5 text-slate-600"
-              title={booking.admin_remarks ?? undefined}
+              title={
+                capitalizeFirst(booking.admin_remarks) ||
+                undefined
+              }
             >
-              {booking.admin_remarks}
+              {capitalizeFirst(booking.admin_remarks)}
             </p>
           </div>
         </div>
@@ -909,7 +916,7 @@ return (
             </p>
 
             <p className="mt-1 text-sm text-slate-500">
-              {booking.dropoff_destination}
+              {capitalizeFirst(booking.dropoff_destination)}
             </p>
 
             <p className="mt-1 text-sm text-slate-500">

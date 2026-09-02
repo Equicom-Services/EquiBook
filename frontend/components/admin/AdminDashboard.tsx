@@ -17,6 +17,7 @@ import RoomRequests from "./RoomRequests";
 import RideRequests from "./RideRequests";
 import Calendar from "@/components/shared/Calendar";
 import { apiFetch } from "@/lib/api";
+import { capitalizeFirst } from "@/lib/text";
 import AdminRoomBookingForm from "./AdminRoomBookingForm";
 import AdminRideBookingForm from "./AdminRideBookingForm";
 
@@ -460,8 +461,11 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
               booking.ride_reservation_id
             ),
 
-            title:
-              `${booking.pickup_location} → ${booking.dropoff_destination}`,
+            title: `${capitalizeFirst(
+              booking.pickup_location
+            )} → ${capitalizeFirst(
+              booking.dropoff_destination
+            )}`,
 
             start,
 

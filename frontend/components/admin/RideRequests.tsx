@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Grid2X2, List } from "lucide-react";
 
 import RideRequestCard from "./RideRequestCard";
+import { capitalizeFirst } from "@/lib/text";
 
 interface RideReservationResponse {
   ride_reservation_id: number;
@@ -162,7 +163,7 @@ export default function RideRequests({
 
             return {
               id: String(reservation.ride_reservation_id),
-              title: reservation.purpose,
+              title: capitalizeFirst(reservation.purpose),
               start,
               end: start,
 
