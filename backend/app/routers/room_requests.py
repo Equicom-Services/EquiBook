@@ -866,6 +866,7 @@ def create_admin_room_booking(
 def update_admin_room_booking(
     request_id: int,
     booking: RoomBookingUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
@@ -911,6 +912,17 @@ def update_admin_room_booking(
             detail="You are not authorized to modify this booking.",
         )
 
+    # A rejected or cancelled booking is finished, so it can no
+    # longer be edited.
+    if room_request.status not in ("PENDING", "APPROVED"):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Only pending or approved bookings can be "
+                "edited."
+            ),
+        )
+
     # ---------------------------------------------------------
     # 3. Find new room
     # ---------------------------------------------------------
@@ -935,6 +947,14 @@ def update_admin_room_booking(
             status_code=403,
             detail="You can only use rooms within your assigned site.",
         )
+
+    site = (
+        db.query(Site)
+        .filter(
+            Site.site_id == room.site_id
+        )
+        .first()
+    )
 
     # ---------------------------------------------------------
     # 4. Validate requester
@@ -1048,27 +1068,100 @@ def update_admin_room_booking(
 
     room_request.updated_at = now
 
-    # Keep it approved because this is an admin edit
+    # An admin edit doubles as an approval, so the booking is
+    # approved whether it was pending or already approved.
     room_request.status = "APPROVED"
 
-    # Record the admin who modified it
+    # Record the admin who approved it
     room_request.approved_rejected_by = current_admin.id
     room_request.approved_rejected_date_time = now
+
+    # ---------------------------------------------------------
+    # 9. Auto-reject overlapping pending requests
+    #
+    # The edited booking now owns this slot, exactly as it would
+    # after a normal approval.
+    # ---------------------------------------------------------
+
+    conflicting_requests = (
+        db.query(RoomRequest)
+        .filter(
+            RoomRequest.room_reservation_id != request_id,
+            RoomRequest.room_id == room_request.room_id,
+            RoomRequest.reservation_date
+            == room_request.reservation_date,
+            RoomRequest.status == "PENDING",
+            RoomRequest.start_time < room_request.end_time,
+            RoomRequest.end_time > room_request.start_time,
+        )
+        .all()
+    )
+
+    for conflict in conflicting_requests:
+
+        conflict.status = "REJECTED"
+
+        conflict.admin_remarks = (
+            f"Automatically rejected because "
+            f"the room was approved for another "
+            f"reservation from "
+            f"{room_request.start_time.strftime('%H:%M')} "
+            f"to "
+            f"{room_request.end_time.strftime('%H:%M')}."
+        )
+
+        conflict.approved_rejected_by = current_admin.id
+        conflict.approved_rejected_date_time = now
+        conflict.updated_at = now
+
+        conflict_html = booking_status_email(
+            employee_name=conflict.employee_name,
+            status="rejected",
+            room=room.room_name,
+            site=site.site_name if site else None,
+            reservation_date=conflict.reservation_date,
+            start_time=conflict.start_time,
+            end_time=conflict.end_time,
+            purpose=conflict.purpose,
+            remarks=conflict.admin_remarks,
+        )
+
+        background_tasks.add_task(
+            send_email,
+            [conflict.employee_email],
+            "Room Booking Rejected",
+            conflict_html,
+        )
 
     db.commit()
     db.refresh(room_request)
 
     # ---------------------------------------------------------
-    # 9. Return updated booking
+    # 10. Tell the requester their booking is approved
     # ---------------------------------------------------------
 
-    site = (
-        db.query(Site)
-        .filter(
-            Site.site_id == room.site_id
-        )
-        .first()
+    html_body = booking_status_email(
+        employee_name=room_request.employee_name,
+        status="approved",
+        room=room.room_name,
+        site=site.site_name if site else None,
+        reservation_date=room_request.reservation_date,
+        start_time=room_request.start_time,
+        end_time=room_request.end_time,
+        purpose=room_request.purpose,
+        remarks=room_request.admin_remarks,
     )
+
+    background_tasks.add_task(
+        send_email,
+        [room_request.employee_email],
+        "Room Booking Approved",
+        html_body,
+    )
+
+    # ---------------------------------------------------------
+    # 11. Return updated booking
+    # ---------------------------------------------------------
 
     return {
         "room_reservation_id":

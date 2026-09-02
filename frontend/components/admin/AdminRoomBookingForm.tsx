@@ -6,13 +6,14 @@ import RoomRequestConfirmationModal from "../employee/room/RoomRequestConfirmati
 import { apiFetch } from "@/lib/api";
 import EmployeeNameInput from "@/components/shared/EmployeeNameInput";
 
-interface RoomRequest {
+/*
+ * The subset of a booking the edit form needs. Kept structural
+ * so the admin list can pass its own row type.
+ */
+interface EditableRoomBooking {
   room_reservation_id: number;
 
-  request_date_time: string;
-
   room_id: number;
-  room: string;
 
   employee_name: string;
   employee_email: string;
@@ -22,25 +23,13 @@ interface RoomRequest {
   start_time: string;
   end_time: string;
 
-  duration_minutes: number;
-
   purpose: string;
-
-  status:
-    | "pending"
-    | "approved"
-    | "rejected";
-
-  admin_remarks: string | null;
-
-  approved_rejected_date_time: string | null;
-
-  site: string;
 }
+
 interface AdminRoomBookingFormProps {
   onClose: () => void;
   onSuccess: () => void;
-  editingRequest?: RoomRequest | null;
+  editingRequest?: EditableRoomBooking | null;
 }
 
 interface Admin {
@@ -79,6 +68,7 @@ interface BookingSchedule {
 }
 
 interface ExistingBooking {
+  room_reservation_id: number;
   room_id: number;
   reservation_date: string;
   start_time: string;
@@ -92,18 +82,34 @@ type TimeOption = {
   disabled: boolean;
 };
 
+/*
+ * The API returns times as `HH:MM:SS`, the selects use `HH:MM`.
+ */
+const toTimeValue = (time: string) => time.slice(0, 5);
+
 export default function AdminRoomBookingForm({
   onClose,
   onSuccess,
+  editingRequest = null,
 }: AdminRoomBookingFormProps) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  /*
+   * The same form both creates a booking and edits an existing
+   * one. Editing always works on a single reservation.
+   */
+  const isEditing = editingRequest !== null;
 
   // =========================================================
   // ADMIN
   // =========================================================
 
-  const [employeeName, setEmployeeName] = useState("")
-  const [employeeEmail, setEmployeeEmail] = useState("")
+  const [employeeName, setEmployeeName] = useState(
+    editingRequest?.employee_name ?? ""
+  );
+  const [employeeEmail, setEmployeeEmail] = useState(
+    editingRequest?.employee_email ?? ""
+  );
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [loadingAdmin, setLoadingAdmin] = useState(true);
 
@@ -121,18 +127,36 @@ export default function AdminRoomBookingForm({
 
 const [showConfirmation, setShowConfirmation] =
   useState(false);
-  const [roomId, setRoomId] = useState("");
-  const [purpose, setPurpose] = useState("");
+  const [roomId, setRoomId] = useState(
+    editingRequest
+      ? String(editingRequest.room_id)
+      : ""
+  );
+
+  const [purpose, setPurpose] = useState(
+    editingRequest?.purpose ?? ""
+  );
 
   const [bookingSchedules, setBookingSchedules] = useState<
     BookingSchedule[]
   >([
-    {
-      id: Date.now(),
-      date: "",
-      start_time: "",
-      end_time: "",
-    },
+    editingRequest
+      ? {
+          id: editingRequest.room_reservation_id,
+          date: editingRequest.reservation_date,
+          start_time: toTimeValue(
+            editingRequest.start_time
+          ),
+          end_time: toTimeValue(
+            editingRequest.end_time
+          ),
+        }
+      : {
+          id: Date.now(),
+          date: "",
+          start_time: "",
+          end_time: "",
+        },
   ]);
 
   // =========================================================
@@ -153,6 +177,16 @@ const [showConfirmation, setShowConfirmation] =
   const [error, setError] = useState("");
 
   const today = new Date().toISOString().split("T")[0];
+
+  /*
+   * A booking being edited can sit on an earlier date, and the
+   * date input must still be able to show it.
+   */
+  const minDate =
+    editingRequest &&
+    editingRequest.reservation_date < today
+      ? editingRequest.reservation_date
+      : today;
 
   // =========================================================
   // CLOCK TICK
@@ -346,9 +380,12 @@ useEffect(() => {
       now.getDate()
     ).padStart(2, "0")}`;
 
-    // Existing bookings for this room/date
+    // Existing bookings for this room/date.
+    // A booking being edited never conflicts with itself.
     const roomBookings = existingBookings.filter(
       (booking) =>
+        booking.room_reservation_id !==
+          editingRequest?.room_reservation_id &&
         String(booking.room_id) ===
           selectedRoomId &&
         booking.reservation_date === selectedDate &&
@@ -733,6 +770,77 @@ const confirmSubmit = async () => {
     const token =
       localStorage.getItem("access_token");
 
+    // -----------------------------------------------------
+    // EDIT
+    //
+    // An edit updates the one booking in place, so it is a
+    // single PUT instead of one POST per schedule.
+    // -----------------------------------------------------
+
+    if (editingRequest) {
+      const schedule = bookingSchedules[0];
+
+      const response = await apiFetch(
+        `/api/room-requests/admin/room-bookings/${editingRequest.room_reservation_id}`,
+        {
+          method: "PUT",
+
+          body: JSON.stringify({
+            room_id: Number(roomId),
+
+            employee_name:
+              employeeName.trim(),
+
+            employee_email:
+              employeeEmail.trim(),
+
+            reservation_date:
+              schedule.date,
+
+            start_time:
+              schedule.start_time,
+
+            end_time:
+              schedule.end_time,
+
+            purpose:
+              purpose.trim(),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        let errorMessage =
+          "Failed to update room booking.";
+
+        try {
+          const data = await response.json();
+
+          if (typeof data.detail === "string") {
+            errorMessage = data.detail;
+          } else if (Array.isArray(data.detail)) {
+            errorMessage = data.detail
+              .map(
+                (item: { msg?: string }) =>
+                  item.msg
+              )
+              .join(", ");
+          }
+        } catch {
+          // Keep default error
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      setShowConfirmation(false);
+
+      onSuccess();
+      onClose();
+
+      return;
+    }
+
     const responses = await Promise.all(
       bookingSchedules.map((schedule) =>
         fetch(
@@ -809,7 +917,9 @@ const confirmSubmit = async () => {
 
   } catch (error) {
     console.error(
-      "Admin room booking error:",
+      isEditing
+        ? "Admin room booking update error:"
+        : "Admin room booking error:",
       error
     );
 
@@ -820,6 +930,8 @@ const confirmSubmit = async () => {
     setError(
       error instanceof Error
         ? error.message
+        : isEditing
+        ? "We could not update this booking. Please try again."
         : "We could not create this booking. Please try again."
     );
   } finally {
@@ -849,11 +961,15 @@ const confirmSubmit = async () => {
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
           <div>
             <h2 className="text-xl font-bold text-slate-900">
-              Book a Room
+              {isEditing
+                ? "Edit Booking Request"
+                : "Book a Room"}
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Admin booking
+              {isEditing
+                ? "Saving these changes approves this request"
+                : "Admin booking"}
             </p>
           </div>
 
@@ -1006,18 +1122,21 @@ const confirmSubmit = async () => {
                 </h3>
 
                 <p className="mt-1 text-xs text-slate-400">
-                  Add multiple dates if you need
-                  recurring reservations.
+                  {isEditing
+                    ? "An edit applies to this reservation only."
+                    : "Add multiple dates if you need recurring reservations."}
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={addSchedule}
-                className="rounded-md border border-[#03045e] px-3 py-2 text-xs font-semibold text-[#03045e] transition hover:bg-[#03045e] hover:text-white"
-              >
-                + Add Another Date
-              </button>
+              {!isEditing && (
+                <button
+                  type="button"
+                  onClick={addSchedule}
+                  className="rounded-md border border-[#03045e] px-3 py-2 text-xs font-semibold text-[#03045e] transition hover:bg-[#03045e] hover:text-white"
+                >
+                  + Add Another Date
+                </button>
+              )}
             </div>
 
             {bookingSchedules.map(
@@ -1064,7 +1183,7 @@ const confirmSubmit = async () => {
                         value={
                           schedule.date
                         }
-                        min={today}
+                        min={minDate}
                         onChange={(e) =>
                           handleScheduleChange(
                             schedule.id,
@@ -1245,7 +1364,11 @@ const confirmSubmit = async () => {
               className="rounded-lg bg-[#03045e] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading
-                ? "Booking..."
+                ? isEditing
+                  ? "Approving..."
+                  : "Booking..."
+                : isEditing
+                ? "Save & Approve"
                 : "Book Room"}
             </button>
 
@@ -1271,6 +1394,21 @@ const confirmSubmit = async () => {
       onEdit={() => setShowConfirmation(false)}
       onConfirm={confirmSubmit}
       submitting={loading}
+      {...(isEditing
+        ? {
+            title: "Confirm & Approve Booking",
+
+            description:
+              "Saving these changes approves this request.",
+
+            notice:
+              "This booking will be marked as APPROVED. The requester is emailed the approved details, and any pending request that overlaps this room and time is automatically rejected.",
+
+            confirmLabel: "Confirm & Approve",
+
+            submittingLabel: "Approving...",
+          }
+        : {})}
     />
     </>
   );

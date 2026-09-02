@@ -58,6 +58,16 @@ interface RoomRequestConfirmationModalProps {
   onEdit: () => void;
   onConfirm: () => void | Promise<void>;
   submitting?: boolean;
+
+  /*
+   * Copy overrides. An admin edit confirms an approval rather
+   * than a new reservation, so it words the dialog differently.
+   */
+  title?: string;
+  description?: string;
+  notice?: string;
+  confirmLabel?: string;
+  submittingLabel?: string;
 }
 
 export default function RoomRequestConfirmationModal({
@@ -78,6 +88,12 @@ export default function RoomRequestConfirmationModal({
   onEdit,
   onConfirm,
   submitting = false,
+
+  title = "Confirm Room Reservation",
+  description = "Please review the details below before submitting your reservation.",
+  notice = "Please make sure all information is correct before submitting your reservation.",
+  confirmLabel = "Confirm & Submit",
+  submittingLabel = "Submitting...",
 }: RoomRequestConfirmationModalProps) {
   if (!isOpen) {
     return null;
@@ -178,12 +194,11 @@ export default function RoomRequestConfirmationModal({
 
         <div className="border-b border-slate-200 px-6 py-5">
           <h2 className="text-xl font-bold text-slate-800">
-            Confirm Room Reservation
+            {title}
           </h2>
 
           <p className="mt-1 text-sm text-slate-500">
-            Please review the details below before submitting
-            your reservation.
+            {description}
           </p>
         </div>
 
@@ -377,8 +392,7 @@ export default function RoomRequestConfirmationModal({
 
           <div className="rounded-lg bg-[#03045e] p-4">
             <p className="text-sm font-medium text-white">
-              Please make sure all information is correct
-              before submitting your reservation.
+              {notice}
             </p>
           </div>
 
@@ -410,8 +424,8 @@ export default function RoomRequestConfirmationModal({
             className="rounded-md bg-[#03045e] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting
-              ? "Submitting..."
-              : "Confirm & Submit"}
+              ? submittingLabel
+              : confirmLabel}
           </button>
 
         </div>
