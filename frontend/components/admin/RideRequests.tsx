@@ -81,6 +81,11 @@ interface RideRequestsProps {
   searchQuery: string;
 
   /*
+   * `YYYY-MM-DD`, or an empty string for any date.
+   */
+  reservationDate: string;
+
+  /*
    * Bumped by the dashboard when a reservation is created
    * elsewhere on the page, so this list reloads.
    */
@@ -96,6 +101,7 @@ interface RideRequestsProps {
 export default function RideRequests({
   status,
   searchQuery,
+  reservationDate,
   refreshTrigger = 0,
   onActionComplete,
 }: RideRequestsProps) {
@@ -284,6 +290,18 @@ export default function RideRequests({
         booking.status === status;
 
       if (!matchesStatus) {
+        return false;
+      }
+
+      // ------------------------------------------------------
+      // DATE FILTER
+      // ------------------------------------------------------
+
+      const matchesDate =
+        !reservationDate ||
+        booking.travel_date === reservationDate;
+
+      if (!matchesDate) {
         return false;
       }
 

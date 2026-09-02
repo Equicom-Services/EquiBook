@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import RoomRequestConfirmationModal from "../employee/room/RoomRequestConfirmationModal";
 import { apiFetch } from "@/lib/api";
+import EmployeeNameInput from "@/components/shared/EmployeeNameInput";
 
 interface RoomRequest {
   room_reservation_id: number;
@@ -889,10 +890,13 @@ const confirmSubmit = async () => {
       Name
     </label>
 
-    <input
-      type="text"
+    <EmployeeNameInput
       value={employeeName}
-      onChange={(e) => setEmployeeName(e.target.value)}
+      onChange={setEmployeeName}
+      onSelect={(employee) => {
+        setEmployeeName(employee.name);
+        setEmployeeEmail(employee.email);
+      }}
       placeholder="Enter requester's name"
       required
       className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"

@@ -72,6 +72,11 @@ interface RoomRequestsProps {
   roomId: string;
 
   /*
+   * `YYYY-MM-DD`, or an empty string for any date.
+   */
+  reservationDate: string;
+
+  /*
    * Bumped by the dashboard when a booking is created
    * elsewhere on the page, so this list reloads.
    */
@@ -88,6 +93,7 @@ export default function RoomRequests({
   status,
   searchQuery,
   roomId,
+  reservationDate,
   refreshTrigger = 0,
   onActionComplete,
 }: RoomRequestsProps) {
@@ -112,7 +118,7 @@ export default function RoomRequests({
   const [selectedRequest, setSelectedRequest] =
     useState<RoomRequest | null>(null);
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const [requestedPage, setRequestedPage] = useState(1);
 
 const ITEMS_PER_PAGE = 10;
 
@@ -248,6 +254,10 @@ const filteredRequests = useMemo(() => {
       roomId === "all" ||
       String(request.room_id) === roomId;
 
+    const matchesDate =
+      !reservationDate ||
+      request.reservation_date === reservationDate;
+
     const matchesSearch =
       !query ||
       request.employee_name
@@ -278,6 +288,7 @@ const filteredRequests = useMemo(() => {
     return (
       matchesStatus &&
       matchesRoom &&
+      matchesDate &&
       matchesSearch
     );
   });
@@ -286,11 +297,18 @@ const filteredRequests = useMemo(() => {
   status,
   searchQuery,
   roomId,
+  reservationDate,
 ]);
 
 
 const totalPages = Math.ceil(
   filteredRequests.length / ITEMS_PER_PAGE
+);
+
+// Clamped so a narrowing filter can't strand us past the last page
+const currentPage = Math.min(
+  requestedPage,
+  Math.max(totalPages, 1)
 );
 
 const paginatedRequests = useMemo(() => {
@@ -1316,8 +1334,8 @@ return (
           <button
             type="button"
             onClick={() =>
-              setCurrentPage((page) =>
-                Math.max(page - 1, 1)
+              setRequestedPage(
+                Math.max(currentPage - 1, 1)
               )
             }
             disabled={currentPage === 1}
@@ -1338,7 +1356,7 @@ return (
                 key={page}
                 type="button"
                 onClick={() =>
-                  setCurrentPage(page)
+                  setRequestedPage(page)
                 }
                 className={`min-w-[34px] rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
                   currentPage === page
@@ -1357,8 +1375,8 @@ return (
           <button
             type="button"
             onClick={() =>
-              setCurrentPage((page) =>
-                Math.min(page + 1, totalPages)
+              setRequestedPage(
+                Math.min(currentPage + 1, totalPages)
               )
             }
             disabled={

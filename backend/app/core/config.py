@@ -15,6 +15,19 @@ class Settings(BaseSettings):
     SMTP_PORT: int
     SMTP_FROM_EMAIL: str
 
+    # ------------------------------------------------------------------
+    # EXTERNAL EMPLOYEE DIRECTORY (read-only, another host)
+    #
+    # Powers the name/email autocomplete in the booking forms. Optional:
+    # leave EMPLOYEE_DIRECTORY_URL empty and the autocomplete simply
+    # returns no suggestions.
+    # ------------------------------------------------------------------
+
+    EMPLOYEE_DIRECTORY_URL: str = ""
+    EMPLOYEE_DIRECTORY_TABLE: str = "employees"
+    EMPLOYEE_DIRECTORY_NAME_COLUMN: str = "employee_name"
+    EMPLOYEE_DIRECTORY_EMAIL_COLUMN: str = "email"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

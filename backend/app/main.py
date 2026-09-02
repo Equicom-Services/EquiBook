@@ -13,6 +13,7 @@ from app.routers import rooms
 from app.routers import room_requests
 from app.routers import ride_reservations
 from app.routers import dashboard
+from app.routers import employees
 
 from app.core.security import get_current_admin
 from app.models.admin import Admin
@@ -71,6 +72,11 @@ app.include_router(
 
 app.include_router(
     ride_reservations.router,
+    prefix="/api",
+)
+
+app.include_router(
+    employees.router,
     prefix="/api",
 )
 

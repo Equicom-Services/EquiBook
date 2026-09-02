@@ -5,6 +5,8 @@ import MessageDialog, {
   DialogMessage,
   MessageVariant,
 } from "@/components/shared/MessageDialog";
+import EmployeeNameInput from "@/components/shared/EmployeeNameInput";
+
 interface RideRequestFormProps {
   selectedDate: string;
 
@@ -664,11 +666,22 @@ async function confirmSubmit() {
             Name
           </label>
 
-          <input
-            type="text"
+          <EmployeeNameInput
             name="name"
             value={formData.name}
-            onChange={handleChange}
+            onChange={(name) =>
+              setFormData((prev) => ({
+                ...prev,
+                name,
+              }))
+            }
+            onSelect={(employee) =>
+              setFormData((prev) => ({
+                ...prev,
+                name: employee.name,
+                company_email: employee.email,
+              }))
+            }
             placeholder="Enter your name"
             required
             className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"

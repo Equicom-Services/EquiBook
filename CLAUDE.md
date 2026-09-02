@@ -75,6 +75,16 @@ Status flows `PENDING → APPROVED | REJECTED | CANCELLED`. Key domain logic to 
 
 Rides mirror this pattern under `/api/ride-reservations` with `models/ride_reservation.py`.
 
+### External employee directory (autocomplete)
+`core/directory_db.py` holds a **second, read-only** SQLAlchemy engine pointing at another host's
+employee database (`EMPLOYEE_DIRECTORY_*` in `.env`). It backs the name/email autocomplete in the
+booking forms via public `GET /api/employees/search`, and only ever issues `SELECT` — never write
+to it, and never mix it with `core/database.py`, which owns Equibook's own tables. Table and column
+names are config, not code, because we don't control that schema (`NAME_COLUMN` accepts
+`firstname,lastname`). The engine is lazy and every failure degrades to "no suggestions", so a dead
+directory can't stop the API booting or block a booking. `GET /api/employees/directory-health`
+(admin) reports whether the credentials connect.
+
 ### Email
 Notifications (submitted/approved/rejected/cancelled) are sent through `services/email_service.py`
 using templates in `services/email_templates.py`, always dispatched via FastAPI `BackgroundTasks`
