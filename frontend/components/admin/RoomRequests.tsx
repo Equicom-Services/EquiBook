@@ -10,6 +10,7 @@ import {
   Check,
   X,
   MoreVertical,
+  Pencil,
   Trash2,
   DoorOpen,
   MapPin,
@@ -25,6 +26,7 @@ import {
   List,
   ChevronDown,
 } from "lucide-react";
+import AdminRoomBookingForm from "@/components/admin/AdminRoomBookingForm";
 type ReservationStatus =
   | "all"
   | "pending"
@@ -134,6 +136,12 @@ const ITEMS_PER_PAGE = 10;
     useState(false);
 const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
+/*
+ * Booking currently open in the edit form.
+ */
+const [editingRequest, setEditingRequest] =
+  useState<RoomRequest | null>(null);
+
   // ==========================================================
   // FETCH REQUESTS
   // ==========================================================
@@ -223,6 +231,45 @@ useEffect(() => {
 
   return () => clearInterval(interval);
 }, []);
+
+/*
+ * The actions menu closes on a click anywhere else on the page
+ * or on Escape.
+ *
+ * The menu marks itself with `data-actions-menu` and clicks
+ * inside it are ignored here. React delegates its own events to
+ * `document` as well, so stopping propagation in a handler would
+ * not keep the click from reaching this listener.
+ */
+useEffect(() => {
+  if (openMenuId === null) {
+    return;
+  }
+
+  const closeOnOutsideClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+
+    if (target?.closest("[data-actions-menu]")) {
+      return;
+    }
+
+    setOpenMenuId(null);
+  };
+
+  const closeOnEscape = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      setOpenMenuId(null);
+    }
+  };
+
+  document.addEventListener("mousedown", closeOnOutsideClick);
+  document.addEventListener("keydown", closeOnEscape);
+
+  return () => {
+    document.removeEventListener("mousedown", closeOnOutsideClick);
+    document.removeEventListener("keydown", closeOnEscape);
+  };
+}, [openMenuId]);
 
 /*
  * Reload silently when the dashboard signals a change made
@@ -729,13 +776,56 @@ return (
                     <Check size={14} />
                     Approve
                   </button>
+
+                  <div
+                    className="relative"
+                    data-actions-menu
+                  >
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenMenuId(
+                          openMenuId === request.room_reservation_id
+                            ? null
+                            : request.room_reservation_id
+                        )
+                      }
+                      className="rounded-md border border-slate-200 p-1.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+                      aria-label="Request actions"
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+
+                    {openMenuId === request.room_reservation_id && (
+                      <div className="absolute right-0 top-full z-30 mt-2 w-32 rounded-md border border-slate-200 bg-white p-1 shadow-lg">
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingRequest(request);
+                            setOpenMenuId(null);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                        >
+                          <Pencil size={14} />
+                          Edit
+                        </button>
+
+                      </div>
+                    )}
+
+                  </div>
                 </>
               )}
 
 
               {/* APPROVED */}
               {request.status === "approved" && (
-                <div className="relative">
+                <div
+                  className="relative"
+                  data-actions-menu
+                >
 
                   <button
                     type="button"
@@ -1390,6 +1480,24 @@ return (
         </div>
 
       </div>
+    )}
+
+    {/* ==================================================
+        EDIT BOOKING
+    ================================================== */}
+
+    {editingRequest && (
+      <AdminRoomBookingForm
+        editingRequest={editingRequest}
+        onClose={() => setEditingRequest(null)}
+        onSuccess={() => {
+          setEditingRequest(null);
+
+          fetchRequests(false);
+
+          onActionComplete?.();
+        }}
+      />
     )}
 
     <MessageDialog
