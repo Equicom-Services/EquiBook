@@ -4,23 +4,33 @@ interface RideFormData {
   name: string;
   company_email: string;
   site: string;
-  travel_date: string;
-  departure_time: string;
-  roundtrip: boolean;
-  return_pickup: string;
   pickup_location: string;
   pickup_maps_link: string;
   dropoff_destination: string;
   drop_off_maps_link: string;
-  return_drop_off_location: string;
-  return_drop_off_maps_link: string;
   purpose: string;
   passenger_count: number;
+}
+
+interface TravelSchedule {
+  id: number;
+  date: string;
+  departure_time: string;
+  roundtrip: boolean;
+  return_pickup: string;
+  return_drop_off_location: string;
+  return_drop_off_maps_link: string;
 }
 
 interface RideRequestConfirmationModalProps {
   isOpen: boolean;
   formData: RideFormData;
+
+  /*
+   * Every travel date and departure time being submitted.
+   */
+  travelSchedules: TravelSchedule[];
+
   onEdit: () => void;
   onConfirm: () => void | Promise<void>;
   submitting?: boolean;
@@ -29,6 +39,7 @@ interface RideRequestConfirmationModalProps {
 export default function RideRequestConfirmationModal({
   isOpen,
   formData,
+  travelSchedules,
   onEdit,
   onConfirm,
   submitting = false,
@@ -83,7 +94,7 @@ export default function RideRequestConfirmationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-md bg-white shadow-2xl">
         {/* HEADER */}
         <div className="border-b border-slate-200 px-6 py-5">
           <h2 className="text-xl font-bold text-slate-800">
@@ -160,19 +171,6 @@ export default function RideRequestConfirmationModal({
                     {formData.passenger_count || "-"}
                   </p>
                 </div>
-
-                {/* Round Trip */}
-                <div className="p-4">
-                  <p className="text-xs text-slate-400">
-                    Trip Type
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {formData.roundtrip
-                      ? "Round Trip"
-                      : "One Way"}
-                  </p>
-                </div>
               </div>
             </div>
           </div>
@@ -184,30 +182,103 @@ export default function RideRequestConfirmationModal({
             </h3>
 
             <div className="rounded-lg border border-slate-200 bg-slate-50">
-              <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
-                {/* Travel Date */}
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Travel Date
-                  </p>
+              {travelSchedules.map((schedule, index) => (
+                <div
+                  key={schedule.id}
+                  className={`grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 ${
+                    index > 0
+                      ? "border-t border-slate-200"
+                      : ""
+                  }`}
+                >
+                  {/* Travel Date */}
+                  <div>
+                    <p className="text-xs text-slate-400">
+                      Travel Date
+                      {travelSchedules.length > 1
+                        ? ` ${index + 1}`
+                        : ""}
+                    </p>
 
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {formatDate(formData.travel_date)}
-                  </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">
+                      {formatDate(schedule.date)}
+                    </p>
+                  </div>
+
+                  {/* Departure Time */}
+                  <div>
+                    <p className="text-xs text-slate-400">
+                      Departure Time
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-slate-800">
+                      {formatTime(schedule.departure_time)}
+                    </p>
+                  </div>
+
+                  {/* Trip Type */}
+                  <div>
+                    <p className="text-xs text-slate-400">
+                      Trip Type
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-slate-800">
+                      {schedule.roundtrip
+                        ? "Round Trip"
+                        : "One Way"}
+                    </p>
+                  </div>
+
+                  {/* Return Trip */}
+                  {schedule.roundtrip && (
+                    <>
+                      <div>
+                        <p className="text-xs text-slate-400">
+                          Return Pickup
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                          {formatDateTime(
+                            schedule.return_pickup
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <p className="text-xs text-slate-400">
+                          Return Drop-off Location
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                          {schedule.return_drop_off_location ||
+                            "-"}
+                        </p>
+
+                        {schedule.return_drop_off_maps_link && (
+                          <a
+                            href={
+                              schedule.return_drop_off_maps_link
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-block text-sm font-medium text-[#03045e] hover:underline"
+                          >
+                            View Google Maps Location
+                          </a>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
-
-                {/* Departure Time */}
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Departure Time
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {formatTime(formData.departure_time)}
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
+
+            {travelSchedules.length > 1 && (
+              <p className="mt-2 text-xs text-slate-500">
+                {travelSchedules.length} ride reservations will
+                be submitted.
+              </p>
+            )}
           </div>
 
           {/* PICKUP */}
@@ -269,50 +340,6 @@ export default function RideRequestConfirmationModal({
               </div>
             </div>
           </div>
-
-          {/* RETURN TRIP */}
-          {formData.roundtrip && (
-            <div>
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Return Trip
-              </h3>
-
-              <div className="space-y-3">
-                {/* Return Pickup */}
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs text-slate-400">
-                    Return Pickup
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {formatDateTime(formData.return_pickup)}
-                  </p>
-                </div>
-
-                {/* Return Drop-off */}
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs text-slate-400">
-                    Return Drop-off Location
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {formData.return_drop_off_location || "-"}
-                  </p>
-
-                  {formData.return_drop_off_maps_link && (
-                    <a
-                      href={formData.return_drop_off_maps_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-block text-sm font-medium text-[#03045e] hover:underline"
-                    >
-                      View Google Maps Location
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* PURPOSE */}
           <div>

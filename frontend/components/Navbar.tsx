@@ -11,11 +11,17 @@ import {
   DoorOpen,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import MessageDialog from "@/components/shared/MessageDialog";
 
 interface Admin {
   id: number;
   email: string;
   name?: string;
+
+  /*
+   * Site the admin is assigned to, from /api/admin/me.
+   */
+  site_name?: string;
 }
 
 export default function Navbar() {
@@ -25,6 +31,13 @@ export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+
+  /*
+   * Logging out is confirmed first, so it cannot be triggered
+   * by an accidental click.
+   */
+  const [showLogoutConfirm, setShowLogoutConfirm] =
+    useState(false);
 
   const isAdmin = pathname.startsWith("/admin");
 
@@ -91,6 +104,8 @@ useEffect(() => {
   }, []);
 
   const handleLogout = () => {
+    setShowLogoutConfirm(false);
+
     localStorage.removeItem("access_token");
 
     setIsLoggedIn(false);
@@ -177,7 +192,10 @@ useEffect(() => {
               </p>
 
               <p className="text-xs text-slate-400">
-                Administrator
+                Admin
+                {admin.site_name
+                  ? ` · ${admin.site_name}`
+                  : ""}
               </p>
             </div>
 
@@ -197,7 +215,9 @@ useEffect(() => {
 
             {/* Logout */}
             <button
-              onClick={handleLogout}
+              onClick={() =>
+                setShowLogoutConfirm(true)
+              }
               className="flex items-center gap-1.5 rounded-full bg-[#03045e] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#02034b]"
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -236,6 +256,18 @@ useEffect(() => {
           </div>
         )}
       </div>
+
+      {/* Logout confirmation */}
+
+      <MessageDialog
+        isOpen={showLogoutConfirm}
+        variant="info"
+        title="Log Out"
+        message="Are you sure you want to log out? You will need to sign in again to manage reservations."
+        confirmLabel="Log Out"
+        onConfirm={handleLogout}
+        onClose={() => setShowLogoutConfirm(false)}
+      />
     </nav>
   );
 }

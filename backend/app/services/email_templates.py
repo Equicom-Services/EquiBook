@@ -351,6 +351,17 @@ def booking_status_email(
         status_background = "#fffbeb"
         status_border = "#f59e0b"
 
+    elif status == "pending":
+        status_title = "Booking Request Received"
+        status_message = (
+            "We have received your room booking request. "
+            "It is currently PENDING and will be reviewed by "
+            "the site admin."
+        )
+        status_color = "#1e3a8a"
+        status_background = "#eff6ff"
+        status_border = "#3b82f6"
+
     else:
         status_title = f"Booking {status.capitalize()}"
         status_message = f"Your room booking request status is {status}."

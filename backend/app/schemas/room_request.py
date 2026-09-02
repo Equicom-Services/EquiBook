@@ -34,6 +34,12 @@ class RoomRequestStatusUpdate(BaseModel):
     admin_remarks: str | None = None
 
 
+class RoomBookingCancel(BaseModel):
+    """Reason an admin gives when cancelling a booking."""
+
+    admin_remarks: str | None = None
+
+
 class RoomRequestResponse(BaseModel):
     room_reservation_id: int
     request_date_time: datetime

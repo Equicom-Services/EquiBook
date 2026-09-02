@@ -24,9 +24,10 @@ type ReservationType = "room" | "ride";
 
 type ReservationStatus =
   | "all"
-  | "pending"
   | "approved"
-  | "rejected";
+  | "pending"
+  | "rejected"
+  | "cancelled";
 
 interface ApprovedRoomBooking {
   room_reservation_id: number;
@@ -229,9 +230,14 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
   // FETCH APPROVED ROOM BOOKINGS
   // ==========================================================
 
-  const fetchApprovedRoomBookings = async () => {
+  const fetchApprovedRoomBookings = async (
+    showLoading = true
+  ) => {
     try {
-      setCalendarLoading(true);
+      if (showLoading) {
+        setCalendarLoading(true);
+      }
+
       setCalendarError("");
 
       const response = await apiFetch(
@@ -272,9 +278,14 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
   // FETCH APPROVED RIDE BOOKINGS
   // ==========================================================
 
-  const fetchApprovedRideBookings = async () => {
+  const fetchApprovedRideBookings = async (
+    showLoading = true
+  ) => {
     try {
-      setCalendarLoading(true);
+      if (showLoading) {
+        setCalendarLoading(true);
+      }
+
       setCalendarError("");
 
       const response = await apiFetch(
@@ -315,12 +326,32 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
   // FETCH CALENDAR DATA
   // ==========================================================
 
-  const fetchCalendarBookings = async () => {
+  const fetchCalendarBookings = async (
+    showLoading = true
+  ) => {
     if (activeType === "room") {
-      await fetchApprovedRoomBookings();
+      await fetchApprovedRoomBookings(showLoading);
     } else {
-      await fetchApprovedRideBookings();
+      await fetchApprovedRideBookings(showLoading);
     }
+  };
+
+  // ==========================================================
+  // REFRESH AFTER AN ACTION
+  //
+  // Bumping this reloads the statistics and the request list,
+  // and the calendar is refetched, so the whole dashboard
+  // reflects the action without a manual browser refresh.
+  // ==========================================================
+
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleActionComplete = () => {
+    setRefreshKey((key) => key + 1);
+
+    // Silent: a visible loading state here would blank the
+    // calendar the admin is looking at.
+    fetchCalendarBookings(false);
   };
 
   // ==========================================================
@@ -448,6 +479,29 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
   };
 
   // ==========================================================
+  // AUTO REFRESH THE CALENDAR
+  //
+  // While the calendar is open its bookings are reloaded in the
+  // background, so it always shows the latest data without the
+  // admin having to refresh it.
+  // ==========================================================
+
+  useEffect(() => {
+    if (!showCalendar) {
+      return;
+    }
+
+    fetchCalendarBookings(false);
+
+    const interval = setInterval(() => {
+      fetchCalendarBookings(false);
+    }, 10000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCalendar, activeType, refreshKey]);
+
+  // ==========================================================
   // RESERVATION TYPE CHANGE
   // ==========================================================
 
@@ -563,6 +617,7 @@ const handleReservationTypeChange = (
         }
         onSuccess={() => {
           fetchApprovedRoomBookings();
+          setRefreshKey((key) => key + 1);
         }}
       />
     )}
@@ -587,6 +642,7 @@ const handleReservationTypeChange = (
         }
         onSuccess={() => {
           fetchApprovedRideBookings();
+          setRefreshKey((key) => key + 1);
         }}
       />
     )}
@@ -621,6 +677,7 @@ const handleReservationTypeChange = (
         <div className="mt-6">
           <DashboardStats
             reservationType={activeType}
+            refreshTrigger={refreshKey}
           />
         </div>
 
@@ -704,11 +761,19 @@ const handleReservationTypeChange = (
                 status={activeStatus}
                 searchQuery={searchQuery}
                 roomId={selectedRoom}
+                refreshTrigger={refreshKey}
+                onActionComplete={
+                  handleActionComplete
+                }
               />
             ) : (
               <RideRequests
                 status={activeStatus}
                 searchQuery={searchQuery}
+                refreshTrigger={refreshKey}
+                onActionComplete={
+                  handleActionComplete
+                }
               />
             )}
 
@@ -742,7 +807,7 @@ const handleReservationTypeChange = (
       {showCalendar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
 
-          <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-md bg-white shadow-2xl">
 
             {/* Calendar Header */}
 
@@ -780,40 +845,24 @@ const handleReservationTypeChange = (
 
               {/* Calendar Filter Information */}
 
-              <div className="mb-5 flex items-center justify-between">
-
-                <div>
+              {activeType === "room" && (
+                <div className="mb-5">
 
                   <p className="text-sm font-medium text-slate-700">
 
-                    {activeType === "room"
-                      ? selectedRoom === "all"
-                        ? "All Rooms"
-                        : rooms.find(
-                            (room) =>
-                              String(
-                                room.room_id
-                              ) ===
-                              selectedRoom
-                          )?.room_name ||
-                          "Selected Room"
-                      : "Your Site"}
+                    {selectedRoom === "all"
+                      ? "All Rooms"
+                      : rooms.find(
+                          (room) =>
+                            String(room.room_id) ===
+                            selectedRoom
+                        )?.room_name ||
+                        "Selected Room"}
 
                   </p>
 
                 </div>
-
-                <button
-                  type="button"
-                  onClick={
-                    fetchCalendarBookings
-                  }
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Refresh
-                </button>
-
-              </div>
+              )}
 
               {/* Loading */}
 
@@ -837,8 +886,8 @@ const handleReservationTypeChange = (
 
                   <button
                     type="button"
-                    onClick={
-                      fetchCalendarBookings
+                    onClick={() =>
+                      fetchCalendarBookings()
                     }
                     className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
                   >

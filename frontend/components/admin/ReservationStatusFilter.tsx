@@ -1,7 +1,14 @@
+type ReservationStatus =
+  | "all"
+  | "approved"
+  | "pending"
+  | "rejected"
+  | "cancelled";
+
 interface ReservationStatusFilterProps {
-  activeStatus: "all" | "pending" | "approved" | "rejected";
+  activeStatus: ReservationStatus;
   onChange: (
-    status: "all" | "pending" | "approved" | "rejected"
+    status: ReservationStatus
   ) => void;
 }
 
@@ -11,9 +18,10 @@ export default function ReservationStatusFilter({
 }: ReservationStatusFilterProps) {
   const statuses = [
     { value: "all", label: "All" },
-    { value: "pending", label: "Pending" },
     { value: "approved", label: "Approved" },
+    { value: "pending", label: "Pending" },
     { value: "rejected", label: "Rejected" },
+    { value: "cancelled", label: "Cancelled" },
   ] as const;
 
   return (

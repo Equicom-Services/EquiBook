@@ -25,6 +25,7 @@ from app.schemas.ride_reservation import (
     RideReservationCreate,
     RideReservationResponse,
     RideReservationStatusUpdate,
+    RideReservationCancel,
     AdminRideReservationCreate,
 )
 
@@ -576,6 +577,7 @@ def delete_ride_reservation(
 def cancel_ride_reservation(
     ride_reservation_id: int,
     background_tasks: BackgroundTasks,
+    cancellation: RideReservationCancel | None = None,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
@@ -603,7 +605,18 @@ def cancel_ride_reservation(
     now = datetime.now()
 
     reservation.status = "CANCELLED"
-    reservation.admin_remarks = "Ride reservation cancelled."
+    # Reason supplied by the admin, or a default when none is
+    # given, so the requester always sees why.
+
+    reason = (
+        cancellation.admin_remarks.strip()
+        if cancellation and cancellation.admin_remarks
+        else ""
+    )
+
+    reservation.admin_remarks = (
+        reason or "Ride reservation cancelled."
+    )
     reservation.approved_rejected_by = current_admin.id
     reservation.approved_rejected_date_time = now
     reservation.updated_at = now

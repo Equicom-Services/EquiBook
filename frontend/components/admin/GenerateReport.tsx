@@ -7,7 +7,12 @@ interface GenerateReportProps {
   reservationType: "room" | "ride";
 }
 
-type ReportStatus = "all" | "pending" | "approved" | "rejected";
+type ReportStatus =
+  | "all"
+  | "approved"
+  | "pending"
+  | "rejected"
+  | "cancelled";
 type ReportFormat = "csv" | "pdf";
 
 export default function GenerateReport({
@@ -273,9 +278,10 @@ export default function GenerateReport({
                   className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 disabled:bg-slate-50"
                 >
                   <option value="all">All Requests</option>
-                  <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
                   <option value="rejected">Rejected</option>
+                  <option value="cancelled">Cancelled</option>
                 </select>
               </div>
 

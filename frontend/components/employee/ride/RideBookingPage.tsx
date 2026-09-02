@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import Calendar from "@/components/shared/Calendar";
 
@@ -97,8 +97,7 @@ export default function RideBookingPage() {
   // FETCH RIDE BOOKINGS
   // ==========================================================
 
-  useEffect(() => {
-    const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
       try {
         setLoading(true);
 
@@ -130,10 +129,11 @@ export default function RideBookingPage() {
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchBookings();
   }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   // ==========================================================
   // GET BRANCH COLOR
@@ -339,6 +339,7 @@ export default function RideBookingPage() {
 
             <RideRequestForm
               selectedDate={selectedDate}
+              onSuccess={fetchBookings}
             />
 
           </div>
