@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 interface RideReservation {
   ride_reservation_id: number;
@@ -37,7 +37,13 @@ export default function RideBookingDetails({
   bookings,
 }: RideBookingDetailsProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // The page is tied to the date it was chosen on, so moving to another
+  // date starts back at page 1 without needing to correct state later.
+  const [pageState, setPageState] = useState({
+    date: selectedDate,
+    page: 1,
+  });
 
   const formattedDate = new Date(
     `${selectedDate}T00:00:00`
@@ -89,17 +95,15 @@ export default function RideBookingDetails({
     filteredBookings.length / ITEMS_PER_PAGE
   );
 
-  // Reset to the first page whenever the search or the date changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedDate]);
+  // Clamped so a shrinking result set can't strand us past the last page
+  const currentPage = Math.min(
+    pageState.date === selectedDate ? pageState.page : 1,
+    Math.max(totalPages, 1)
+  );
 
-  // Keep the page in range when bookings are added or removed
-  useEffect(() => {
-    if (totalPages > 0 && currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  const goToPage = (page: number) => {
+    setPageState({ date: selectedDate, page });
+  };
 
   const paginatedBookings = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -121,7 +125,10 @@ export default function RideBookingDetails({
         <input
           type="text"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            goToPage(1);
+          }}
           placeholder="Search vehicle, route, employee, site, or purpose..."
           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
         />
@@ -283,9 +290,7 @@ export default function RideBookingDetails({
                 <button
                   type="button"
                   onClick={() =>
-                    setCurrentPage((page) =>
-                      Math.max(page - 1, 1)
-                    )
+                    goToPage(Math.max(currentPage - 1, 1))
                   }
                   disabled={currentPage === 1}
                   className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -301,7 +306,7 @@ export default function RideBookingDetails({
                     <button
                       key={page}
                       type="button"
-                      onClick={() => setCurrentPage(page)}
+                      onClick={() => goToPage(page)}
                       className={`min-w-[34px] rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
                         currentPage === page
                           ? "bg-[#03045e] text-white"
@@ -316,8 +321,8 @@ export default function RideBookingDetails({
                 <button
                   type="button"
                   onClick={() =>
-                    setCurrentPage((page) =>
-                      Math.min(page + 1, totalPages)
+                    goToPage(
+                      Math.min(currentPage + 1, totalPages)
                     )
                   }
                   disabled={currentPage === totalPages}
