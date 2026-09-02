@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface RoomBooking {
   id: string;
@@ -18,11 +18,15 @@ interface RoomBookingDetailsProps {
   bookings: RoomBooking[];
 }
 
+const ITEMS_PER_PAGE = 5;
+
 export default function RoomBookingDetails({
   selectedDate,
   bookings,
 }: RoomBookingDetailsProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRoom, setSelectedRoom] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const formattedDate = new Date(
     `${selectedDate}T00:00:00`
@@ -32,21 +36,72 @@ export default function RoomBookingDetails({
     day: "numeric",
   });
 
-  const filteredBookings = bookings.filter((booking) => {
+  const roomOptions = useMemo(() => {
+    return Array.from(
+      new Set(bookings.map((booking) => booking.room))
+    ).sort((a, b) => a.localeCompare(b));
+  }, [bookings]);
+
+  const filteredBookings = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
 
-    if (!query) {
-      return true;
-    }
+    return bookings.filter((booking) => {
+      const matchesRoom =
+        selectedRoom === "all" ||
+        booking.room === selectedRoom;
 
-    return (
-      booking.room.toLowerCase().includes(query) ||
-      booking.title.toLowerCase().includes(query) ||
-      booking.employee.toLowerCase().includes(query) ||
-      booking.purpose.toLowerCase().includes(query) ||
-      booking.status.toLowerCase().includes(query)
+      if (!matchesRoom) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      return (
+        booking.room.toLowerCase().includes(query) ||
+        booking.title.toLowerCase().includes(query) ||
+        booking.employee.toLowerCase().includes(query) ||
+        booking.purpose.toLowerCase().includes(query) ||
+        booking.status.toLowerCase().includes(query)
+      );
+    });
+  }, [bookings, searchQuery, selectedRoom]);
+
+  const totalPages = Math.ceil(
+    filteredBookings.length / ITEMS_PER_PAGE
+  );
+
+  // Reset to the first page whenever the filters or the date change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedRoom, selectedDate]);
+
+  // Keep the page in range when bookings are added or removed
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedBookings = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+
+    return filteredBookings.slice(
+      startIndex,
+      startIndex + ITEMS_PER_PAGE
     );
-  });
+  }, [filteredBookings, currentPage]);
+
+  // The selected room may disappear when the date changes
+  useEffect(() => {
+    if (
+      selectedRoom !== "all" &&
+      !roomOptions.includes(selectedRoom)
+    ) {
+      setSelectedRoom("all");
+    }
+  }, [roomOptions, selectedRoom]);
 
   return (
     <div>
@@ -54,8 +109,8 @@ export default function RoomBookingDetails({
         Bookings for {formattedDate}
       </h2>
 
-      {/* Search Bar */}
-      <div className="mt-4">
+      {/* Search Bar + Room Filter */}
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <input
           type="text"
           value={searchQuery}
@@ -63,6 +118,20 @@ export default function RoomBookingDetails({
           placeholder="Search room, booking, employee, or purpose..."
           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
         />
+
+        <select
+          value={selectedRoom}
+          onChange={(e) => setSelectedRoom(e.target.value)}
+          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 sm:w-56"
+        >
+          <option value="all">All rooms</option>
+
+          {roomOptions.map((room) => (
+            <option key={room} value={room}>
+              {room}
+            </option>
+          ))}
+        </select>
       </div>
 
       {bookings.length === 0 ? (
@@ -78,95 +147,169 @@ export default function RoomBookingDetails({
           </p>
         </div>
       ) : (
-        <div className="mt-5 space-y-4">
-          {filteredBookings.map((booking) => {
-            const startTime = new Date(
-              booking.start
-            ).toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-            });
+        <>
+          <div className="mt-5 space-y-4">
+            {paginatedBookings.map((booking) => {
+              const startTime = new Date(
+                booking.start
+              ).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+              });
 
-            const endTime = new Date(
-              booking.end
-            ).toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-            });
+              const endTime = new Date(
+                booking.end
+              ).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+              });
 
-            return (
-              <div
-                key={booking.id}
-                className="rounded-md border border-slate-200 p-4"
-              >
-                <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                  {/* Room */}
-                  <div>
-                    <p className="text-xs text-slate-400">
-                      Room
-                    </p>
-                    <h3 className="mt-1 font-semibold text-slate-900">
-                      {booking.room}
-                    </h3>
-                  </div>
+              return (
+                <div
+                  key={booking.id}
+                  className="rounded-md border border-slate-200 p-4"
+                >
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                    {/* Room */}
+                    <div>
+                      <p className="text-xs text-slate-400">
+                        Room
+                      </p>
+                      <h3 className="mt-1 font-semibold text-slate-900">
+                        {booking.room}
+                      </h3>
+                    </div>
 
-                  {/* Booking */}
-                  {/* <div>
-                    <p className="text-xs text-slate-400">
-                      Booking
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-slate-900">
-                      {booking.title}
-                    </p>
-                  </div> */}
+                    {/* Booking */}
+                    {/* <div>
+                      <p className="text-xs text-slate-400">
+                        Booking
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">
+                        {booking.title}
+                      </p>
+                    </div> */}
 
-                  {/* Time */}
-                  <div>
-                    <p className="text-xs text-slate-400">
-                      Time
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {startTime} – {endTime}
-                    </p>
-                  </div>
+                    {/* Time */}
+                    <div>
+                      <p className="text-xs text-slate-400">
+                        Time
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {startTime} – {endTime}
+                      </p>
+                    </div>
 
-                  {/* Requested By */}
-                  <div>
-                    <p className="text-xs text-slate-400">
-                      Requested by
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {booking.employee}
-                    </p>
-                  </div>
+                    {/* Requested By */}
+                    <div>
+                      <p className="text-xs text-slate-400">
+                        Requested by
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {booking.employee}
+                      </p>
+                    </div>
 
-                  {/* Purpose */}
-                  <div>
-                    <p className="text-xs text-slate-400">
-                      Purpose
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {booking.purpose}
-                    </p>
-                  </div>
+                    {/* Purpose */}
+                    <div>
+                      <p className="text-xs text-slate-400">
+                        Purpose
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {booking.purpose}
+                      </p>
+                    </div>
 
-                  {/* Status */}
-                  <div className="flex items-end justify-end">
-                    <span
-                      className={
-                        booking.status === "approved"
-                          ? "rounded-md bg-green-100 px-3 py-1 text-xs font-medium text-green-700"
-                          : "rounded-md bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700"
-                      }
-                    >
-                      {booking.status.toUpperCase()}
-                    </span>
+                    {/* Status */}
+                    <div className="flex items-end justify-end">
+                      <span
+                        className={
+                          booking.status === "approved"
+                            ? "rounded-md bg-green-100 px-3 py-1 text-xs font-medium text-green-700"
+                            : "rounded-md bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700"
+                        }
+                      >
+                        {booking.status.toUpperCase()}
+                      </span>
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-5 flex flex-col gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-500">
+                Showing{" "}
+                <span className="font-medium text-slate-700">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}
+                </span>
+                {" - "}
+                <span className="font-medium text-slate-700">
+                  {Math.min(
+                    currentPage * ITEMS_PER_PAGE,
+                    filteredBookings.length
+                  )}
+                </span>
+                {" of "}
+                <span className="font-medium text-slate-700">
+                  {filteredBookings.length}
+                </span>
+                {" bookings"}
+              </p>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.max(page - 1, 1)
+                    )
+                  }
+                  disabled={currentPage === 1}
+                  className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Previous
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from(
+                    { length: totalPages },
+                    (_, index) => index + 1
+                  ).map((page) => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-[34px] rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
+                        currentPage === page
+                          ? "bg-[#03045e] text-white"
+                          : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(page + 1, totalPages)
+                    )
+                  }
+                  disabled={currentPage === totalPages}
+                  className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+                </button>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
