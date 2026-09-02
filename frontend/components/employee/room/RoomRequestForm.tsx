@@ -1,10 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import RoomRequestConfirmationModal from "./RoomRequestConfirmationModal";
+import MessageDialog, {
+  DialogMessage,
+  MessageVariant,
+} from "@/components/shared/MessageDialog";
 import { interactionSettingsStore } from "@fullcalendar/core/internal";
 interface RoomRequestFormProps {
   selectedDate: string;
+
+  /*
+   * Called after every request in a submission has been
+   * created, so the parent page can refresh its bookings.
+   */
+  onSuccess?: () => void | Promise<void>;
 }
 
 interface Site{
@@ -29,6 +39,16 @@ interface BookingSchedule {
   end_time: string;
 }
 
+/*
+ * Bookable window.
+ *
+ * Slots run from 6:00 AM to 10:00 PM. A reservation can end
+ * at 10:00 PM, so that is the last selectable end time and
+ * 9:30 PM is the last selectable start time.
+ */
+const OPENING_HOUR = 6;
+const CLOSING_HOUR = 22;
+
 interface ApprovedBooking {
   room_id: number;
   reservation_date: string;
@@ -38,6 +58,7 @@ interface ApprovedBooking {
 }
 export default function RoomRequestForm({
   selectedDate,
+  onSuccess,
 }: RoomRequestFormProps) {
   const [formData, setFormData] = useState({
     name: "",
@@ -86,8 +107,28 @@ const getTimeOptions = (
 
   const selectedStartTime = currentSchedule?.start_time || "";
 
-  for (let hour = 0; hour < 24; hour++) {
+  // Value currently selected for this field, so a slot that
+  // lapses while the form is open is still rendered.
+  const selectedValue =
+    (field === "start_time"
+      ? currentSchedule?.start_time
+      : currentSchedule?.end_time) || "";
+
+  for (let hour = OPENING_HOUR; hour <= CLOSING_HOUR; hour++) {
     for (const minute of [0, 30]) {
+      // The window closes at 10:00 PM, so there is no 10:30 PM.
+      if (hour === CLOSING_HOUR && minute > 0) {
+        continue;
+      }
+
+      // A reservation cannot start at closing time.
+      if (
+        field === "start_time" &&
+        hour === CLOSING_HOUR
+      ) {
+        continue;
+      }
+
       const value = `${String(hour).padStart(2, "0")}:${String(
         minute
       ).padStart(2, "0")}`;
@@ -104,7 +145,7 @@ const getTimeOptions = (
       let disabled = false;
 
       /*
-       * 1. Disable times that have already passed
+       * 1. Remove times that have already passed
        *    if the selected date is today.
        */
       if (selectedDate === todayString) {
@@ -113,6 +154,12 @@ const getTimeOptions = (
         selectedTime.setHours(hour, minute, 0, 0);
 
         if (selectedTime <= now) {
+          // Past slots are not bookable, so they are removed
+          // from the list instead of shown as disabled.
+          if (value !== selectedValue) {
+            continue;
+          }
+
           disabled = true;
         }
       }
@@ -169,6 +216,7 @@ const getTimeOptions = (
 
       /*
        * 3. End time must be later than selected start time.
+       *    Earlier times are removed from the list.
        */
       if (field === "end_time" && selectedStartTime) {
         const [startHour, startMinute] = selectedStartTime
@@ -178,7 +226,39 @@ const getTimeOptions = (
         const startMinutes = startHour * 60 + startMinute;
 
         if (selectedMinutes <= startMinutes) {
-          disabled = true;
+          continue;
+        }
+
+        /*
+         * 4. The reservation cannot run past the next existing
+         *    booking, otherwise the selected range would
+         *    enclose it and conflict with it.
+         */
+        let nextBookingStart: number | null = null;
+
+        for (const booking of roomBookings) {
+          const [bookingHour, bookingMinute] = booking.start_time
+            .slice(0, 5)
+            .split(":")
+            .map(Number);
+
+          const bookingStart =
+            bookingHour * 60 + bookingMinute;
+
+          if (
+            bookingStart >= startMinutes &&
+            (nextBookingStart === null ||
+              bookingStart < nextBookingStart)
+          ) {
+            nextBookingStart = bookingStart;
+          }
+        }
+
+        if (
+          nextBookingStart !== null &&
+          selectedMinutes > nextBookingStart
+        ) {
+          continue;
         }
       }
 
@@ -201,6 +281,36 @@ const [loadingSites, setLoadingSites] = useState(true);
 const [loadingRooms, setLoadingRooms] = useState(false);
 const [approvedBookings, setApprovedBookings] = useState<ApprovedBooking[]>([]);
 const [loadingApprovedBookings, setLoadingApprovedBookings] = useState(false);
+
+/*
+ * Success and error messages shown in a dialog.
+ */
+const [dialog, setDialog] = useState<DialogMessage | null>(
+  null
+);
+
+function showDialog(
+  variant: MessageVariant,
+  title: string,
+  message: string
+) {
+  setDialog({ variant, title, message });
+}
+
+/*
+ * Re-renders the form every minute so time slots that have
+ * just passed drop out of the Start/End time lists without
+ * requiring a page refresh.
+ */
+const [, setMinuteTick] = useState(0);
+
+useEffect(() => {
+  const interval = setInterval(() => {
+    setMinuteTick((tick) => tick + 1);
+  }, 60000);
+
+  return () => clearInterval(interval);
+}, []);
 
 
 
@@ -303,32 +413,35 @@ const fetchRooms = async () => {
 }, [formData.site_id]);
 
 
-useEffect(() => {
-  const fetchApprovedBookings = async () => {
-    try {
-      setLoadingApprovedBookings(true);
+const fetchApprovedBookings = useCallback(async () => {
+  try {
+    setLoadingApprovedBookings(true);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/active`
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch approved bookings.");
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/room-requests/active`,
+      {
+        cache: "no-store",
       }
+    );
 
-      const data: ApprovedBooking[] = await response.json();
-
-      setApprovedBookings(data);
-    } catch (error) {
-      console.error("Error fetching approved bookings:", error);
-      setApprovedBookings([]);
-    } finally {
-      setLoadingApprovedBookings(false);
+    if (!response.ok) {
+      throw new Error("Failed to fetch approved bookings.");
     }
-  };
 
-  fetchApprovedBookings();
+    const data: ApprovedBooking[] = await response.json();
+
+    setApprovedBookings(data);
+  } catch (error) {
+    console.error("Error fetching approved bookings:", error);
+    setApprovedBookings([]);
+  } finally {
+    setLoadingApprovedBookings(false);
+  }
 }, []);
+
+useEffect(() => {
+  fetchApprovedBookings();
+}, [fetchApprovedBookings]);
 
   /*
    * Employee information
@@ -355,14 +468,31 @@ useEffect(() => {
     value: string
   ) {
     setBookingSchedules((prev) =>
-      prev.map((schedule) =>
-        schedule.id === id
-          ? {
-              ...schedule,
-              [field]: value,
-            }
-          : schedule
-      )
+      prev.map((schedule) => {
+        if (schedule.id !== id) {
+          return schedule;
+        }
+
+        const updated = {
+          ...schedule,
+          [field]: value,
+        };
+
+        /*
+         * A start time that is at or after the chosen end time
+         * makes that end time invalid, and it is no longer in
+         * the end time list, so clear it.
+         */
+        if (
+          field === "start_time" &&
+          updated.end_time &&
+          value >= updated.end_time
+        ) {
+          updated.end_time = "";
+        }
+
+        return updated;
+      })
     );
   }
 
@@ -400,27 +530,31 @@ async function handleSubmit(
 
   // Basic validation
   if (!formData.name) {
-    alert("Please enter your name.");
+    showDialog("error", "Missing Information", "Please enter your name.");
     return;
   }
 
   if (!formData.company_email) {
-    alert("Please enter your company email.");
+    showDialog(
+      "error",
+      "Missing Information",
+      "Please enter your company email."
+    );
     return;
   }
 
   if (!formData.site_id) {
-    alert("Please select a site.");
+    showDialog("error", "Missing Information", "Please select a site.");
     return;
   }
 
   if (!formData.room_id) {
-    alert("Please select a room.");
+    showDialog("error", "Missing Information", "Please select a room.");
     return;
   }
 
   if (!formData.purpose) {
-    alert("Please enter the purpose.");
+    showDialog("error", "Missing Information", "Please enter the purpose.");
     return;
   }
 
@@ -430,14 +564,18 @@ async function handleSubmit(
       !schedule.start_time ||
       !schedule.end_time
     ) {
-      alert(
+      showDialog(
+        "error",
+        "Incomplete Schedule",
         "Please complete the date, start time, and end time for every reservation."
       );
       return;
     }
 
     if (schedule.start_time >= schedule.end_time) {
-      alert(
+      showDialog(
+        "error",
+        "Invalid Time",
         `Invalid time for ${schedule.date}. End time must be later than start time.`
       );
       return;
@@ -493,7 +631,8 @@ async function confirmSubmit() {
      */
     for (const response of responses) {
       if (!response.ok) {
-        let errorMessage = "Failed to submit room request.";
+        let errorMessage =
+          "We could not submit your room request. Please try again.";
 
         try {
           const error = await response.json();
@@ -525,10 +664,6 @@ async function confirmSubmit() {
     // Close confirmation modal
     setShowConfirmation(false);
 
-    alert(
-      `${data.length} room request(s) submitted successfully!`
-    );
-
     /*
      * Reset form
      */
@@ -552,13 +687,48 @@ async function confirmSubmit() {
         end_time: "",
       },
     ]);
+
+    /*
+     * Refresh the booked time slots used by this form and the
+     * bookings shown by the parent page, so the new request is
+     * visible without a manual browser refresh.
+     */
+    await fetchApprovedBookings();
+
+    if (onSuccess) {
+      await onSuccess();
+    }
+
+    // Alert only after the refreshed data is on screen.
+    showDialog(
+      "success",
+      "Request Submitted",
+      data.length === 1
+        ? "Your room request has been submitted and is now pending approval. " +
+            "A confirmation email has been sent to you."
+        : `Your ${data.length} room requests have been submitted and are now pending approval. ` +
+            "A confirmation email has been sent to you."
+    );
   } catch (error) {
     console.error("Room request error:", error);
 
-    alert(
+    /*
+     * Some requests in the batch may already have been created,
+     * so refresh before reporting the failure. Without this the
+     * page would look unchanged and invite a duplicate submit.
+     */
+    await fetchApprovedBookings();
+
+    if (onSuccess) {
+      await onSuccess();
+    }
+
+    showDialog(
+      "error",
+      "Submission Failed",
       error instanceof Error
         ? error.message
-        : "Failed to submit room request."
+        : "We could not submit your room request. Please try again."
     );
   } finally {
     setSubmitting(false);
@@ -860,6 +1030,14 @@ async function confirmSubmit() {
   onConfirm={confirmSubmit}
   submitting={submitting}
 />
+
+      <MessageDialog
+        isOpen={dialog !== null}
+        variant={dialog?.variant}
+        title={dialog?.title ?? ""}
+        message={dialog?.message ?? ""}
+        onClose={() => setDialog(null)}
+      />
     </form>
   );
 }

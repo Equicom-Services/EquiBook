@@ -45,6 +45,12 @@ interface RoomRequestConfirmationModalProps {
   roomId?: string;
   purpose?: string;
 
+  /*
+   * The admin form books for its own site, so the site name is
+   * passed directly instead of being looked up in `sites`.
+   */
+  siteName?: string;
+
   // Shared
   rooms: Room[];
   bookingSchedules: BookingSchedule[];
@@ -64,6 +70,7 @@ export default function RoomRequestConfirmationModal({
   employeeEmail,
   roomId,
   purpose,
+  siteName,
 
   rooms,
   bookingSchedules,
@@ -163,7 +170,7 @@ export default function RoomRequestConfirmationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-md bg-white shadow-2xl">
 
         {/* ======================================================
             HEADER
@@ -249,6 +256,7 @@ export default function RoomRequestConfirmationModal({
                   <p className="mt-1 text-sm font-semibold text-slate-800">
                     {selectedSite?.site_name ||
                       formData?.site ||
+                      siteName ||
                       "-"}
                   </p>
                 </div>

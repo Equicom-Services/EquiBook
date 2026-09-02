@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Grid2X2, List } from "lucide-react";
 
@@ -72,13 +72,32 @@ interface RideBooking {
 }
 
 interface RideRequestsProps {
-  status: "all" | "pending" | "approved" | "rejected";
+  status:
+    | "all"
+    | "approved"
+    | "pending"
+    | "rejected"
+    | "cancelled";
   searchQuery: string;
+
+  /*
+   * Bumped by the dashboard when a reservation is created
+   * elsewhere on the page, so this list reloads.
+   */
+  refreshTrigger?: number;
+
+  /*
+   * Called after an action succeeds, so the dashboard can
+   * refresh its statistics and calendar.
+   */
+  onActionComplete?: () => void;
 }
 
 export default function RideRequests({
   status,
   searchQuery,
+  refreshTrigger = 0,
+  onActionComplete,
 }: RideRequestsProps) {
   const [bookings, setBookings] = useState<RideBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,10 +109,13 @@ export default function RideRequests({
   // FETCH RIDE RESERVATIONS
   // ==========================================================
 
-  useEffect(() => {
-    const fetchRideReservations = async () => {
+  const fetchRideReservations = useCallback(
+    async (showLoading = true) => {
       try {
-        setLoading(true);
+        if (showLoading) {
+          setLoading(true);
+        }
+
         setError(null);
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -181,7 +203,8 @@ export default function RideRequests({
                 reservation.status.toLowerCase() as
                   | "approved"
                   | "pending"
-                  | "rejected",
+                  | "rejected"
+                  | "cancelled",
 
               admin_remarks:
                 reservation.admin_remarks,
@@ -221,10 +244,26 @@ export default function RideRequests({
       } finally {
         setLoading(false);
       }
-    };
+    },
+    []
+  );
 
+  useEffect(() => {
     fetchRideReservations();
-  }, []);
+  }, [fetchRideReservations]);
+
+  /*
+   * Reload silently when the dashboard signals a change made
+   * elsewhere on the page. A visible loading state here would
+   * blank the list and collapse any expanded card.
+   */
+  useEffect(() => {
+    if (refreshTrigger === 0) {
+      return;
+    }
+
+    fetchRideReservations(false);
+  }, [refreshTrigger, fetchRideReservations]);
 
   // ==========================================================
   // FILTER RIDE REQUESTS
@@ -348,13 +387,18 @@ setBookings((current) =>
       : booking
   )
 );
+
+  onActionComplete?.();
   };
 
   // ==========================================================
 // DELETE RIDE RESERVATION
 // ==========================================================
 
-const cancelRideReservation = async (id: string) => {
+const cancelRideReservation = async (
+  id: string,
+  adminRemarks: string
+) => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   const token = localStorage.getItem("access_token");
 
@@ -367,8 +411,12 @@ const cancelRideReservation = async (id: string) => {
     {
       method: "PUT",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify({
+        admin_remarks: adminRemarks.trim(),
+      }),
     }
   );
 
@@ -401,6 +449,8 @@ const cancelRideReservation = async (id: string) => {
         : booking
     )
   );
+
+  onActionComplete?.();
 };
 
   // ==========================================================
@@ -506,6 +556,7 @@ const cancelRideReservation = async (id: string) => {
   booking={booking}
   onStatusUpdate={updateRideReservationStatus}
   onCancel={cancelRideReservation}
+  collapsible={viewMode === "list"}
 />
         ))}
       </div>

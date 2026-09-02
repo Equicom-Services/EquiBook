@@ -111,14 +111,14 @@ export default function RoomBookingDetails({
                   </div>
 
                   {/* Booking */}
-                  <div>
+                  {/* <div>
                     <p className="text-xs text-slate-400">
                       Booking
                     </p>
                     <p className="mt-1 text-sm font-medium text-slate-900">
                       {booking.title}
                     </p>
-                  </div>
+                  </div> */}
 
                   {/* Time */}
                   <div>

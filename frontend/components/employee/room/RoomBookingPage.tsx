@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 
 import Calendar from "@/components/shared/Calendar";
 import RoomBookingDetails from "./RoomBookingDetails";
@@ -100,8 +100,7 @@ export default function RoomBookingPage() {
   // FETCH BOOKINGS
   // ==========================================================
 
-  useEffect(() => {
-    async function fetchBookings() {
+  const fetchBookings = useCallback(async () => {
       try {
         setIsLoading(true);
 
@@ -170,10 +169,11 @@ export default function RoomBookingPage() {
       } finally {
         setIsLoading(false);
       }
-    }
-
-    fetchBookings();
   }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   // ==========================================================
   // FILTER BOOKINGS BY BRANCH
@@ -276,159 +276,148 @@ export default function RoomBookingPage() {
   // RENDER
   // ==========================================================
 
-  return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="mx-auto max-w-[1800px]">
+return (
+  <div className="min-h-screen bg-slate-50 p-6">
+    <div className="mx-auto max-w-[1800px]">
 
-        {/* Page Header */}
+      {/* Page Header */}
+      <div className="mb-6 px-6">
+        <h1 className="text-2xl font-semibold text-slate-900">
+          Room Reservation
+        </h1>
 
-        <div className="mb-6 px-6">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Room Reservation
-          </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          View room bookings and submit a new reservation request.
+        </p>
+      </div>
 
-          <p className="mt-1 text-sm text-slate-500">
-            View room bookings and submit a new reservation request.
-          </p>
+      {/* Loading
+      {isLoading && (
+        <div className="mb-6 rounded-md bg-white p-4 text-sm text-slate-500">
+          Loading room bookings...
         </div>
+      )} */}
 
-        {/* Loading */}
+      {/* Calendar + Bookings + Form */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr_1.2fr]">
 
-        {isLoading && (
-          <div className="mb-6 rounded-md bg-white p-4 text-sm text-slate-500">
-            Loading room bookings...
-          </div>
-        )}
+        {/* Calendar */}
+        <div className="rounded-md bg-white p-6">
+          <div className="mb-5 flex items-start justify-between">
 
-        {/* Calendar + Bookings + Form */}
+            {/* Left: Booking Overview + Branch Legend */}
+            <div>
+              <h2 className="mb-1 text-lg font-semibold">
+                Bookings Overview
+              </h2>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr_1.2fr]">
+              <p className="text-sm text-slate-500">
+                Select a date to view room bookings.
+              </p>
 
-          {/* Calendar */}
+              {/* Branch Color Legend */}
+              {selectedBranch === "all" && branches.length > 0 && (
+                <div className="mt-4">
+                  <p className="mb-2 text-xs font-medium text-slate-500">
+                    Branches
+                  </p>
 
-          <div className="rounded-md bg-white p-6">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    {branches.map((branch) => {
+                      const color = branchColors[branch];
 
-            <div className="mb-5 flex items-center justify-between">
+                      return (
+                        <div
+                          key={branch}
+                          className="flex items-center gap-2"
+                        >
+                          <span
+                            className="h-3 w-3 rounded-full"
+                            style={{
+                              backgroundColor:
+                                color.backgroundColor,
+                            }}
+                          />
 
-              <div>
-                <h2 className="mb-1 text-lg font-semibold">
-                  Bookings Overview
-                </h2>
-
-                <p className="text-sm text-slate-500">
-                  Select a date to view room bookings.
-                </p>
-              </div>
-
-              {/* Branch Dropdown */}
-
-              <div>
-                <label
-                  htmlFor="branch"
-                  className="mb-1 block text-xs font-medium text-slate-500"
-                >
-                  Branch
-                </label>
-
-                <select
-                  id="branch"
-                  value={selectedBranch}
-                  onChange={(e) =>
-                    setSelectedBranch(e.target.value)
-                  }
-                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="all">
-                    All Branches
-                  </option>
-
-                  {branches.map((branch) => (
-                    <option
-                      key={branch}
-                      value={branch}
-                    >
-                      {branch}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+                          <span className="text-xs text-slate-600">
+                            {branch}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <Calendar
-              events={calendarEvents}
-              onDateClick={(date) => {
-                setSelectedDate(date);
-              }}
-            />
+            {/* Right: Branch Dropdown */}
+            <div>
+              <label
+                htmlFor="branch"
+                className="mb-1 block text-xs font-medium text-slate-500"
+              >
+                Branch
+              </label>
 
-            {/* Branch Color Legend */}
+              <select
+                id="branch"
+                value={selectedBranch}
+                onChange={(e) =>
+                  setSelectedBranch(e.target.value)
+                }
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="all">
+                  All Branches
+                </option>
 
-            {selectedBranch === "all" && branches.length > 0 && (
-              <div className="mt-5 border-t border-slate-200 pt-4">
-                <p className="mb-3 text-xs font-medium text-slate-500">
-                  Branches
-                </p>
-
-                <div className="flex flex-wrap gap-4">
-                  {branches.map((branch) => {
-                    const color =
-                      branchColors[branch];
-
-                    return (
-                      <div
-                        key={branch}
-                        className="flex items-center gap-2"
-                      >
-                        <span
-                          className="h-3 w-3 rounded-full"
-                          style={{
-                            backgroundColor:
-                              color.backgroundColor,
-                          }}
-                        />
-
-                        <span className="text-xs text-slate-600">
-                          {branch}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
+                {branches.map((branch) => (
+                  <option
+                    key={branch}
+                    value={branch}
+                  >
+                    {branch}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* Current Bookings */}
-
-          <div className="rounded-md bg-white p-6">
-            <RoomBookingDetails
-              selectedDate={selectedDate}
-              bookings={selectedBookings}
-            />
-          </div>
-
-          {/* Request Form */}
-
-          <div className="rounded-md bg-white p-6">
-
-            <h2 className="text-lg font-semibold">
-              New Room Request
-            </h2>
-
-            <p className="mt-1 mb-6 text-sm text-slate-500">
-              Fill in the details below to request a room.
-            </p>
-
-            <RoomRequestForm
-              selectedDate={selectedDate}
-            />
-
-          </div>
-
+          {/* Calendar */}
+          <Calendar
+            events={calendarEvents}
+            onDateClick={(date) => {
+              setSelectedDate(date);
+            }}
+          />
         </div>
+
+        {/* Current Bookings */}
+        <div className="rounded-md bg-white p-6">
+          <RoomBookingDetails
+            selectedDate={selectedDate}
+            bookings={selectedBookings}
+          />
+        </div>
+
+        {/* Request Form */}
+        <div className="rounded-md bg-white p-6">
+          <h2 className="text-lg font-semibold">
+            New Room Request
+          </h2>
+
+          <p className="mt-1 mb-6 text-sm text-slate-500">
+            Fill in the details below to request a room.
+          </p>
+
+          <RoomRequestForm
+            selectedDate={selectedDate}
+            onSuccess={fetchBookings}
+          />
+        </div>
+
       </div>
     </div>
-  );
+  </div>
+);
 }

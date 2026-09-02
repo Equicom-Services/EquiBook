@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import RoomRequestConfirmationModal from "../employee/room/RoomRequestConfirmationModal";
+import { apiFetch } from "@/lib/api";
 
 interface RoomRequest {
   room_reservation_id: number;
@@ -48,6 +49,16 @@ interface Admin {
   site_id: number;
   site_name: string;
 }
+
+/*
+ * Bookable window.
+ *
+ * Slots run from 6:00 AM to 10:00 PM. A reservation can end
+ * at 10:00 PM, so that is the last selectable end time and
+ * 9:30 PM is the last selectable start time.
+ */
+const OPENING_HOUR = 6;
+const CLOSING_HOUR = 22;
 
 interface Room {
   room_id: number;
@@ -143,6 +154,24 @@ const [showConfirmation, setShowConfirmation] =
   const today = new Date().toISOString().split("T")[0];
 
   // =========================================================
+  // CLOCK TICK
+  //
+  // Re-renders the form every minute so time slots that have
+  // just passed drop out of the Start/End time lists without
+  // requiring a page refresh.
+  // =========================================================
+
+  const [, setMinuteTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMinuteTick((tick) => tick + 1);
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // =========================================================
   // GET CURRENT ADMIN
   // =========================================================
 
@@ -211,8 +240,14 @@ useEffect(() => {
     try {
       setLoadingRooms(true);
 
-      const roomsResponse = await fetch(
-        `${API_URL}/api/rooms?site_id=${admin.site_id}`
+      // /api/rooms is admin protected, so it must be called
+      // through apiFetch to attach the Bearer token.
+      const roomsResponse = await apiFetch(
+        `/api/rooms?site_id=${admin.site_id}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
       );
 
       if (!roomsResponse.ok) {
@@ -330,8 +365,28 @@ useEffect(() => {
     const selectedStartTime =
       currentSchedule?.start_time || "";
 
-    for (let hour = 0; hour < 24; hour++) {
+    // Value currently selected for this field, so a slot that
+    // lapses while the form is open is still rendered.
+    const selectedValue =
+      (field === "start_time"
+        ? currentSchedule?.start_time
+        : currentSchedule?.end_time) || "";
+
+    for (let hour = OPENING_HOUR; hour <= CLOSING_HOUR; hour++) {
       for (const minute of [0, 30]) {
+        // The window closes at 10:00 PM, so there is no 10:30 PM.
+        if (hour === CLOSING_HOUR && minute > 0) {
+          continue;
+        }
+
+        // A reservation cannot start at closing time.
+        if (
+          field === "start_time" &&
+          hour === CLOSING_HOUR
+        ) {
+          continue;
+        }
+
         const value = `${String(hour).padStart(
           2,
           "0"
@@ -353,7 +408,7 @@ useEffect(() => {
         let disabled = false;
 
         // -----------------------------------------------------
-        // 1. Disable past times if date is today
+        // 1. Remove past times if date is today
         // -----------------------------------------------------
 
         if (selectedDate === todayString) {
@@ -367,6 +422,12 @@ useEffect(() => {
           );
 
           if (selectedTime <= now) {
+            // Past slots are not bookable, so they are removed
+            // from the list instead of shown as disabled.
+            if (value !== selectedValue) {
+              continue;
+            }
+
             disabled = true;
           }
         }
@@ -418,6 +479,7 @@ useEffect(() => {
 
         // -----------------------------------------------------
         // 3. End time must be after start time
+        //    Earlier times are removed from the list.
         // -----------------------------------------------------
 
         if (
@@ -433,7 +495,41 @@ useEffect(() => {
             startHour * 60 + startMinute;
 
           if (selectedMinutes <= startMinutes) {
-            disabled = true;
+            continue;
+          }
+
+          // -----------------------------------------------------
+          // 4. The reservation cannot run past the next existing
+          //    booking, otherwise the selected range would
+          //    enclose it and the server rejects it as a conflict.
+          // -----------------------------------------------------
+
+          let nextBookingStart: number | null = null;
+
+          for (const booking of roomBookings) {
+            const [bookingHour, bookingMinute] =
+              booking.start_time
+                .slice(0, 5)
+                .split(":")
+                .map(Number);
+
+            const bookingStart =
+              bookingHour * 60 + bookingMinute;
+
+            if (
+              bookingStart >= startMinutes &&
+              (nextBookingStart === null ||
+                bookingStart < nextBookingStart)
+            ) {
+              nextBookingStart = bookingStart;
+            }
+          }
+
+          if (
+            nextBookingStart !== null &&
+            selectedMinutes > nextBookingStart
+          ) {
+            continue;
           }
         }
 
@@ -461,14 +557,29 @@ useEffect(() => {
     value: string
   ) => {
     setBookingSchedules((prev) =>
-      prev.map((schedule) =>
-        schedule.id === id
-          ? {
-              ...schedule,
-              [field]: value,
-            }
-          : schedule
-      )
+      prev.map((schedule) => {
+        if (schedule.id !== id) {
+          return schedule;
+        }
+
+        const updated = {
+          ...schedule,
+          [field]: value,
+        };
+
+        // A start time that is at or after the chosen end time
+        // makes that end time invalid, and it is no longer in
+        // the end time list, so clear it.
+        if (
+          field === "start_time" &&
+          updated.end_time &&
+          value >= updated.end_time
+        ) {
+          updated.end_time = "";
+        }
+
+        return updated;
+      })
     );
   };
 
@@ -701,10 +812,14 @@ const confirmSubmit = async () => {
       error
     );
 
+    // Close the confirmation modal, otherwise it covers the
+    // error message shown at the top of the form.
+    setShowConfirmation(false);
+
     setError(
       error instanceof Error
         ? error.message
-        : "Failed to create room booking."
+        : "We could not create this booking. Please try again."
     );
   } finally {
     setLoading(false);
@@ -717,8 +832,17 @@ const confirmSubmit = async () => {
   // =========================================================
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-2xl">
+    <>
+    {/*
+      The form is hidden while the confirmation is open, so the
+      two dialogs do not stack on top of each other.
+    */}
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 ${
+        showConfirmation ? "hidden" : ""
+      }`}
+    >
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-md bg-white shadow-2xl">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
@@ -1124,22 +1248,26 @@ const confirmSubmit = async () => {
           </div>
 
         </form>
-         {/* Confirmation Modal — OUTSIDE the form */}
+
+      </div>
+
+    </div>
+
+    {/* Confirmation Modal */}
+
     <RoomRequestConfirmationModal
       isOpen={showConfirmation}
       employeeName={employeeName}
       employeeEmail={employeeEmail}
       roomId={roomId}
       purpose={purpose}
+      siteName={admin?.site_name}
       rooms={rooms}
       bookingSchedules={bookingSchedules}
       onEdit={() => setShowConfirmation(false)}
       onConfirm={confirmSubmit}
       submitting={loading}
     />
-        
-      </div>
-
-    </div>
+    </>
   );
 }

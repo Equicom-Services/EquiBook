@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import AdminRoomBookingForm from "./AdminRoomBookingForm";
 import { apiFetch } from "@/lib/api";
+import MessageDialog, {
+  DialogMessage,
+  MessageVariant,
+} from "@/components/shared/MessageDialog";
 import {
   Check,
   X,
   MoreVertical,
-  Pencil,
   Trash2,
   DoorOpen,
   MapPin,
@@ -21,6 +23,7 @@ import {
   ShieldX,
   Grid2X2,
   List,
+  ChevronDown,
 } from "lucide-react";
 type ReservationStatus =
   | "all"
@@ -67,17 +70,38 @@ interface RoomRequestsProps {
   status: ReservationStatus;
   searchQuery: string;
   roomId: string;
+
+  /*
+   * Bumped by the dashboard when a booking is created
+   * elsewhere on the page, so this list reloads.
+   */
+  refreshTrigger?: number;
+
+  /*
+   * Called after an action succeeds, so the dashboard can
+   * refresh its statistics and calendar.
+   */
+  onActionComplete?: () => void;
 }
 
 export default function RoomRequests({
   status,
   searchQuery,
-  roomId
+  roomId,
+  refreshTrigger = 0,
+  onActionComplete,
 }: RoomRequestsProps) {
   const [requests, setRequests] =
     useState<RoomRequest[]>([]);
 
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+    /*
+     * In list view a card shows only the key details until it
+     * is expanded.
+     */
+    const [expandedId, setExpandedId] =
+      useState<number | null>(null);
 
   const [loading, setLoading] =
     useState(true);
@@ -194,6 +218,19 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, []);
 
+/*
+ * Reload silently when the dashboard signals a change made
+ * elsewhere on the page. A visible loading state here would
+ * blank the list and collapse any expanded card.
+ */
+useEffect(() => {
+  if (refreshTrigger === 0) {
+    return;
+  }
+
+  fetchRequests(false);
+}, [refreshTrigger]);
+
 
   // ==========================================================
   // FILTER BY STATUS
@@ -267,14 +304,32 @@ const paginatedRequests = useMemo(() => {
 }, [filteredRequests, currentPage]);
 
 
-const [editingRequest, setEditingRequest] =
-  useState<RoomRequest | null>(null);
-
 const [cancelRequest, setCancelRequest] =
   useState<RoomRequest | null>(null);
 
 const [cancelling, setCancelling] =
   useState(false);
+
+/*
+ * Reason the admin gives when cancelling a booking, shown to
+ * the requester in the cancellation email.
+ */
+const [cancelRemarks, setCancelRemarks] =
+  useState("");
+
+/*
+ * Error messages shown in a dialog.
+ */
+const [dialog, setDialog] =
+  useState<DialogMessage | null>(null);
+
+function showDialog(
+  variant: MessageVariant,
+  title: string,
+  message: string
+) {
+  setDialog({ variant, title, message });
+}
   // ==========================================================
   // UPDATE STATUS
   // ==========================================================
@@ -329,16 +384,20 @@ const [cancelling, setCancelling] =
 
       await fetchRequests(false);
 
+      onActionComplete?.();
+
     } catch (error) {
       console.error(
         "Error updating request:",
         error
       );
 
-      alert(
+      showDialog(
+        "error",
+        "Update Failed",
         error instanceof Error
           ? error.message
-          : "Failed to update request."
+          : "We could not update this request. Please try again."
       );
     }
   };
@@ -352,6 +411,9 @@ const cancelBooking = async (requestId: number) => {
       `/api/room-requests/admin/room-bookings/${requestId}/cancel`,
       {
         method: "PATCH",
+        body: JSON.stringify({
+          admin_remarks: cancelRemarks.trim(),
+        }),
       }
     );
 
@@ -377,6 +439,7 @@ const cancelBooking = async (requestId: number) => {
         "This booking is already cancelled."
       ) {
         setCancelRequest(null);
+        setCancelRemarks("");
 
         await fetchRequests(false);
 
@@ -391,9 +454,12 @@ const cancelBooking = async (requestId: number) => {
 
     // Successfully cancelled
     setCancelRequest(null);
+    setCancelRemarks("");
 
     // Refresh list so status becomes CANCELLED
     await fetchRequests(false);
+
+    onActionComplete?.();
 
   } catch (error) {
     console.error(
@@ -401,10 +467,12 @@ const cancelBooking = async (requestId: number) => {
       error
     );
 
-    alert(
+    showDialog(
+      "error",
+      "Cancellation Failed",
       error instanceof Error
         ? error.message
-        : "Failed to cancel room booking."
+        : "We could not cancel this booking. Please try again."
     );
   } finally {
     setCancelling(false);
@@ -521,7 +589,13 @@ return (
   }
 >
 
-      {paginatedRequests.map((request) => (
+      {paginatedRequests.map((request) => {
+
+        const isCollapsed =
+          viewMode === "list" &&
+          expandedId !== request.room_reservation_id;
+
+        return (
         <div
           key={request.room_reservation_id}
           className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
@@ -557,13 +631,15 @@ return (
 
               </div>
 
-              <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
-                <Mail size={12} />
+              {!isCollapsed && (
+                <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+                  <Mail size={12} />
 
-                <span className="truncate">
-                  {request.employee_email}
-                </span>
-              </div>
+                  <span className="truncate">
+                    {request.employee_email}
+                  </span>
+                </div>
+              )}
 
             </div>
 
@@ -573,6 +649,39 @@ return (
             ================================================== */}
 
             <div className="relative flex shrink-0 gap-1.5">
+
+              {/* EXPAND / COLLAPSE */}
+              {viewMode === "list" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedId(
+                      isCollapsed
+                        ? request.room_reservation_id
+                        : null
+                    )
+                  }
+                  aria-expanded={!isCollapsed}
+                  aria-label={
+                    isCollapsed
+                      ? "Show details"
+                      : "Hide details"
+                  }
+                  title={
+                    isCollapsed
+                      ? "Show details"
+                      : "Hide details"
+                  }
+                  className="rounded-md border border-slate-200 p-1.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+                >
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${
+                      isCollapsed ? "" : "rotate-180"
+                    }`}
+                  />
+                </button>
+              )}
 
               {/* PENDING */}
               {request.status === "pending" && (
@@ -632,19 +741,8 @@ return (
                       <button
                         type="button"
                         onClick={() => {
-                          setEditingRequest(request);
-                          setOpenMenuId(null);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                      >
-                        <Pencil size={14} />
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
                           setCancelRequest(request);
+                          setCancelRemarks("");
                           setOpenMenuId(null);
                         }}
                         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
@@ -665,39 +763,78 @@ return (
 
 
           {/* ==================================================
+              COLLAPSED SUMMARY
+          ================================================== */}
+
+          {isCollapsed && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-600">
+
+              <span
+                className="flex min-w-0 items-center gap-1.5"
+                title={request.room}
+              >
+                <DoorOpen size={13} className="shrink-0 text-slate-400" />
+
+                <span className="truncate">
+                  {request.room}
+                </span>
+              </span>
+
+              <span className="flex items-center gap-1.5">
+                <CalendarDays size={13} className="text-slate-400" />
+                {request.reservation_date}
+              </span>
+
+              <span className="flex items-center gap-1.5">
+                <Clock3 size={13} className="text-slate-400" />
+                {request.start_time} - {request.end_time}
+              </span>
+
+            </div>
+          )}
+
+
+          {/* ==================================================
               BOOKING INFORMATION
           ================================================== */}
 
+          {!isCollapsed && (
           <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 md:grid-cols-4">
 
             {/* ROOM */}
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <DoorOpen size={13} />
                 <span>Room</span>
               </div>
 
-              <p className="mt-0.5 text-sm font-medium text-slate-700">
+              <p
+                className="mt-0.5 truncate text-sm font-medium text-slate-700"
+                title={request.room}
+              >
                 {request.room}
               </p>
             </div>
 
 
             {/* SITE */}
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <MapPin size={13} />
                 <span>Site</span>
               </div>
 
-              <p className="mt-0.5 text-sm font-medium text-slate-700">
+              <p
+                className="mt-0.5 truncate text-sm font-medium text-slate-700"
+                title={request.site}
+              >
                 {request.site}
               </p>
             </div>
 
 
             {/* RESERVATION DATE */}
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <CalendarDays size={13} />
                 <span>Reservation Date</span>
@@ -710,7 +847,7 @@ return (
 
 
             {/* TIME */}
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <Clock3 size={13} />
                 <span>Time</span>
@@ -723,13 +860,22 @@ return (
 
 
             {/* DATE BOOKED */}
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <CalendarCheck size={13} />
                 <span>Date Booked</span>
               </div>
 
-              <p className="mt-0.5 text-sm font-medium text-slate-700">
+              <p
+                className="mt-0.5 truncate text-sm font-medium text-slate-700"
+                title={
+                  request.request_date_time
+                    ? new Date(
+                        request.request_date_time
+                      ).toLocaleString()
+                    : "N/A"
+                }
+              >
                 {request.request_date_time
                   ? new Date(
                       request.request_date_time
@@ -739,12 +885,14 @@ return (
             </div>
 
           </div>
+          )}
 
 
           {/* ==================================================
               PURPOSE
           ================================================== */}
 
+          {!isCollapsed && (
           <div className="mt-3 border-t border-slate-100 pt-3">
 
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
@@ -752,37 +900,47 @@ return (
               <span>Purpose</span>
             </div>
 
-            <p className="mt-0.5 text-sm text-slate-700">
+            <p
+              className="mt-0.5 truncate text-sm text-slate-700"
+              title={request.purpose}
+            >
               {request.purpose}
             </p>
 
           </div>
+          )}
 
 
           {/* ==================================================
               APPROVAL / REJECTION DETAILS
           ================================================== */}
 
-          {request.status !== "pending" && (
+          {!isCollapsed && request.status !== "pending" && (
             <div className="mt-3 border-t border-slate-100 pt-3">
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
 
                 {/* REMARKS */}
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-1.5 text-xs text-slate-400">
                     <MessageSquare size={13} />
                     <span>Remarks</span>
                   </div>
 
-                  <p className="mt-0.5 text-sm text-slate-700">
+                  <p
+                    className="mt-0.5 truncate text-sm text-slate-700"
+                    title={
+                      request.admin_remarks ||
+                      "No remarks"
+                    }
+                  >
                     {request.admin_remarks || "No remarks"}
                   </p>
                 </div>
 
 
                 {/* APPROVED / REJECTED BY */}
-                <div>
+                <div className="min-w-0">
 
                   <div className="flex items-center gap-1.5 text-xs text-slate-400">
 
@@ -802,12 +960,23 @@ return (
 
                   </div>
 
-                  <p className="mt-0.5 text-sm font-medium text-slate-700">
+                  <p
+                    className="mt-0.5 truncate text-sm font-medium text-slate-700"
+                    title={
+                      request.approved_rejected_by_name ||
+                      "N/A"
+                    }
+                  >
                     {request.approved_rejected_by_name || "N/A"}
                   </p>
 
                   {request.approved_rejected_by_email && (
-                    <p className="mt-0.5 text-xs text-slate-400">
+                    <p
+                      className="mt-0.5 truncate text-xs text-slate-400"
+                      title={
+                        request.approved_rejected_by_email
+                      }
+                    >
                       {request.approved_rejected_by_email}
                     </p>
                   )}
@@ -816,7 +985,7 @@ return (
 
 
                 {/* APPROVED / REJECTED DATE */}
-                <div>
+                <div className="min-w-0">
 
                   <div className="flex items-center gap-1.5 text-xs text-slate-400">
 
@@ -832,7 +1001,16 @@ return (
 
                   </div>
 
-                  <p className="mt-0.5 text-sm text-slate-700">
+                  <p
+                    className="mt-0.5 truncate text-sm text-slate-700"
+                    title={
+                      request.approved_rejected_date_time
+                        ? new Date(
+                            request.approved_rejected_date_time
+                          ).toLocaleString()
+                        : "N/A"
+                    }
+                  >
                     {request.approved_rejected_date_time
                       ? new Date(
                           request.approved_rejected_date_time
@@ -1021,13 +1199,39 @@ return (
 
                   </div>
 
+                  {/* Reason */}
+
+                  <div className="mt-5">
+
+                    <label className="text-sm font-medium text-slate-700">
+                      Reason for Cancellation
+
+                      <span className="text-red-500">
+                        {" "}*
+                      </span>
+                    </label>
+
+                    <textarea
+                      value={cancelRemarks}
+                      onChange={(e) =>
+                        setCancelRemarks(e.target.value)
+                      }
+                      placeholder="Reason for cancellation..."
+                      rows={4}
+                      disabled={cancelling}
+                      className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e] disabled:bg-slate-50"
+                    />
+
+                  </div>
+
                   <div className="mt-6 flex justify-end gap-3">
 
                     <button
                       type="button"
-                      onClick={() =>
-                        setCancelRequest(null)
-                      }
+                      onClick={() => {
+                        setCancelRequest(null);
+                        setCancelRemarks("");
+                      }}
                       disabled={cancelling}
                       className="flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                     >
@@ -1042,7 +1246,10 @@ return (
                           cancelRequest.room_reservation_id
                         )
                       }
-                      disabled={cancelling}
+                      disabled={
+                        cancelling ||
+                        !cancelRemarks.trim()
+                      }
                       className="flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Trash2 size={16} />
@@ -1060,7 +1267,8 @@ return (
             )}
 
         </div>
-      ))}
+        );
+      })}
 
     </div>
 
@@ -1165,6 +1373,14 @@ return (
 
       </div>
     )}
+
+    <MessageDialog
+      isOpen={dialog !== null}
+      variant={dialog?.variant}
+      title={dialog?.title ?? ""}
+      message={dialog?.message ?? ""}
+      onClose={() => setDialog(null)}
+    />
 
   </>
 );

@@ -16,6 +16,7 @@ from app.schemas.room_request import (
     RoomRequestResponse,
     RoomRequestStatusUpdate,
     RoomBookingUpdate,
+    RoomBookingCancel,
 )
 
 from app.services.email_service import send_email
@@ -172,6 +173,33 @@ def create_room_request(
             admin_emails,
             "New Room Booking Request",
             html_body,
+        )
+
+    # --------------------------------------------------------
+    # Confirm submission to the requester
+    #
+    # Submission confirmation only. Approval and rejection
+    # emails are still sent by the status endpoint.
+    # --------------------------------------------------------
+
+    if new_request.employee_email:
+
+        requester_html_body = booking_status_email(
+            employee_name=new_request.employee_name,
+            status="pending",
+            room=room.room_name,
+            site=site.site_name if site else "",
+            reservation_date=new_request.reservation_date,
+            start_time=new_request.start_time,
+            end_time=new_request.end_time,
+            purpose=new_request.purpose,
+        )
+
+        background_tasks.add_task(
+            send_email,
+            [new_request.employee_email],
+            "Room Booking Request Received",
+            requester_html_body,
         )
 
 
@@ -817,6 +845,9 @@ def create_admin_room_booking(
 
         "site":
             site.site_name if site else None,
+
+        "site_id":
+            room.site_id,
     }
 
 
@@ -1096,6 +1127,9 @@ def update_admin_room_booking(
 
         "site":
             site.site_name if site else None,
+
+        "site_id":
+            room.site_id,
     }
 
 
@@ -1111,6 +1145,7 @@ def update_admin_room_booking(
 def cancel_admin_room_booking(
     request_id: int,
     background_tasks: BackgroundTasks,
+    cancellation: RoomBookingCancel | None = None,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
@@ -1170,8 +1205,18 @@ def cancel_admin_room_booking(
 
     room_request.status = "CANCELLED"
 
+    # Reason supplied by the admin, or a default when none is
+    # given, so the requester always sees why.
+
+    reason = (
+        cancellation.admin_remarks.strip()
+        if cancellation and cancellation.admin_remarks
+        else ""
+    )
+
     room_request.admin_remarks = (
-        f"Booking cancelled by admin {current_admin.email}."
+        reason
+        or f"Booking cancelled by admin {current_admin.email}."
     )
 
     room_request.approved_rejected_by = current_admin.id
@@ -1225,6 +1270,7 @@ def cancel_admin_room_booking(
         "updated_at": room_request.updated_at,
         "room": room.room_name,
         "site": site.site_name,
+        "site_id": room.site_id,
     }
 
 

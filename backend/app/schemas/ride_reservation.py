@@ -66,6 +66,15 @@ class RideReservationCreate(BaseModel):
     )
 
 
+class RideReservationCancel(BaseModel):
+    """Reason an admin gives when cancelling a reservation."""
+
+    admin_remarks: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+
 class RideReservationStatusUpdate(BaseModel):
 
     status: str

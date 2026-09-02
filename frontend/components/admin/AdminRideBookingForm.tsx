@@ -391,7 +391,7 @@ try {
 return (
 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
 
-  <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-2xl">
+  <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-md bg-white shadow-2xl">
 
     {/* HEADER */}
 
