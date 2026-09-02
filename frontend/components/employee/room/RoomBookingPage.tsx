@@ -45,6 +45,11 @@ interface SiteResponse {
   site_name: string;
 }
 
+interface RoomResponse {
+  room_id: number;
+  room_name: string;
+}
+
 export default function RoomBookingPage() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
@@ -54,10 +59,25 @@ export default function RoomBookingPage() {
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const [branches, setBranches] = useState<string[]>([]);
+  const [sites, setSites] = useState<SiteResponse[]>([]);
 
   const [selectedBranch, setSelectedBranch] =
     useState<string>("all");
+
+  // Every room of the selected branch, booked or not.
+  // Tagged with the branch it was fetched for so a stale
+  // list is never shown against a newly picked branch.
+  const [roomState, setRoomState] = useState<{
+    branch: string;
+    rooms: string[];
+  }>({ branch: "all", rooms: [] });
+
+  const branchRooms =
+    roomState.branch === selectedBranch
+      ? roomState.rooms
+      : [];
+
+  const branches = sites.map((site) => site.site_name);
 
   // ==========================================================
   // FETCH BRANCHES
@@ -82,19 +102,78 @@ export default function RoomBookingPage() {
 
         const data: SiteResponse[] = await response.json();
 
-        const activeBranches = data.map(
-          (site) => site.site_name
-        );
-
-        setBranches(activeBranches);
+        setSites(data);
       } catch (error) {
         console.error("Error fetching branches:", error);
-        setBranches([]);
+        setSites([]);
       }
     }
 
     fetchBranches();
   }, []);
+
+  // ==========================================================
+  // FETCH ROOMS OF THE SELECTED BRANCH
+  //
+  // Only a specific branch has a room list to filter by,
+  // so "All Branches" clears it.
+  // ==========================================================
+
+  useEffect(() => {
+    const site = sites.find(
+      (item) => item.site_name === selectedBranch
+    );
+
+    if (!site) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function fetchBranchRooms(
+      branch: string,
+      siteId: number
+    ) {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/available?site_id=${siteId}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch rooms: ${response.status}`
+          );
+        }
+
+        const data: RoomResponse[] = await response.json();
+
+        if (cancelled) {
+          return;
+        }
+
+        setRoomState({
+          branch,
+          rooms: data.map((room) => room.room_name),
+        });
+      } catch (error) {
+        console.error("Error fetching rooms:", error);
+
+        if (!cancelled) {
+          setRoomState({ branch, rooms: [] });
+        }
+      }
+    }
+
+    fetchBranchRooms(site.site_name, site.site_id);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBranch, sites]);
 
   // ==========================================================
   // FETCH BOOKINGS
@@ -397,6 +476,9 @@ return (
           <RoomBookingDetails
             selectedDate={selectedDate}
             bookings={selectedBookings}
+            rooms={
+              selectedBranch === "all" ? null : branchRooms
+            }
           />
         </div>
 

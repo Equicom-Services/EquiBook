@@ -114,6 +114,15 @@ export default function AdminDashboard() {
 const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
   
   // ==========================================================
+  // DATE FILTER
+  //
+  // Empty string means "any date".
+  // ==========================================================
+
+  const [selectedDate, setSelectedDate] =
+    useState<string>("");
+
+  // ==========================================================
   // ROOM FILTER
   // ==========================================================
 
@@ -708,6 +717,39 @@ const handleReservationTypeChange = (
             <div className="flex items-center gap-3">
 
               {/* ==================================================
+                  DATE FILTER
+              ================================================== */}
+
+              <div className="relative">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) =>
+                    setSelectedDate(e.target.value)
+                  }
+                  aria-label={
+                    activeType === "room"
+                      ? "Filter by reservation date"
+                      : "Filter by travel date"
+                  }
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm outline-none focus:border-blue-500"
+                />
+
+                {selectedDate && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedDate("")
+                    }
+                    title="Clear date"
+                    className="absolute -right-2 -top-2 rounded-full border border-slate-300 bg-white p-0.5 text-slate-400 shadow-sm transition hover:text-slate-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* ==================================================
                   ROOM FILTER ONLY
               ================================================== */}
 
@@ -761,6 +803,7 @@ const handleReservationTypeChange = (
                 status={activeStatus}
                 searchQuery={searchQuery}
                 roomId={selectedRoom}
+                reservationDate={selectedDate}
                 refreshTrigger={refreshKey}
                 onActionComplete={
                   handleActionComplete
@@ -770,6 +813,7 @@ const handleReservationTypeChange = (
               <RideRequests
                 status={activeStatus}
                 searchQuery={searchQuery}
+                reservationDate={selectedDate}
                 refreshTrigger={refreshKey}
                 onActionComplete={
                   handleActionComplete

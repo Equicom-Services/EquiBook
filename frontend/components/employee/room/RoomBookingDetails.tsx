@@ -16,6 +16,11 @@ interface RoomBooking {
 interface RoomBookingDetailsProps {
   selectedDate: string;
   bookings: RoomBooking[];
+
+  // Every room of the selected branch, booked or not.
+  // `null` means no single branch is selected, so there is
+  // no room list to filter by and the dropdown is hidden.
+  rooms: string[] | null;
 }
 
 const ITEMS_PER_PAGE = 5;
@@ -23,6 +28,7 @@ const ITEMS_PER_PAGE = 5;
 export default function RoomBookingDetails({
   selectedDate,
   bookings,
+  rooms,
 }: RoomBookingDetailsProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRoom, setSelectedRoom] = useState("all");
@@ -43,12 +49,13 @@ export default function RoomBookingDetails({
   });
 
   const roomOptions = useMemo(() => {
-    return Array.from(
-      new Set(bookings.map((booking) => booking.room))
-    ).sort((a, b) => a.localeCompare(b));
-  }, [bookings]);
+    return [...(rooms ?? [])].sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [rooms]);
 
-  // A room chosen on one date may not exist on the next one
+  // Switching branches (or back to "All Branches") can drop
+  // the room that was chosen, so fall back to showing all
   const activeRoom =
     selectedRoom !== "all" &&
     !roomOptions.includes(selectedRoom)
@@ -123,22 +130,24 @@ export default function RoomBookingDetails({
           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
         />
 
-        <select
-          value={activeRoom}
-          onChange={(e) => {
-            setSelectedRoom(e.target.value);
-            goToPage(1);
-          }}
-          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 sm:w-56"
-        >
-          <option value="all">All rooms</option>
+        {rooms !== null && (
+          <select
+            value={activeRoom}
+            onChange={(e) => {
+              setSelectedRoom(e.target.value);
+              goToPage(1);
+            }}
+            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 sm:w-56"
+          >
+            <option value="all">All rooms</option>
 
-          {roomOptions.map((room) => (
-            <option key={room} value={room}>
-              {room}
-            </option>
-          ))}
-        </select>
+            {roomOptions.map((room) => (
+              <option key={room} value={room}>
+                {room}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {bookings.length === 0 ? (
