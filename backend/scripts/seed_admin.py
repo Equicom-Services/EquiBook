@@ -17,7 +17,7 @@ def seed_admin():
         ).first()
 
         if existing_admin:
-            print("Admin already exists.")
+            print("Admin already exists.")  
             return
 
         admin = Admin(
