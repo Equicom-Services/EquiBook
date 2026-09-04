@@ -8,6 +8,7 @@ interface RoomBooking {
   start: string;
   end: string;
   room: string;
+  site: string;
   employee: string;
   purpose: string;
   status: "approved" | "pending";
@@ -21,6 +22,15 @@ interface RoomBookingDetailsProps {
   // `null` means no single branch is selected, so there is
   // no room list to filter by and the dropdown is hidden.
   rooms: string[] | null;
+
+  // Branch name to its colour. Each booking is tagged with its
+  // branch here, because the calendar no longer distinguishes
+  // them and a mixed list is otherwise ambiguous.
+  branchColors?: Record<string, string>;
+
+  // Only worth labelling when the list can hold more than one
+  // branch, so this is off while a single branch is selected.
+  showBranch?: boolean;
 }
 
 const ITEMS_PER_PAGE = 5;
@@ -29,6 +39,8 @@ export default function RoomBookingDetails({
   selectedDate,
   bookings,
   rooms,
+  branchColors = {},
+  showBranch = false,
 }: RoomBookingDetailsProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRoom, setSelectedRoom] = useState("all");
@@ -81,6 +93,7 @@ export default function RoomBookingDetails({
       return (
         booking.room.toLowerCase().includes(query) ||
         booking.title.toLowerCase().includes(query) ||
+        booking.site.toLowerCase().includes(query) ||
         booking.employee.toLowerCase().includes(query) ||
         booking.purpose.toLowerCase().includes(query) ||
         booking.status.toLowerCase().includes(query)
@@ -116,6 +129,33 @@ export default function RoomBookingDetails({
       <h2 className="text-lg font-semibold text-slate-900">
         Bookings for {formattedDate}
       </h2>
+
+      {/* Branch Color Legend
+
+          Sits here rather than over the calendar, because this
+          is where the colours are actually used. */}
+      {showBranch &&
+        Object.keys(branchColors).length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {Object.entries(branchColors).map(
+              ([branch, color]) => (
+                <div
+                  key={branch}
+                  className="flex items-center gap-2"
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
+
+                  <span className="text-xs text-slate-600">
+                    {branch}
+                  </span>
+                </div>
+              )
+            )}
+          </div>
+        )}
 
       {/* Search Bar + Room Filter */}
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -185,6 +225,24 @@ export default function RoomBookingDetails({
                   key={booking.id}
                   className="rounded-md border border-slate-200 p-4"
                 >
+                  {/* Branch */}
+                  {showBranch && (
+                    <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor:
+                            branchColors[booking.site] ??
+                            "#64748b",
+                        }}
+                      />
+
+                      <span className="text-xs font-medium text-slate-600">
+                        {booking.site}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-x-8 gap-y-3">
                     {/* Room */}
                     <div>

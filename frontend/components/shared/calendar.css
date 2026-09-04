@@ -132,3 +132,78 @@
 .reservation-calendar .fc-event a {
   color: white !important;
 }
+
+/* ==========================================================
+   DOT MODE
+
+   Each day with bookings shows one dot instead of a list of
+   event chips. Branch colours live in the booking details
+   panel, so the dot itself is a plain indicator.
+   ========================================================== */
+
+/* Centre the dots under the date number.
+
+   Centred with text-align rather than flex on purpose:
+   .fc-daygrid-day-events carries ::before/::after clearfix
+   pseudo-elements, and flex would promote those to flex items
+   and push the dots off centre. */
+.reservation-calendar.is-dot-mode .fc-daygrid-day-events {
+  text-align: center;
+  margin-top: 4px;
+  margin-bottom: 0;
+  min-height: 0;
+}
+
+/* Lay the dots out in a row rather than stacking one booking
+   per line, and let them wrap on a very busy day. */
+.reservation-calendar.is-dot-mode .fc-daygrid-event-harness {
+  display: inline-block;
+  position: static;
+  margin: 0 2px;
+  vertical-align: middle;
+}
+
+/* Strip the chip styling so only the dot shows */
+.reservation-calendar.is-dot-mode .fc-event,
+.reservation-calendar.is-dot-mode .fc-event:hover {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0;
+}
+
+.reservation-calendar.is-dot-mode .fc-daygrid-event {
+  margin-top: 0;
+}
+
+/* The dot itself.
+
+   inline-block so the text-align above centres it. */
+.calendar-booking-dot {
+  display: inline-block;
+  height: 6px;
+  width: 6px;
+  border-radius: 9999px;
+  background-color: #2563eb;
+}
+
+/* ==========================================================
+   SELECTED DAY
+
+   With no event chips in the cell, this is the only feedback
+   that a date was clicked.
+   ========================================================== */
+
+.reservation-calendar .fc-daygrid-day.is-selected-day {
+  background-color: #03045e !important;
+}
+
+.reservation-calendar .fc-daygrid-day.is-selected-day .fc-daygrid-day-number {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* Lighten the dots so they stay visible on the dark cell */
+.reservation-calendar .fc-daygrid-day.is-selected-day .calendar-booking-dot {
+  background-color: #93c5fd;
+}
