@@ -16,7 +16,11 @@ import ReservationStatusFilter from "./ReservationStatusFilter";
 import RoomRequests from "./RoomRequests";
 import RideRequests from "./RideRequests";
 import Calendar from "@/components/shared/Calendar";
-import { apiFetch } from "@/lib/api";
+import {
+  apiFetch,
+  getErrorMessage,
+  getThrownMessage,
+} from "@/lib/api";
 import { capitalizeFirst } from "@/lib/text";
 import AdminRoomBookingForm from "./AdminRoomBookingForm";
 import AdminRideBookingForm from "./AdminRideBookingForm";
@@ -260,7 +264,10 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch approved room bookings: ${response.status}`
+          await getErrorMessage(
+            response,
+            "Unable to load room calendar bookings."
+          )
         );
       }
 
@@ -269,15 +276,11 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
 
       setApprovedRoomBookings(data);
     } catch (error) {
-      console.error(
-        "Error fetching approved room bookings:",
-        error
-      );
-
       setCalendarError(
-        error instanceof Error
-          ? error.message
-          : "Unable to load room calendar bookings."
+        getThrownMessage(
+          error,
+          "Unable to load room calendar bookings."
+        )
       );
     } finally {
       setCalendarLoading(false);
@@ -308,7 +311,10 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch approved ride bookings: ${response.status}`
+          await getErrorMessage(
+            response,
+            "Unable to load ride calendar bookings."
+          )
         );
       }
 
@@ -317,15 +323,11 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
 
       setApprovedRideBookings(data);
     } catch (error) {
-      console.error(
-        "Error fetching approved ride bookings:",
-        error
-      );
-
       setCalendarError(
-        error instanceof Error
-          ? error.message
-          : "Unable to load ride calendar bookings."
+        getThrownMessage(
+          error,
+          "Unable to load ride calendar bookings."
+        )
       );
     } finally {
       setCalendarLoading(false);

@@ -1,3 +1,5 @@
+import { pickErrorMessage } from "@/lib/api";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export async function loginAdmin(
@@ -20,7 +22,11 @@ export async function loginAdmin(
 
   if (!response.ok) {
     throw new Error(
-      data.detail || "Invalid email or password"
+      pickErrorMessage(
+        response,
+        data,
+        "Invalid email or password."
+      )
     );
   }
 

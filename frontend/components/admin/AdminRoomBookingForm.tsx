@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import RoomRequestConfirmationModal from "../employee/room/RoomRequestConfirmationModal";
-import { apiFetch } from "@/lib/api";
+import {
+  apiFetch,
+  getErrorMessage,
+  getThrownMessage,
+} from "@/lib/api";
 import EmployeeNameInput from "@/components/shared/EmployeeNameInput";
 
 /*
@@ -286,7 +290,12 @@ useEffect(() => {
       );
 
       if (!roomsResponse.ok) {
-        throw new Error("Failed to fetch rooms.");
+        throw new Error(
+          await getErrorMessage(
+            roomsResponse,
+            "Unable to load rooms."
+          )
+        );
       }
 
       const roomsData: Room[] =
@@ -294,17 +303,13 @@ useEffect(() => {
 
       setRooms(roomsData);
     } catch (error) {
-      console.error(
-        "Error fetching admin rooms:",
-        error
-      );
-
       setRooms([]);
 
       setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to load rooms."
+        getThrownMessage(
+          error,
+          "Unable to load rooms."
+        )
       );
     } finally {
       setLoadingRooms(false);
@@ -810,27 +815,15 @@ const confirmSubmit = async () => {
       );
 
       if (!response.ok) {
-        let errorMessage =
-          "Failed to update room booking.";
+        const errorMessage =
+          "We could not update this booking. Please try again.";
 
-        try {
-          const data = await response.json();
-
-          if (typeof data.detail === "string") {
-            errorMessage = data.detail;
-          } else if (Array.isArray(data.detail)) {
-            errorMessage = data.detail
-              .map(
-                (item: { msg?: string }) =>
-                  item.msg
-              )
-              .join(", ");
-          }
-        } catch {
-          // Keep default error
-        }
-
-        throw new Error(errorMessage);
+        throw new Error(
+          await getErrorMessage(
+            response,
+            errorMessage
+          )
+        );
       }
 
       setShowConfirmation(false);
@@ -888,24 +881,15 @@ const confirmSubmit = async () => {
 
     for (const response of responses) {
       if (!response.ok) {
-        let errorMessage =
-          "Failed to create room booking.";
+        const errorMessage =
+          "We could not create this booking. Please try again.";
 
-        try {
-          const data = await response.json();
-
-          if (typeof data.detail === "string") {
-            errorMessage = data.detail;
-          } else if (Array.isArray(data.detail)) {
-            errorMessage = data.detail
-              .map((item: any) => item.msg)
-              .join(", ");
-          }
-        } catch {
-          // Keep default error
-        }
-
-        throw new Error(errorMessage);
+        throw new Error(
+          await getErrorMessage(
+            response,
+            errorMessage
+          )
+        );
       }
     }
 
@@ -916,23 +900,17 @@ const confirmSubmit = async () => {
     onClose();
 
   } catch (error) {
-    console.error(
-      isEditing
-        ? "Admin room booking update error:"
-        : "Admin room booking error:",
-      error
-    );
-
     // Close the confirmation modal, otherwise it covers the
     // error message shown at the top of the form.
     setShowConfirmation(false);
 
     setError(
-      error instanceof Error
-        ? error.message
-        : isEditing
-        ? "We could not update this booking. Please try again."
-        : "We could not create this booking. Please try again."
+      getThrownMessage(
+        error,
+        isEditing
+          ? "We could not update this booking. Please try again."
+          : "We could not create this booking. Please try again."
+      )
     );
   } finally {
     setLoading(false);

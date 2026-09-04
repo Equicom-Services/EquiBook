@@ -23,6 +23,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { useState } from "react";
+import { getThrownMessage } from "@/lib/api";
 import MessageDialog, {
   DialogMessage,
   MessageVariant,
@@ -126,17 +127,13 @@ export default function RideRequestCard({
       setShowCancel(false);
       setCancelRemarks("");
     } catch (error) {
-      console.error(
-        "Failed to cancel ride:",
-        error
-      );
-
       showDialog(
         "error",
         "Cancellation Failed",
-        error instanceof Error
-          ? error.message
-          : "We could not cancel this reservation. Please try again."
+        getThrownMessage(
+          error,
+          "We could not cancel this reservation. Please try again."
+        )
       );
     } finally {
       setCancelling(false);
