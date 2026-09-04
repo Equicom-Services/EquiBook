@@ -1,0 +1,9 @@
+# --- redirect the folder URL to the running app on :6900 ---
+RedirectMatch ^/EquiBook/?$ http://10.11.1.135:6900/
+
+# --- block source/secrets from being downloaded (safe to delete this section) ---
+Options -Indexes
+RedirectMatch 404 ^/EquiBook/\.git
+<FilesMatch "^(\.env.*|\.gitignore|ecosystem\.config\.js|requirements.*\.txt|.*\.py|CLAUDE\.md)$">
+    Require all denied
+</FilesMatch>
