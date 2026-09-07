@@ -173,8 +173,7 @@ const fetchRequests = async (showLoading = false) => {
           "access_token"
         );
 
-        window.location.href =
-          "/admin/login";
+        window.location.href = "/EquiBook/admin/login";
 
         return;
       }
@@ -435,8 +434,7 @@ function showDialog(
           "access_token"
         );
 
-        window.location.href =
-          "/admin/login";
+        window.location.href = "/EquiBook/admin/login";
 
         return;
       }
@@ -494,7 +492,7 @@ const cancelBooking = async (requestId: number) => {
 
     if (response.status === 401) {
       localStorage.removeItem("access_token");
-      window.location.href = "/admin/login";
+      window.location.href = "/EquiBook/admin/login";
       return;
     }
 

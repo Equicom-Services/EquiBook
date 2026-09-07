@@ -1,5 +1,4 @@
 # --- redirect the folder URL to the running app on :6900 ---
-RedirectMatch ^/EquiBook/?$ http://10.11.1.135:6900/
 
 # --- block source/secrets from being downloaded (safe to delete this section) ---
 Options -Indexes

@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  basePath: "/EquiBook",
   allowedDevOrigins: ["10.11.1.135"],
 };
 
