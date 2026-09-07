@@ -323,33 +323,34 @@ export default function RoomBookingPage() {
   );
 
   // ==========================================================
+  // BRANCH DOT COLORS
+  //
+  // The calendar shows a plain dot per booked date, so the
+  // branch colour is carried by the booking details instead.
+  // ==========================================================
+
+  const branchDotColors = Object.fromEntries(
+    Object.entries(branchColors).map(
+      ([branch, color]) => [
+        branch,
+        color.backgroundColor,
+      ]
+    )
+  );
+
+  // ==========================================================
   // CALENDAR EVENTS
   // ==========================================================
 
-  const calendarEvents = branchBookings.map((booking) => {
-    const color = branchColors[booking.site] ?? {
-      backgroundColor: "#64748b",
-      borderColor: "#475569",
-      textColor: "#ffffff",
-    };
+  const calendarEvents = branchBookings.map((booking) => ({
+    id: booking.id,
 
-    return {
-      id: booking.id,
+    title: booking.room,
 
-      title: booking.room,
+    start: booking.start,
 
-      start: booking.start,
-
-      end: booking.end,
-
-      // Branch-based calendar color
-      backgroundColor: color.backgroundColor,
-
-      borderColor: color.borderColor,
-
-      textColor: color.textColor,
-    };
-  });
+    end: booking.end,
+  }));
 
   // ==========================================================
   // RENDER
@@ -394,39 +395,13 @@ return (
                 Select a date to view room bookings.
               </p>
 
-              {/* Branch Color Legend */}
-              {selectedBranch === "all" && branches.length > 0 && (
-                <div className="mt-4">
-                  <p className="mb-2 text-xs font-medium text-slate-500">
-                    Branches
-                  </p>
+              <div className="mt-4 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[#2563eb]" />
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    {branches.map((branch) => {
-                      const color = branchColors[branch];
-
-                      return (
-                        <div
-                          key={branch}
-                          className="flex items-center gap-2"
-                        >
-                          <span
-                            className="h-3 w-3 rounded-full"
-                            style={{
-                              backgroundColor:
-                                color.backgroundColor,
-                            }}
-                          />
-
-                          <span className="text-xs text-slate-600">
-                            {branch}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                <span className="text-xs text-slate-500">
+                  Each dot is one booking on that date.
+                </span>
+              </div>
             </div>
 
             {/* Right: Branch Dropdown */}
@@ -465,6 +440,8 @@ return (
           {/* Calendar */}
           <Calendar
             events={calendarEvents}
+            showEventsAsDots
+            selectedDate={selectedDate}
             onDateClick={(date) => {
               setSelectedDate(date);
             }}
@@ -479,6 +456,8 @@ return (
             rooms={
               selectedBranch === "all" ? null : branchRooms
             }
+            branchColors={branchDotColors}
+            showBranch={selectedBranch === "all"}
           />
         </div>
 

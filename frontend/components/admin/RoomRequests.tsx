@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import {
+  apiFetch,
+  getErrorMessage,
+  pickErrorMessage,
+  getThrownMessage,
+} from "@/lib/api";
 import { capitalizeFirst } from "@/lib/text";
 import MessageDialog, {
   DialogMessage,
@@ -168,8 +173,7 @@ const fetchRequests = async (showLoading = false) => {
           "access_token"
         );
 
-        window.location.href =
-          "/admin/login";
+        window.location.href = "/EquiBook/admin/login";
 
         return;
       }
@@ -182,7 +186,10 @@ const fetchRequests = async (showLoading = false) => {
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch room requests: ${response.status}`
+          await getErrorMessage(
+            response,
+            "Unable to load room requests."
+          )
         );
       }
 
@@ -204,9 +211,10 @@ const fetchRequests = async (showLoading = false) => {
       );
 
       setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to load room requests."
+        getThrownMessage(
+          error,
+          "Unable to load room requests."
+        )
       );
 
     } finally {
@@ -426,8 +434,7 @@ function showDialog(
           "access_token"
         );
 
-        window.location.href =
-          "/admin/login";
+        window.location.href = "/EquiBook/admin/login";
 
         return;
       }
@@ -439,12 +446,11 @@ function showDialog(
       }
 
       if (!response.ok) {
-        const error =
-          await response.json();
-
         throw new Error(
-          error.detail ||
-            "Failed to update request."
+          await getErrorMessage(
+            response,
+            "We could not update this request. Please try again."
+          )
         );
       }
 
@@ -461,9 +467,10 @@ function showDialog(
       showDialog(
         "error",
         "Update Failed",
-        error instanceof Error
-          ? error.message
-          : "We could not update this request. Please try again."
+        getThrownMessage(
+          error,
+          "We could not update this request. Please try again."
+        )
       );
     }
   };
@@ -485,7 +492,7 @@ const cancelBooking = async (requestId: number) => {
 
     if (response.status === 401) {
       localStorage.removeItem("access_token");
-      window.location.href = "/admin/login";
+      window.location.href = "/EquiBook/admin/login";
       return;
     }
 
@@ -513,8 +520,11 @@ const cancelBooking = async (requestId: number) => {
       }
 
       throw new Error(
-        data.detail ||
-          "Failed to cancel room booking."
+        pickErrorMessage(
+          response,
+          data,
+          "We could not cancel this booking. Please try again."
+        )
       );
     }
 
@@ -528,17 +538,13 @@ const cancelBooking = async (requestId: number) => {
     onActionComplete?.();
 
   } catch (error) {
-    console.error(
-      "Error cancelling booking:",
-      error
-    );
-
     showDialog(
       "error",
       "Cancellation Failed",
-      error instanceof Error
-        ? error.message
-        : "We could not cancel this booking. Please try again."
+      getThrownMessage(
+        error,
+        "We could not cancel this booking. Please try again."
+      )
     );
   } finally {
     setCancelling(false);

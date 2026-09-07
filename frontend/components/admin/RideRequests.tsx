@@ -6,6 +6,10 @@ import { Grid2X2, List } from "lucide-react";
 
 import RideRequestCard from "./RideRequestCard";
 import { capitalizeFirst } from "@/lib/text";
+import {
+  getErrorMessage,
+  pickErrorMessage,
+} from "@/lib/api";
 
 interface RideReservationResponse {
   ride_reservation_id: number;
@@ -150,7 +154,10 @@ export default function RideRequests({
           }
 
           throw new Error(
-            `Failed to fetch ride reservations: ${response.status}`
+            await getErrorMessage(
+              response,
+              "Unable to load ride reservations."
+            )
           );
         }
 
@@ -378,8 +385,11 @@ const data = await response.json();
 
 if (!response.ok) {
   throw new Error(
-    data?.detail ||
-      `Failed to update reservation: ${response.status}`
+    pickErrorMessage(
+      response,
+      data,
+      "We could not update this reservation. Please try again."
+    )
   );
 }
 
@@ -443,8 +453,11 @@ const cancelRideReservation = async (
 
   if (!response.ok) {
     throw new Error(
-      data?.detail ||
-        `Failed to cancel reservation: ${response.status}`
+      pickErrorMessage(
+        response,
+        data,
+        "We could not cancel this reservation. Please try again."
+      )
     );
   }
 

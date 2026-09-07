@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import EmployeeNameInput from "@/components/shared/EmployeeNameInput";
+import {
+  getErrorMessage,
+  getThrownMessage,
+} from "@/lib/api";
 
 interface Admin {
 admin_id: number;
@@ -16,6 +20,32 @@ interface AdminRideBookingFormProps {
 onClose: () => void;
 onSuccess: () => void;
 }
+
+/*
+ * One row of the travel schedule.
+ *
+ * Each row is booked as its own ride reservation, so round trip
+ * and the return details are decided per travel date.
+ */
+interface TravelSchedule {
+id: number;
+date: string;
+departure_time: string;
+roundtrip: boolean;
+return_pickup: string;
+return_drop_off_location: string;
+return_drop_off_maps_link: string;
+}
+
+const emptySchedule = (): TravelSchedule => ({
+id: Date.now() + Math.random(),
+date: "",
+departure_time: "",
+roundtrip: false,
+return_pickup: "",
+return_drop_off_location: "",
+return_drop_off_maps_link: "",
+});
 
 export default function AdminRideBookingForm({
 onClose,
@@ -38,14 +68,15 @@ const [employeeName, setEmployeeName] = useState("");
 const [employeeEmail, setEmployeeEmail] = useState("");
 
 // =========================================================
-// RIDE DETAILS
+// TRAVEL SCHEDULE
+//
+// One reservation is created per row, so an admin can book a
+// recurring ride the same way an employee requests one.
 // =========================================================
 
-const [travelDate, setTravelDate] = useState("");
-const [departureTime, setDepartureTime] = useState("");
-
-const [roundtrip, setRoundtrip] = useState(false);
-const [returnPickup, setReturnPickup] = useState("");
+const [travelSchedules, setTravelSchedules] = useState<
+TravelSchedule[]
+>([emptySchedule()]);
 
 // =========================================================
 // PICKUP / DROPOFF
@@ -59,14 +90,6 @@ useState("");
 
 const [dropOffMapsLink, setDropOffMapsLink] =
 useState("");
-
-const [returnDropOffLocation, setReturnDropOffLocation] =
-useState("");
-
-const [
-returnDropOffMapsLink,
-setReturnDropOffMapsLink,
-] = useState("");
 
 // =========================================================
 // ADDITIONAL DETAILS
@@ -146,6 +169,87 @@ fetchAdmin();
 }, [API_URL]);
 
 // =========================================================
+// SCHEDULE CHANGE
+// =========================================================
+
+const handleScheduleChange = (
+id: number,
+field:
+  | "date"
+  | "departure_time"
+  | "return_pickup"
+  | "return_drop_off_location"
+  | "return_drop_off_maps_link",
+value: string
+) => {
+setTravelSchedules((prev) =>
+  prev.map((schedule) =>
+    schedule.id === id
+      ? {
+          ...schedule,
+          [field]: value,
+        }
+      : schedule
+  )
+);
+};
+
+// =========================================================
+// ROUND TRIP FOR ONE TRAVEL DATE
+// =========================================================
+
+const handleScheduleRoundTrip = (
+id: number,
+checked: boolean
+) => {
+setTravelSchedules((prev) =>
+  prev.map((schedule) =>
+    schedule.id === id
+      ? {
+          ...schedule,
+          roundtrip: checked,
+
+          // Clearing the return details keeps a cancelled round
+          // trip from submitting stale values.
+          return_pickup: checked
+            ? schedule.return_pickup
+            : "",
+          return_drop_off_location: checked
+            ? schedule.return_drop_off_location
+            : "",
+          return_drop_off_maps_link: checked
+            ? schedule.return_drop_off_maps_link
+            : "",
+        }
+      : schedule
+  )
+);
+};
+
+// =========================================================
+// ADD DATE
+// =========================================================
+
+const addSchedule = () => {
+setTravelSchedules((prev) => [
+  ...prev,
+  emptySchedule(),
+]);
+};
+
+// =========================================================
+// REMOVE DATE
+// =========================================================
+
+const removeSchedule = (id: number) => {
+setTravelSchedules((prev) =>
+  prev.filter(
+    (schedule) => schedule.id !== id
+  )
+);
+};
+
+// =========================================================
 // SUBMIT
 // =========================================================
 
@@ -182,28 +286,65 @@ if (!employeeEmail.trim()) {
 }
 
 // ---------------------------------------------------------
-// VALIDATE TRAVEL DETAILS
+// VALIDATE TRAVEL SCHEDULE
+//
+// Every row becomes its own reservation, so each one is
+// checked before anything is sent.
 // ---------------------------------------------------------
 
-if (!travelDate) {
+if (travelSchedules.length === 0) {
   setError(
-    "Please select a travel date."
+    "Please add at least one travel date."
   );
   return;
 }
 
-if (!departureTime) {
-  setError(
-    "Please select a departure time."
-  );
-  return;
-}
+const seen = new Set<string>();
 
-if (roundtrip && !returnPickup) {
-  setError(
-    "Return pickup time is required for a round trip."
-  );
-  return;
+for (const schedule of travelSchedules) {
+  if (!schedule.date) {
+    setError(
+      "Please select a travel date for every reservation."
+    );
+    return;
+  }
+
+  if (!schedule.departure_time) {
+    setError(
+      "Please select a departure time for every reservation."
+    );
+    return;
+  }
+
+  const key = `${schedule.date} ${schedule.departure_time}`;
+
+  if (seen.has(key)) {
+    setError(
+      `${schedule.date} at ${schedule.departure_time} appears more than once. ` +
+        "Please remove the duplicate."
+    );
+    return;
+  }
+
+  seen.add(key);
+
+  if (schedule.date < today) {
+    setError(
+      `${schedule.date} is in the past. ` +
+        "Please choose a date from today onwards."
+    );
+    return;
+  }
+
+  if (
+    schedule.roundtrip &&
+    !schedule.return_pickup
+  ) {
+    setError(
+      `Return pickup time is required for the round trip on ${schedule.date}.`
+    );
+    return;
+  }
 }
 
 // ---------------------------------------------------------
@@ -262,122 +403,115 @@ try {
   const token =
     localStorage.getItem("access_token");
 
-  const response = await fetch(
-    `${API_URL}/api/ride-reservations/admin/bookings`,
-    {
-      method: "POST",
+  // Every row goes through the same endpoint, so the existing
+  // booking rules apply to all of them.
+  const responses = await Promise.all(
+    travelSchedules.map((schedule) =>
+      fetch(
+        `${API_URL}/api/ride-reservations/admin/bookings`,
+        {
+          method: "POST",
 
-      headers: {
-        "Content-Type": "application/json",
+          headers: {
+            "Content-Type": "application/json",
 
-        ...(token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {}),
-      },
+            ...(token
+              ? {
+                  Authorization: `Bearer ${token}`,
+                }
+              : {}),
+          },
 
-      credentials: "include",
+          credentials: "include",
 
-      body: JSON.stringify({
-        employee_name:
-          employeeName.trim(),
+          body: JSON.stringify({
+            employee_name:
+              employeeName.trim(),
 
-        employee_email:
-          employeeEmail.trim(),
+            employee_email:
+              employeeEmail.trim(),
 
-        travel_date:
-          travelDate,
+            travel_date:
+              schedule.date,
 
-        departure_time:
-          departureTime,
+            departure_time:
+              schedule.departure_time,
 
-        roundtrip:
-          roundtrip,
+            roundtrip:
+              schedule.roundtrip,
 
-        return_pickup:
-        roundtrip && returnPickup
-            ? `${travelDate}T${returnPickup}:00`
-            : null,
+            return_pickup:
+              schedule.roundtrip &&
+              schedule.return_pickup
+                ? `${schedule.date}T${schedule.return_pickup}:00`
+                : null,
 
-        pickup_location:
-          pickupLocation.trim(),
+            pickup_location:
+              pickupLocation.trim(),
 
-        pickup_maps_link:
-          pickupMapsLink.trim() || null,
+            pickup_maps_link:
+              pickupMapsLink.trim() || null,
 
-        dropoff_destination:
-          dropoffDestination.trim(),
+            dropoff_destination:
+              dropoffDestination.trim(),
 
-        drop_off_maps_link:
-          dropOffMapsLink.trim() || null,
+            drop_off_maps_link:
+              dropOffMapsLink.trim() || null,
 
-        return_drop_off_location:
-          roundtrip
-            ? returnDropOffLocation.trim() || null
-            : null,
+            return_drop_off_location:
+              schedule.roundtrip
+                ? schedule.return_drop_off_location.trim() ||
+                  null
+                : null,
 
-        return_drop_off_maps_link:
-          roundtrip
-            ? returnDropOffMapsLink.trim() || null
-            : null,
+            return_drop_off_maps_link:
+              schedule.roundtrip
+                ? schedule.return_drop_off_maps_link.trim() ||
+                  null
+                : null,
 
-        purpose:
-          purpose.trim(),
+            purpose:
+              purpose.trim(),
 
-        passenger_count:
-          Number(passengerCount),
+            passenger_count:
+              Number(passengerCount),
 
-        vehicle_type:
-          vehicleType.trim(),
+            vehicle_type:
+              vehicleType.trim(),
 
-        admin_remarks:
-          adminRemarks.trim() || null,
-      }),
-    }
+            admin_remarks:
+              adminRemarks.trim() || null,
+          }),
+        }
+      )
+    )
   );
 
-  if (!response.ok) {
-    let errorMessage =
-      "Failed to create ride booking.";
+  for (const response of responses) {
+    if (!response.ok) {
+      const errorMessage = await getErrorMessage(
+        response,
+        "We could not create the ride booking. Please try again."
+      );
 
-    try {
-      const data =
-        await response.json();
+      // Some bookings in the batch may already have been
+      // created, so refresh the list before reporting the
+      // failure instead of leaving the page looking unchanged.
+      onSuccess();
 
-      if (
-        typeof data.detail === "string"
-      ) {
-        errorMessage = data.detail;
-      } else if (
-        Array.isArray(data.detail)
-      ) {
-        errorMessage = data.detail
-          .map(
-            (item: any) => item.msg
-          )
-          .join(", ");
-      }
-    } catch {
-      // Keep default error message
+      throw new Error(errorMessage);
     }
-
-    throw new Error(errorMessage);
   }
 
   onSuccess();
   onClose();
 
 } catch (error) {
-  console.error(
-    "Admin ride booking error:",
-    error
-  );
-
   setError(
-    error instanceof Error
-      ? error.message
-      : "Failed to create ride booking."
+    getThrownMessage(
+      error,
+      "We could not create the ride booking. Please try again."
+    )
   );
 } finally {
   setLoading(false);
@@ -515,112 +649,219 @@ return (
 
       </div>
 
-      {/* TRAVEL DETAILS */}
+      {/* TRAVEL SCHEDULE */}
 
-      <div>
+      <div className="space-y-4">
 
-        <h3 className="mb-4 text-sm font-semibold text-slate-800">
-          Travel Details
-        </h3>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
-          {/* TRAVEL DATE */}
+        <div className="flex items-center justify-between">
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Travel Date
-            </label>
+            <h3 className="text-sm font-semibold text-slate-800">
+              Travel Schedule
+            </h3>
 
-            <input
-              type="date"
-              value={travelDate}
-              min={today}
-              onChange={(e) =>
-                setTravelDate(
-                  e.target.value
-                )
-              }
-              required
-              className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
-            />
+            <p className="mt-1 text-xs text-slate-400">
+              Add multiple dates if you need recurring
+              bookings.
+            </p>
           </div>
 
-          {/* DEPARTURE TIME */}
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Departure Time
-            </label>
-
-            <input
-              type="time"
-              value={departureTime}
-              onChange={(e) =>
-                setDepartureTime(
-                  e.target.value
-                )
-              }
-              required
-              className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={addSchedule}
+            className="rounded-md border border-[#03045e] px-3 py-2 text-xs font-semibold text-[#03045e] transition hover:bg-[#03045e] hover:text-white"
+          >
+            + Add Another Date
+          </button>
 
         </div>
 
-      </div>
+        {travelSchedules.map(
+          (schedule, index) => (
 
-      {/* ROUND TRIP */}
+            <div
+              key={schedule.id}
+              className="rounded-md border border-slate-200 p-4"
+            >
 
-      <div className="rounded-lg border border-slate-200 p-4">
+              <div className="mb-3 flex items-center justify-between">
 
-        <label className="flex cursor-pointer items-center gap-3">
+                <p className="text-sm font-semibold text-slate-700">
+                  Reservation {index + 1}
+                </p>
 
-          <input
-            type="checkbox"
-            checked={roundtrip}
-            onChange={(e) => {
-              setRoundtrip(
-                e.target.checked
-              );
+                {travelSchedules.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      removeSchedule(
+                        schedule.id
+                      )
+                    }
+                    className="text-xs font-medium text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                )}
 
-              if (!e.target.checked) {
-                setReturnPickup("");
-                setReturnDropOffLocation("");
-                setReturnDropOffMapsLink("");
-              }
-            }}
-            className="h-4 w-4"
-          />
+              </div>
 
-          <span className="text-sm font-medium text-slate-700">
-            Round Trip
-          </span>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
-        </label>
+                {/* TRAVEL DATE */}
 
-        {roundtrip && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Travel Date
+                  </label>
 
-          <div className="mt-4">
+                  <input
+                    type="date"
+                    value={schedule.date}
+                    min={today}
+                    onChange={(e) =>
+                      handleScheduleChange(
+                        schedule.id,
+                        "date",
+                        e.target.value
+                      )
+                    }
+                    required
+                    className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
+                  />
+                </div>
 
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Return Pickup Time
-            </label>
+                {/* DEPARTURE TIME */}
 
-            <input
-              type="time"
-              value={returnPickup}
-              onChange={(e) =>
-                setReturnPickup(
-                  e.target.value
-                )
-              }
-              required={roundtrip}
-              className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
-            />
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Departure Time
+                  </label>
 
-          </div>
+                  <input
+                    type="time"
+                    value={schedule.departure_time}
+                    onChange={(e) =>
+                      handleScheduleChange(
+                        schedule.id,
+                        "departure_time",
+                        e.target.value
+                      )
+                    }
+                    required
+                    className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
+                  />
+                </div>
 
+              </div>
+
+              {/* ROUND TRIP */}
+
+              <div className="mt-4">
+
+                <label className="flex cursor-pointer items-center gap-3">
+
+                  <input
+                    type="checkbox"
+                    checked={schedule.roundtrip}
+                    onChange={(e) =>
+                      handleScheduleRoundTrip(
+                        schedule.id,
+                        e.target.checked
+                      )
+                    }
+                    className="h-4 w-4"
+                  />
+
+                  <span className="text-sm font-medium text-slate-700">
+                    Round Trip
+                  </span>
+
+                </label>
+
+                {schedule.roundtrip && (
+
+                  <div className="mt-4 space-y-4 rounded-md bg-slate-50 p-4">
+
+                    <div>
+
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Return Pickup Time
+                      </label>
+
+                      <input
+                        type="time"
+                        value={schedule.return_pickup}
+                        onChange={(e) =>
+                          handleScheduleChange(
+                            schedule.id,
+                            "return_pickup",
+                            e.target.value
+                          )
+                        }
+                        required
+                        className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
+                      />
+
+                    </div>
+
+                    <div>
+
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Return Drop-off Location
+                      </label>
+
+                      <input
+                        type="text"
+                        value={
+                          schedule.return_drop_off_location
+                        }
+                        onChange={(e) =>
+                          handleScheduleChange(
+                            schedule.id,
+                            "return_drop_off_location",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Enter return drop-off location"
+                        className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
+                      />
+
+                    </div>
+
+                    <div>
+
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Return Drop-off Google Maps Link
+                      </label>
+
+                      <input
+                        type="url"
+                        value={
+                          schedule.return_drop_off_maps_link
+                        }
+                        onChange={(e) =>
+                          handleScheduleChange(
+                            schedule.id,
+                            "return_drop_off_maps_link",
+                            e.target.value
+                          )
+                        }
+                        placeholder="https://maps.google.com/..."
+                        className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
+                      />
+
+                    </div>
+
+                  </div>
+
+                )}
+
+              </div>
+
+            </div>
+
+          )
         )}
 
       </div>
@@ -734,64 +975,6 @@ return (
         </div>
 
       </div>
-
-      {/* RETURN DROPOFF */}
-
-      {roundtrip && (
-
-        <div>
-
-          <h3 className="mb-4 text-sm font-semibold text-slate-800">
-            Return Drop-off Information
-          </h3>
-
-          <div className="space-y-4">
-
-            <div>
-
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Return Drop-off Location
-              </label>
-
-              <input
-                type="text"
-                value={returnDropOffLocation}
-                onChange={(e) =>
-                  setReturnDropOffLocation(
-                    e.target.value
-                  )
-                }
-                placeholder="Enter return drop-off location"
-                className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
-              />
-
-            </div>
-
-            <div>
-
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Return Drop-off Google Maps Link
-              </label>
-
-              <input
-                type="url"
-                value={returnDropOffMapsLink}
-                onChange={(e) =>
-                  setReturnDropOffMapsLink(
-                    e.target.value
-                  )
-                }
-                placeholder="https://maps.google.com/..."
-                className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#03045e]"
-              />
-
-            </div>
-
-          </div>
-
-        </div>
-
-      )}
 
       {/* PASSENGERS */}
 

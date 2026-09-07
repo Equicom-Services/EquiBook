@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { FileText, X, Download } from "lucide-react";
+import {
+  getErrorMessage,
+  getThrownMessage,
+} from "@/lib/api";
 
 interface GenerateReportProps {
   reservationType: "room" | "ride";
@@ -103,17 +107,11 @@ export default function GenerateReport({
       );
 
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error(
-            "Your session has expired. Please log in again."
-          );
-        }
-
-        const data = await response.json().catch(() => null);
-
         throw new Error(
-          data?.detail ||
-            `Failed to generate report: ${response.status}`
+          await getErrorMessage(
+            response,
+            "We could not generate the report. Please try again."
+          )
         );
       }
 
@@ -140,12 +138,11 @@ export default function GenerateReport({
 
       setIsOpen(false);
     } catch (err) {
-      console.error("Failed to generate report:", err);
-
       setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to generate report."
+        getThrownMessage(
+          err,
+          "We could not generate the report. Please try again."
+        )
       );
     } finally {
       setIsGenerating(false);

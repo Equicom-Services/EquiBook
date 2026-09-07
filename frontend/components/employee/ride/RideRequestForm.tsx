@@ -6,6 +6,10 @@ import MessageDialog, {
   MessageVariant,
 } from "@/components/shared/MessageDialog";
 import EmployeeNameInput from "@/components/shared/EmployeeNameInput";
+import {
+  getErrorMessage,
+  getThrownMessage,
+} from "@/lib/api";
 
 interface RideRequestFormProps {
   selectedDate: string;
@@ -569,24 +573,12 @@ async function confirmSubmit() {
      */
     for (const response of responses) {
       if (!response.ok) {
-        let errorMessage =
-          "We could not submit your ride reservation. Please try again.";
-
-        try {
-          const error = await response.json();
-
-          if (typeof error.detail === "string") {
-            errorMessage = error.detail;
-          } else if (Array.isArray(error.detail)) {
-            errorMessage = error.detail
-              .map((item: { msg: string }) => item.msg)
-              .join(", ");
-          }
-        } catch {
-          // Keep default error message
-        }
-
-        throw new Error(errorMessage);
+        throw new Error(
+          await getErrorMessage(
+            response,
+            "We could not submit your ride reservation. Please try again."
+          )
+        );
       }
     }
 
@@ -628,8 +620,6 @@ async function confirmSubmit() {
             "A confirmation email has been sent to you."
     );
   } catch (error) {
-    console.error("Ride reservation error:", error);
-
     /*
      * Some reservations in the batch may already have been
      * created, so refresh before reporting the failure. Without
@@ -643,9 +633,10 @@ async function confirmSubmit() {
     showDialog(
       "error",
       "Submission Failed",
-      error instanceof Error
-        ? error.message
-        : "We could not submit your ride reservation. Please try again."
+      getThrownMessage(
+        error,
+        "We could not submit your ride reservation. Please try again."
+      )
     );
   } finally {
     setSubmitting(false);

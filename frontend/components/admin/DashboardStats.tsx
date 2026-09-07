@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/api";
 
 import {
   CalendarDays,
@@ -70,7 +71,10 @@ export default function DashboardStats({
 
         if (!response.ok) {
           throw new Error(
-            `Failed to fetch dashboard statistics. Status: ${response.status}`
+            await getErrorMessage(
+              response,
+              "Unable to load dashboard statistics."
+            )
           );
         }
 

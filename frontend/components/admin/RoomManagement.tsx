@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import {
+  apiFetch,
+  pickErrorMessage,
+  getThrownMessage,
+} from "@/lib/api";
 
 interface Room {
   room_id: number;
@@ -68,8 +72,11 @@ export default function RoomManagement() {
 
       if (!adminResponse.ok) {
         throw new Error(
-          adminData?.detail ||
-            `Failed to fetch admin information: ${adminResponse.status}`
+          pickErrorMessage(
+            adminResponse,
+            adminData,
+            "Unable to load your admin information."
+          )
         );
       }
 
@@ -95,19 +102,21 @@ export default function RoomManagement() {
 
       if (!roomsResponse.ok) {
         throw new Error(
-          roomsData?.detail ||
-            `Failed to fetch rooms: ${roomsResponse.status}`
+          pickErrorMessage(
+            roomsResponse,
+            roomsData,
+            "Unable to load rooms."
+          )
         );
       }
 
       setRooms(roomsData);
     } catch (error) {
-      console.error("Error loading room management:", error);
-
       setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to load rooms."
+        getThrownMessage(
+          error,
+          "Unable to load rooms."
+        )
       );
     } finally {
       setLoading(false);
@@ -231,8 +240,11 @@ export default function RoomManagement() {
 
       if (!response.ok) {
         throw new Error(
-          data?.detail ||
-            `Failed to add room: ${response.status}`
+          pickErrorMessage(
+            response,
+            data,
+            "Unable to add room."
+          )
         );
       }
 
@@ -248,12 +260,11 @@ export default function RoomManagement() {
 
       closeModal();
     } catch (error) {
-      console.error("Error adding room:", error);
-
       setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to add room."
+        getThrownMessage(
+          error,
+          "Unable to add room."
+        )
       );
     } finally {
       setSubmitting(false);
@@ -294,8 +305,11 @@ export default function RoomManagement() {
 
       if (!response.ok) {
         throw new Error(
-          data?.detail ||
-            `Failed to update room: ${response.status}`
+          pickErrorMessage(
+            response,
+            data,
+            "Unable to update room status."
+          )
         );
       }
 
@@ -317,15 +331,11 @@ export default function RoomManagement() {
         }.`
       );
     } catch (error) {
-      console.error(
-        "Error updating room status:",
-        error
-      );
-
       setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to update room status."
+        getThrownMessage(
+          error,
+          "Unable to update room status."
+        )
       );
     } finally {
       setUpdatingRoomId(null);

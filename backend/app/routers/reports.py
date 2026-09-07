@@ -12,6 +12,7 @@ from app.models.admin import Admin
 from app.models.room_request import RoomRequest
 from app.models.ride_reservation import RideReservation
 from app.models.room import Room
+from app.models.site import Site
 
 from weasyprint import HTML
 
@@ -49,7 +50,13 @@ def generate_report(
                 Room,
                 Room.room_id == RoomRequest.room_id,
             )
+            .join(
+                Site,
+                Site.site_id == Room.site_id,
+            )
             .filter(
+                # A report covers the admin's own site only.
+                Site.site_name == current_admin.site,
                 RoomRequest.reservation_date >= start_date,
                 RoomRequest.reservation_date <= end_date,
             )
@@ -95,6 +102,8 @@ def generate_report(
         query = (
             db.query(RideReservation)
             .filter(
+                # A report covers the admin's own site only.
+                RideReservation.site == current_admin.site,
                 RideReservation.travel_date >= start_date,
                 RideReservation.travel_date <= end_date,
             )
@@ -249,29 +258,54 @@ def build_report_html(
 
     # ----------------------------------------------------------
     # SUMMARY
+    #
+    # A report filtered to one status only ever contains that
+    # status, so it gets a single card. Showing the full set of
+    # counters there would leave every other card reading zero.
     # ----------------------------------------------------------
 
     total = len(rows)
 
-    approved = sum(
-        1
-        for row in rows
-        if str(row.get("Status", "")).upper()
-        == "APPROVED"
+    def count_status(name: str) -> int:
+        return sum(
+            1
+            for row in rows
+            if str(row.get("Status", "")).upper()
+            == name
+        )
+
+    if status == "all":
+        summary_cards = [
+            ("Total Bookings", total),
+            ("Approved", count_status("APPROVED")),
+            ("Pending", count_status("PENDING")),
+            ("Rejected", count_status("REJECTED")),
+            ("Cancelled", count_status("CANCELLED")),
+        ]
+    else:
+        summary_cards = [
+            (f"{status_display} Bookings", total),
+        ]
+
+    summary_class = (
+        "summary"
+        if status == "all"
+        else "summary summary-single"
     )
 
-    pending = sum(
-        1
-        for row in rows
-        if str(row.get("Status", "")).upper()
-        == "PENDING"
-    )
+    summary_html = "".join(
+        f"""
+            <div class="summary-card">
+                <div class="summary-label">
+                    {escape_html(label)}
+                </div>
 
-    rejected = sum(
-        1
-        for row in rows
-        if str(row.get("Status", "")).upper()
-        == "REJECTED"
+                <div class="summary-value">
+                    {value}
+                </div>
+            </div>
+        """
+        for label, value in summary_cards
     )
 
     # ----------------------------------------------------------
@@ -413,6 +447,10 @@ def build_report_html(
                 background: #ffffff;
             }}
 
+            .summary-single .summary-card {{
+                flex: 0 0 150px;
+            }}
+
             .summary-label {{
                 color: #64748b;
                 font-size: 8px;
@@ -518,47 +556,9 @@ def build_report_html(
 
         </div>
 
-        <div class="summary">
+        <div class="{summary_class}">
 
-            <div class="summary-card">
-                <div class="summary-label">
-                    Total Bookings
-                </div>
-
-                <div class="summary-value">
-                    {total}
-                </div>
-            </div>
-
-            <div class="summary-card">
-                <div class="summary-label">
-                    Approved
-                </div>
-
-                <div class="summary-value">
-                    {approved}
-                </div>
-            </div>
-
-            <div class="summary-card">
-                <div class="summary-label">
-                    Pending
-                </div>
-
-                <div class="summary-value">
-                    {pending}
-                </div>
-            </div>
-
-            <div class="summary-card">
-                <div class="summary-label">
-                    Rejected
-                </div>
-
-                <div class="summary-value">
-                    {rejected}
-                </div>
-            </div>
+            {summary_html}
 
         </div>
 

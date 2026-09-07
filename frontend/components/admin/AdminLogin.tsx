@@ -4,6 +4,7 @@ import { Lock, User } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {loginAdmin} from "@/services/auth"
+import { getThrownMessage } from "@/lib/api";
 
 export default function AdminLogin() {
 
@@ -37,9 +38,10 @@ async function handleSubmit(
 
   } catch (error) {
     setError(
-      error instanceof Error
-        ? error.message
-        : "Login Failed"
+      getThrownMessage(
+        error,
+        "We could not sign you in. Please try again."
+      )
     );
   } finally {
     setLoading(false);
