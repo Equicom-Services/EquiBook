@@ -14,6 +14,10 @@ interface CalendarEvent {
   start: string;
   end?: string;
   status?: "approved" | "pending";
+
+  // Event colour in chip mode. Dot mode ignores it: every dot
+  // uses the single booking colour.
+  color?: string;
 }
 
 interface CalendarProps {
@@ -41,6 +45,10 @@ interface CalendarProps {
  *
  * toISOString would shift the day for anyone east of UTC.
  */
+// Most dots drawn in a day cell, no matter how many bookings
+// it holds.
+const MAX_DOTS = 3;
+
 function toDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(
     date.getMonth() + 1
@@ -57,22 +65,37 @@ export default function Calendar({
   selectedDate,
 }: CalendarProps) {
   /*
-   * One synthetic all day event per booking.
+   * One synthetic all day event per *day* that has bookings,
+   * carrying that day's booking count.
    *
-   * Each becomes a dot, so a day shows as many dots as it has
-   * bookings. They are all day events on purpose: that keeps
-   * the day number where it is and drops the time text.
+   * Aggregating here — rather than one event per booking —
+   * is what lets a busy day cap its dots at three while the
+   * hover tooltip still reports the real total. They are all
+   * day events on purpose: that keeps the day number where it
+   * is and drops the time text.
    */
   const dotEvents = useMemo(() => {
     if (!showEventsAsDots) {
       return [];
     }
 
-    return events.map((event) => ({
-      id: `dot-${event.id}`,
+    const countsByDay = new Map<string, number>();
+
+    events.forEach((event) => {
+      const day = event.start.split("T")[0];
+
+      countsByDay.set(
+        day,
+        (countsByDay.get(day) ?? 0) + 1
+      );
+    });
+
+    return Array.from(countsByDay, ([day, count]) => ({
+      id: `dot-${day}`,
       title: "",
-      start: event.start.split("T")[0],
+      start: day,
       allDay: true,
+      extendedProps: { count },
     }));
   }, [events, showEventsAsDots]);
 
@@ -100,9 +123,31 @@ export default function Calendar({
 
         eventContent={
           showEventsAsDots
-            ? () => (
-                <span className="calendar-booking-dot" />
-              )
+            ? (arg) => {
+                const count =
+                  (arg.event.extendedProps.count as number) ??
+                  0;
+
+                // Never more than three dots, however busy the
+                // day is — the count carries the rest.
+                const dots = Math.min(count, MAX_DOTS);
+
+                return (
+                  <span
+                    className="calendar-booking-dots"
+                    data-count={`${count} ${
+                      count === 1 ? "booking" : "bookings"
+                    }`}
+                  >
+                    {Array.from({ length: dots }, (_, i) => (
+                      <span
+                        key={i}
+                        className="calendar-booking-dot"
+                      />
+                    ))}
+                  </span>
+                );
+              }
             : undefined
         }
 

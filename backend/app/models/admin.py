@@ -47,6 +47,15 @@ class Admin(Base):
         onupdate=func.now()
     )
 
+    # When the admin last set their own password. NULL means they
+    # have never changed it from the one they were issued, so the
+    # first successful login forces a change. After that it drives
+    # the 30-day expiry (see core.security.password_change_required).
+    password_changed_at = Column(
+        DateTime,
+        nullable=True
+    )
+
     is_active = Column(
         Boolean,
         nullable=False,

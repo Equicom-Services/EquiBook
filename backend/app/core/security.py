@@ -32,6 +32,24 @@ def verify_password(
     )
 
 
+def password_change_required(admin) -> bool:
+    """
+    Whether the admin must set a new password before continuing.
+
+    True on the very first login (``password_changed_at`` is NULL,
+    i.e. they are still on the password they were issued) and again
+    once the current password is older than PASSWORD_EXPIRY_DAYS.
+    """
+    changed_at = admin.password_changed_at
+
+    if changed_at is None:
+        return True
+
+    age = datetime.now() - changed_at
+
+    return age >= timedelta(days=settings.PASSWORD_EXPIRY_DAYS)
+
+
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
 

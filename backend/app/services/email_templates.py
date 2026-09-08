@@ -324,6 +324,7 @@ def booking_status_email(
     end_time,
     purpose: str,
     remarks: str | None = None,
+    admin_name: str | None = None,
 ):
     status = status.lower()
 
@@ -362,12 +363,59 @@ def booking_status_email(
         status_background = "#eff6ff"
         status_border = "#3b82f6"
 
+    elif status == "updated":
+        status_title = "Booking Updated"
+        status_message = (
+            "Your room booking has been updated by the site "
+            "admin. Please review the latest details below."
+        )
+        status_color = "#1e3a8a"
+        status_background = "#eff6ff"
+        status_border = "#3b82f6"
+
     else:
         status_title = f"Booking {status.capitalize()}"
         status_message = f"Your room booking request status is {status}."
         status_color = "#1e3a8a"
         status_background = "#eff6ff"
         status_border = "#3b82f6"
+
+    # Who acted on the booking, worded to match what happened.
+    acted_by_html = ""
+
+    if admin_name:
+        if status == "approved":
+            acted_by_label = "Approved by"
+        elif status == "updated":
+            acted_by_label = "Updated by"
+        elif status == "cancelled":
+            acted_by_label = "Cancelled by"
+        elif status == "rejected":
+            acted_by_label = "Reviewed by"
+        else:
+            acted_by_label = "Processed by"
+
+        acted_by_html = f"""
+        <tr>
+            <td style="
+                padding:13px 12px 13px 0;
+                color:#64748b;
+                vertical-align:top;
+            ">
+                {acted_by_label}
+            </td>
+
+            <td
+                colspan="3"
+                style="
+                    padding:13px 0;
+                    font-weight:600;
+                "
+            >
+                {admin_name}
+            </td>
+        </tr>
+        """
 
     remarks_html = ""
 
@@ -615,6 +663,8 @@ def booking_status_email(
                                     {purpose}
                                 </td>
                             </tr>
+
+                            {acted_by_html}
 
                             {remarks_html}
 
@@ -1658,6 +1708,15 @@ def ride_booking_status_email(
         status_border = "#f59e0b"
         status_text = "#92400e"
 
+    elif status_upper == "UPDATED":
+        status_message = (
+            "Your ride reservation has been updated by the "
+            "site admin. Please review the latest details below."
+        )
+        status_background = "#eff6ff"
+        status_border = "#3b82f6"
+        status_text = "#1e3a8a"
+
     else:
         status_message = (
             f"Your ride reservation is currently {status.lower()}."
@@ -1766,13 +1825,24 @@ def ride_booking_status_email(
     processed_by_html = ""
 
     if admin_name:
+        if status_upper == "APPROVED":
+            acted_by_label = "Approved by"
+        elif status_upper == "UPDATED":
+            acted_by_label = "Updated by"
+        elif status_upper == "CANCELLED":
+            acted_by_label = "Cancelled by"
+        elif status_upper == "REJECTED":
+            acted_by_label = "Reviewed by"
+        else:
+            acted_by_label = "Processed by"
+
         processed_by_html = f"""
         <p style="
             margin:22px 0 0;
             font-size:12px;
             color:#64748b;
         ">
-            Reviewed by <strong>{admin_name}</strong>.
+            {acted_by_label} <strong>{admin_name}</strong>.
         </p>
         """
 

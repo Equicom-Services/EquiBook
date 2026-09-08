@@ -16,10 +16,58 @@ site_id: number;
 site_name: string;
 }
 
+/*
+ * The existing reservation being edited.
+ *
+ * Shaped to match the RideBooking object the request list already
+ * holds, so the card can hand its booking straight to the form.
+ */
+interface EditableRideBooking {
+id: string;
+employee: string;
+employee_email: string;
+travel_date: string;
+departure_time: string;
+roundtrip: boolean;
+return_pickup: string | null;
+pickup_location: string;
+pickup_maps_link: string | null;
+dropoff_destination: string;
+drop_off_maps_link: string | null;
+return_drop_off_location: string | null;
+return_drop_off_maps_link: string | null;
+purpose: string;
+passengers_count: number;
+vehicle_type: string | null;
+admin_remarks: string | null;
+}
+
 interface AdminRideBookingFormProps {
 onClose: () => void;
 onSuccess: () => void;
+
+// When set, the form edits this reservation instead of creating
+// new ones. Editing is limited to a single travel date.
+editingReservation?: EditableRideBooking | null;
 }
+
+/*
+ * Pull a "HH:MM" value out of either a bare time ("13:30:00") or a
+ * full datetime ("2026-09-04T13:30:00") for the time inputs.
+ */
+const toTimeInput = (
+value?: string | null
+): string => {
+if (!value) {
+  return "";
+}
+
+const timePart = value.includes("T")
+  ? value.split("T")[1]
+  : value;
+
+return timePart.slice(0, 5);
+};
 
 /*
  * One row of the travel schedule.
@@ -50,8 +98,11 @@ return_drop_off_maps_link: "",
 export default function AdminRideBookingForm({
 onClose,
 onSuccess,
+editingReservation = null,
 }: AdminRideBookingFormProps) {
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+const isEditing = editingReservation !== null;
 
 // =========================================================
 // ADMIN
@@ -64,8 +115,12 @@ const [loadingAdmin, setLoadingAdmin] = useState(true);
 // REQUESTER
 // =========================================================
 
-const [employeeName, setEmployeeName] = useState("");
-const [employeeEmail, setEmployeeEmail] = useState("");
+const [employeeName, setEmployeeName] = useState(
+editingReservation?.employee ?? ""
+);
+const [employeeEmail, setEmployeeEmail] = useState(
+editingReservation?.employee_email ?? ""
+);
 
 // =========================================================
 // TRAVEL SCHEDULE
@@ -76,35 +131,75 @@ const [employeeEmail, setEmployeeEmail] = useState("");
 
 const [travelSchedules, setTravelSchedules] = useState<
 TravelSchedule[]
->([emptySchedule()]);
+>(
+editingReservation
+  ? [
+      {
+        id: 1,
+        date: editingReservation.travel_date,
+        departure_time: toTimeInput(
+          editingReservation.departure_time
+        ),
+        roundtrip: editingReservation.roundtrip,
+        return_pickup: toTimeInput(
+          editingReservation.return_pickup
+        ),
+        return_drop_off_location:
+          editingReservation.return_drop_off_location ??
+          "",
+        return_drop_off_maps_link:
+          editingReservation.return_drop_off_maps_link ??
+          "",
+      },
+    ]
+  : [emptySchedule()]
+);
 
 // =========================================================
 // PICKUP / DROPOFF
 // =========================================================
 
-const [pickupLocation, setPickupLocation] = useState("");
-const [pickupMapsLink, setPickupMapsLink] = useState("");
+const [pickupLocation, setPickupLocation] = useState(
+editingReservation?.pickup_location ?? ""
+);
+const [pickupMapsLink, setPickupMapsLink] = useState(
+editingReservation?.pickup_maps_link ?? ""
+);
 
 const [dropoffDestination, setDropoffDestination] =
-useState("");
+useState(
+editingReservation?.dropoff_destination ?? ""
+);
 
 const [dropOffMapsLink, setDropOffMapsLink] =
-useState("");
+useState(
+editingReservation?.drop_off_maps_link ?? ""
+);
 
 // =========================================================
 // ADDITIONAL DETAILS
 // =========================================================
 
-const [purpose, setPurpose] = useState("");
+const [purpose, setPurpose] = useState(
+editingReservation?.purpose ?? ""
+);
 
 const [passengerCount, setPassengerCount] =
-useState("");
+useState(
+editingReservation
+  ? String(editingReservation.passengers_count)
+  : ""
+);
 
 const [vehicleType, setVehicleType] =
-useState("");
+useState(
+editingReservation?.vehicle_type ?? ""
+);
 
 const [adminRemarks, setAdminRemarks] =
-useState("");
+useState(
+editingReservation?.admin_remarks ?? ""
+);
 
 // =========================================================
 // SUBMIT
@@ -328,7 +423,7 @@ for (const schedule of travelSchedules) {
 
   seen.add(key);
 
-  if (schedule.date < today) {
+  if (!isEditing && schedule.date < today) {
     setError(
       `${schedule.date} is in the past. ` +
         "Please choose a date from today onwards."
@@ -403,85 +498,97 @@ try {
   const token =
     localStorage.getItem("access_token");
 
-  // Every row goes through the same endpoint, so the existing
-  // booking rules apply to all of them.
+  // Body for one travel date, shared by create and edit.
+  const buildBody = (schedule: TravelSchedule) => ({
+    employee_name: employeeName.trim(),
+
+    employee_email: employeeEmail.trim(),
+
+    travel_date: schedule.date,
+
+    departure_time: schedule.departure_time,
+
+    roundtrip: schedule.roundtrip,
+
+    return_pickup:
+      schedule.roundtrip && schedule.return_pickup
+        ? `${schedule.date}T${schedule.return_pickup}:00`
+        : null,
+
+    pickup_location: pickupLocation.trim(),
+
+    pickup_maps_link: pickupMapsLink.trim() || null,
+
+    dropoff_destination: dropoffDestination.trim(),
+
+    drop_off_maps_link: dropOffMapsLink.trim() || null,
+
+    return_drop_off_location: schedule.roundtrip
+      ? schedule.return_drop_off_location.trim() || null
+      : null,
+
+    return_drop_off_maps_link: schedule.roundtrip
+      ? schedule.return_drop_off_maps_link.trim() || null
+      : null,
+
+    purpose: purpose.trim(),
+
+    passenger_count: Number(passengerCount),
+
+    vehicle_type: vehicleType.trim(),
+
+    admin_remarks: adminRemarks.trim() || null,
+  });
+
+  const authHeaders = {
+    "Content-Type": "application/json",
+    ...(token
+      ? { Authorization: `Bearer ${token}` }
+      : {}),
+  };
+
+  // ---------------------------------------------------------
+  // EDIT: one reservation, transferred/updated in place.
+  // ---------------------------------------------------------
+  if (isEditing && editingReservation) {
+    const response = await fetch(
+      `${API_URL}/api/ride-reservations/admin/bookings/${editingReservation.id}`,
+      {
+        method: "PUT",
+        headers: authHeaders,
+        credentials: "include",
+        body: JSON.stringify(
+          buildBody(travelSchedules[0])
+        ),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        await getErrorMessage(
+          response,
+          "We could not update the ride booking. Please try again."
+        )
+      );
+    }
+
+    onSuccess();
+    onClose();
+    return;
+  }
+
+  // ---------------------------------------------------------
+  // CREATE: one reservation per travel date row.
+  // ---------------------------------------------------------
   const responses = await Promise.all(
     travelSchedules.map((schedule) =>
       fetch(
         `${API_URL}/api/ride-reservations/admin/bookings`,
         {
           method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-
-            ...(token
-              ? {
-                  Authorization: `Bearer ${token}`,
-                }
-              : {}),
-          },
-
+          headers: authHeaders,
           credentials: "include",
-
-          body: JSON.stringify({
-            employee_name:
-              employeeName.trim(),
-
-            employee_email:
-              employeeEmail.trim(),
-
-            travel_date:
-              schedule.date,
-
-            departure_time:
-              schedule.departure_time,
-
-            roundtrip:
-              schedule.roundtrip,
-
-            return_pickup:
-              schedule.roundtrip &&
-              schedule.return_pickup
-                ? `${schedule.date}T${schedule.return_pickup}:00`
-                : null,
-
-            pickup_location:
-              pickupLocation.trim(),
-
-            pickup_maps_link:
-              pickupMapsLink.trim() || null,
-
-            dropoff_destination:
-              dropoffDestination.trim(),
-
-            drop_off_maps_link:
-              dropOffMapsLink.trim() || null,
-
-            return_drop_off_location:
-              schedule.roundtrip
-                ? schedule.return_drop_off_location.trim() ||
-                  null
-                : null,
-
-            return_drop_off_maps_link:
-              schedule.roundtrip
-                ? schedule.return_drop_off_maps_link.trim() ||
-                  null
-                : null,
-
-            purpose:
-              purpose.trim(),
-
-            passenger_count:
-              Number(passengerCount),
-
-            vehicle_type:
-              vehicleType.trim(),
-
-            admin_remarks:
-              adminRemarks.trim() || null,
-          }),
+          body: JSON.stringify(buildBody(schedule)),
         }
       )
     )
@@ -510,7 +617,9 @@ try {
   setError(
     getThrownMessage(
       error,
-      "We could not create the ride booking. Please try again."
+      isEditing
+        ? "We could not update the ride booking. Please try again."
+        : "We could not create the ride booking. Please try again."
     )
   );
 } finally {
@@ -534,11 +643,13 @@ return (
 
       <div>
         <h2 className="text-xl font-bold text-slate-900">
-          Book a Ride
+          {isEditing ? "Edit Ride Booking" : "Book a Ride"}
         </h2>
 
         <p className="mt-1 text-sm text-slate-500">
-          Admin booking
+          {isEditing
+            ? "Transfer to another date or update the details."
+            : "Admin booking"}
         </p>
       </div>
 
@@ -621,6 +732,11 @@ return (
 
         </div>
 
+        {/* Note: manual entry fallback */}
+        <p className="mt-3 text-xs text-slate-400">
+          If the requester&apos;s name or email doesn&apos;t appear in the suggestions, just type it in manually.
+        </p>
+
       </div>
 
       {/* SITE */}
@@ -661,18 +777,21 @@ return (
             </h3>
 
             <p className="mt-1 text-xs text-slate-400">
-              Add multiple dates if you need recurring
-              bookings.
+              {isEditing
+                ? "Change the travel date to transfer this ride."
+                : "Add multiple dates if you need recurring bookings."}
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={addSchedule}
-            className="rounded-md border border-[#03045e] px-3 py-2 text-xs font-semibold text-[#03045e] transition hover:bg-[#03045e] hover:text-white"
-          >
-            + Add Another Date
-          </button>
+          {!isEditing && (
+            <button
+              type="button"
+              onClick={addSchedule}
+              className="rounded-md border border-[#03045e] px-3 py-2 text-xs font-semibold text-[#03045e] transition hover:bg-[#03045e] hover:text-white"
+            >
+              + Add Another Date
+            </button>
+          )}
 
         </div>
 
@@ -718,7 +837,7 @@ return (
                   <input
                     type="date"
                     value={schedule.date}
-                    min={today}
+                    min={isEditing ? undefined : today}
                     onChange={(e) =>
                       handleScheduleChange(
                         schedule.id,
@@ -1087,7 +1206,11 @@ return (
           className="rounded-lg bg-[#03045e] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading
-            ? "Booking..."
+            ? isEditing
+              ? "Saving..."
+              : "Booking..."
+            : isEditing
+            ? "Save Changes"
             : "Book Ride"}
         </button>
 

@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.security import get_current_admin
 from app.models.admin import Admin
 from app.models.room import Room
+from app.models.room_request import RoomRequest
 from app.models.site import Site
 
 
@@ -335,3 +336,96 @@ def update_room_status(
     db.refresh(room)
 
     return room
+
+# ============================================================
+# DELETE ROOM
+# ADMIN ONLY
+#
+# DELETE /api/rooms/{room_id}
+#
+# Permanently removes a room from the admin's own site.
+#
+# A room that has ever been booked is NOT deletable: its
+# reservations (and the reports built on them) name the room
+# through room_id, so removing the row would orphan them.
+# Those rooms are disabled instead, which hides them from the
+# booking forms while keeping the history intact.
+# ============================================================
+
+@router.delete("/{room_id}")
+def delete_room(
+    room_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
+):
+    # --------------------------------------------------------
+    # Find admin's assigned site
+    # --------------------------------------------------------
+
+    admin_site = (
+        db.query(Site)
+        .filter(
+            Site.site_name == current_admin.site,
+            Site.is_active == True,
+        )
+        .first()
+    )
+
+    if not admin_site:
+        raise HTTPException(
+            status_code=403,
+            detail="Your admin account does not have a valid site assigned.",
+        )
+
+    # --------------------------------------------------------
+    # Find room belonging to admin's site
+    # --------------------------------------------------------
+
+    room = (
+        db.query(Room)
+        .filter(
+            Room.room_id == room_id,
+            Room.site_id == admin_site.site_id,
+        )
+        .first()
+    )
+
+    if not room:
+        raise HTTPException(
+            status_code=404,
+            detail="Room not found.",
+        )
+
+    # --------------------------------------------------------
+    # Block deletion once the room has reservations
+    # --------------------------------------------------------
+
+    reservation_count = (
+        db.query(RoomRequest)
+        .filter(RoomRequest.room_id == room.room_id)
+        .count()
+    )
+
+    if reservation_count > 0:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f'"{room.room_name}" has {reservation_count} '
+                f"reservation(s) on record and cannot be deleted. "
+                f"Disable it instead to hide it from new bookings."
+            ),
+        )
+
+    # --------------------------------------------------------
+    # Delete room
+    # --------------------------------------------------------
+
+    room_name = room.room_name
+
+    db.delete(room)
+    db.commit()
+
+    return {
+        "message": f'Room "{room_name}" has been deleted.',
+        "room_id": room_id,
+    }

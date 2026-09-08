@@ -38,6 +38,14 @@ export default function RoomManagement() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Room queued for deletion, held while the confirmation modal
+  // is open. Deleting is permanent, so it never fires straight
+  // off the row button.
+  const [roomToDelete, setRoomToDelete] =
+    useState<Room | null>(null);
+
+  const [deleting, setDeleting] = useState(false);
+
   const [formData, setFormData] = useState({
     room_code: "",
     room_name: "",
@@ -342,6 +350,74 @@ export default function RoomManagement() {
     }
   }
 
+  // ==========================================================
+  // DELETE ROOM
+  //
+  // The backend refuses to delete a room that has reservations
+  // on record, so its 409 message is what the admin sees when
+  // disabling is the right move instead.
+  // ==========================================================
+
+  async function deleteRoom() {
+    if (!roomToDelete) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      setError("");
+      setSuccess("");
+
+      // --------------------------------------------------------
+      // DELETE /api/rooms/{room_id}
+      // --------------------------------------------------------
+
+      const response = await apiFetch(
+        `/api/rooms/${roomToDelete.room_id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          pickErrorMessage(
+            response,
+            data,
+            "Unable to delete room."
+          )
+        );
+      }
+
+      setRooms((prev) =>
+        prev.filter(
+          (room) =>
+            room.room_id !== roomToDelete.room_id
+        )
+      );
+
+      setSuccess(
+        data?.message ??
+          `Room "${roomToDelete.room_name}" has been deleted.`
+      );
+
+      setRoomToDelete(null);
+    } catch (error) {
+      setError(
+        getThrownMessage(
+          error,
+          "Unable to delete room."
+        )
+      );
+
+      setRoomToDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <section className="mt-8">
 
@@ -510,23 +586,38 @@ export default function RoomManagement() {
                         : "INACTIVE"}
                     </span>
 
-                    <button
-                      type="button"
-                      disabled={updating}
-                      onClick={() =>
-                        toggleRoomStatus(
-                          room.room_id,
-                          room.is_active
-                        )
-                      }
-                      className="text-xs font-medium text-[#03045e] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {updating
-                        ? "Updating..."
-                        : room.is_active
-                        ? "Disable"
-                        : "Enable"}
-                    </button>
+                    <div className="flex items-center gap-3">
+
+                      <button
+                        type="button"
+                        disabled={updating}
+                        onClick={() =>
+                          toggleRoomStatus(
+                            room.room_id,
+                            room.is_active
+                          )
+                        }
+                        className="text-xs font-medium text-[#03045e] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {updating
+                          ? "Updating..."
+                          : room.is_active
+                          ? "Disable"
+                          : "Enable"}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={updating || deleting}
+                        onClick={() =>
+                          setRoomToDelete(room)
+                        }
+                        className="text-xs font-medium text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+
+                    </div>
 
                   </div>
                 </div>
@@ -702,6 +793,57 @@ export default function RoomManagement() {
               </div>
 
             </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================
+          DELETE ROOM CONFIRMATION
+      ====================================================== */}
+
+      {roomToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+
+          <div className="w-full max-w-md rounded-md bg-white p-6 shadow-2xl">
+
+            <h3 className="text-lg font-semibold text-slate-900">
+              Delete room
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              This permanently removes{" "}
+              <span className="font-medium text-slate-700">
+                {roomToDelete.room_name}
+              </span>{" "}
+              ({roomToDelete.room_code}) from your site. A room
+              that already has reservations can&apos;t be
+              deleted — disable it instead.
+            </p>
+
+            <div className="mt-6 flex justify-end gap-3">
+
+              <button
+                type="button"
+                onClick={() => setRoomToDelete(null)}
+                disabled={deleting}
+                className="rounded-md border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={deleteRoom}
+                disabled={deleting}
+                className="rounded-md bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deleting
+                  ? "Deleting..."
+                  : "Delete Room"}
+              </button>
+
+            </div>
 
           </div>
         </div>

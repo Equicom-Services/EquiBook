@@ -697,6 +697,11 @@ async function confirmSubmit() {
           />
         </div>
 
+        {/* Note: manual entry fallback */}
+        <p className="text-xs text-slate-400 md:col-span-2">
+          If your name or email doesn&apos;t appear in the suggestions, just type it in manually.
+        </p>
+
         {/* Site */}
 
         <div>

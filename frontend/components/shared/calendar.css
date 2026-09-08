@@ -136,9 +136,10 @@
 /* ==========================================================
    DOT MODE
 
-   Each day with bookings shows one dot instead of a list of
-   event chips. Branch colours live in the booking details
-   panel, so the dot itself is a plain indicator.
+   Each day with bookings shows up to three dots instead of a
+   list of event chips, with the exact count on hover. Branch
+   colours live in the booking details panel, so the dots
+   themselves are plain indicators in one shared colour.
    ========================================================== */
 
 /* Centre the dots under the date number.
@@ -152,6 +153,23 @@
   margin-top: 4px;
   margin-bottom: 0;
   min-height: 0;
+}
+
+/* Bigger, centred date number.
+
+   In dot mode the cell holds only the number and its dots, so
+   the number can carry the cell instead of sitting small in
+   the corner. FullCalendar lays .fc-daygrid-day-top out as a
+   row-reverse flex row, which is what pins the number right;
+   justify-content re-centres it. */
+.reservation-calendar.is-dot-mode .fc-daygrid-day-top {
+  justify-content: center;
+}
+
+.reservation-calendar.is-dot-mode .fc-daygrid-day-number {
+  font-size: 15px;
+  font-weight: 500;
+  padding: 6px 0 2px;
 }
 
 /* Lay the dots out in a row rather than stacking one booking
@@ -176,15 +194,60 @@
   margin-top: 0;
 }
 
-/* The dot itself.
+/* The dots for one day, plus their hover tooltip.
 
-   inline-block so the text-align above centres it. */
+   inline-flex so the text-align above centres the group and
+   the dots sit in a row with even spacing. */
+.calendar-booking-dots {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Booking count on hover.
+
+   The cell only ever draws up to three dots, so this is the
+   only place the real total is shown. */
+.calendar-booking-dots::after {
+  content: attr(data-count);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 7px;
+  border-radius: 4px;
+  background-color: #0f172a;
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 20;
+}
+
+.calendar-booking-dots:hover::after {
+  opacity: 1;
+}
+
+/* The dot itself. */
 .calendar-booking-dot {
   display: inline-block;
   height: 6px;
   width: 6px;
   border-radius: 9999px;
-  background-color: #2563eb;
+  background-color: #00cec8;
+}
+
+/* Keep the tooltip from being clipped by the day cell. */
+.reservation-calendar.is-dot-mode .fc-daygrid-day-frame,
+.reservation-calendar.is-dot-mode .fc-daygrid-day-events,
+.reservation-calendar.is-dot-mode .fc-daygrid-event-harness,
+.reservation-calendar.is-dot-mode .fc-daygrid-event {
+  overflow: visible;
 }
 
 /* ==========================================================
@@ -203,7 +266,26 @@
   font-weight: 700;
 }
 
+/* In chip mode the cell still holds event chips, and those are
+   navy too — so highlight the day with a tint and a ring instead
+   of filling it, or the chips would vanish into the background. */
+.reservation-calendar:not(.is-dot-mode) .fc-daygrid-day.is-selected-day {
+  background-color: #e6f9f8 !important;
+  box-shadow: inset 0 0 0 2px #00cec8;
+}
+
+.reservation-calendar:not(.is-dot-mode)
+  .fc-daygrid-day.is-selected-day
+  .fc-daygrid-day-number {
+  color: #03045e;
+}
+
+/* Day cells act as buttons: every cell opens that day's list. */
+.reservation-calendar .fc-daygrid-day {
+  cursor: pointer;
+}
+
 /* Lighten the dots so they stay visible on the dark cell */
 .reservation-calendar .fc-daygrid-day.is-selected-day .calendar-booking-dot {
-  background-color: #93c5fd;
+  background-color: #7ff0ec;
 }

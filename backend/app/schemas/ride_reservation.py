@@ -266,3 +266,8 @@ class AdminRideReservationCreate(BaseModel):
         default=None,
         max_length=1000,
     )
+
+# Editing an existing admin ride booking takes the same fields as
+# creating one, so the update body is intentionally identical.
+class AdminRideReservationUpdate(AdminRideReservationCreate):
+    pass

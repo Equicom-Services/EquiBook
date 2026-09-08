@@ -6,6 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from sqlalchemy import inspect, text
 
 from app.core.config import settings
 from app.core.database import Base, engine
@@ -25,6 +26,84 @@ from app.models.admin import Admin
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
+
+
+def ensure_password_changed_at_column():
+    """
+    Add ``admin.password_changed_at`` to an already-created table.
+
+    ``create_all`` only creates missing tables, never alters existing
+    ones, and this project has no Alembic migrations. Existing rows
+    are left NULL on purpose so every current admin is prompted to
+    set a fresh password on their next login.
+    """
+    inspector = inspect(engine)
+
+    existing_columns = [
+        column["name"]
+        for column in inspector.get_columns("admin")
+    ]
+
+    if "password_changed_at" not in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE admin "
+                    "ADD COLUMN password_changed_at DATETIME NULL"
+                )
+            )
+
+
+ensure_password_changed_at_column()
+
+
+def ensure_performance_indexes():
+    """
+    Add indexes on the columns the booking queries filter and sort
+    by, so the list/calendar endpoints stay fast as the tables grow.
+
+    Only primary and foreign keys are indexed by default, but the
+    hot endpoints filter on status / reservation_date / travel_date
+    / site. MySQL has no "CREATE INDEX IF NOT EXISTS", so each index
+    is created only when absent. All are plain secondary indexes, so
+    creating them is safe and non-destructive.
+    """
+    wanted = {
+        "room_reservation_request": {
+            "ix_rrr_status": ["status"],
+            "ix_rrr_reservation_date": ["reservation_date"],
+        },
+        "ride_reservation_request": {
+            "ix_ride_status": ["status"],
+            "ix_ride_travel_date": ["travel_date"],
+            "ix_ride_site": ["site"],
+        },
+    }
+
+    inspector = inspect(engine)
+
+    with engine.begin() as connection:
+        for table, indexes in wanted.items():
+            existing = {
+                index["name"]
+                for index in inspector.get_indexes(table)
+            }
+
+            for name, columns in indexes.items():
+                if name in existing:
+                    continue
+
+                column_list = ", ".join(columns)
+
+                connection.execute(
+                    text(
+                        f"CREATE INDEX {name} "
+                        f"ON {table} ({column_list})"
+                    )
+                )
+
+
+ensure_performance_indexes()
 
 
 app = FastAPI(

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {loginAdmin} from "@/services/auth"
 import { getThrownMessage } from "@/lib/api";
+import ChangePasswordModal from "./ChangePasswordModal";
 
 export default function AdminLogin() {
 
@@ -14,6 +15,12 @@ export default function AdminLogin() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    // Shown when the account is on its first login or its password
+    // has expired. The token is already stored, so the modal can
+    // authenticate its change-password call before we let them in.
+    const [mustChangePassword, setMustChangePassword] =
+      useState(false);
 
 
 async function handleSubmit(
@@ -33,6 +40,12 @@ async function handleSubmit(
       result.access_token
     );
 
+    if (result.must_change_password) {
+      // Hold at the login screen and force a new password first.
+      setMustChangePassword(true);
+      return;
+    }
+
     // Login successful
     router.push("/admin/dashboard");
 
@@ -48,6 +61,14 @@ async function handleSubmit(
   }
 }
   return (
+    <>
+    {mustChangePassword && (
+      <ChangePasswordModal
+        onSuccess={() =>
+          router.push("/admin/dashboard")
+        }
+      />
+    )}
     <div className="flex-1 flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-md bg-white rounded-lg border border-slate-200 shadow-sm p-8">
         {/* Header Icon */}
@@ -127,5 +148,6 @@ async function handleSubmit(
         </form>
       </div>
     </div>
+    </>
   );
 }

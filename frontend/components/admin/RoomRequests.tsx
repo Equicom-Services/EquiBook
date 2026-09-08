@@ -7,7 +7,7 @@ import {
   pickErrorMessage,
   getThrownMessage,
 } from "@/lib/api";
-import { capitalizeFirst } from "@/lib/text";
+import { capitalizeFirst, titleCase } from "@/lib/text";
 import MessageDialog, {
   DialogMessage,
   MessageVariant,
@@ -856,6 +856,18 @@ return (
                       <button
                         type="button"
                         onClick={() => {
+                          setEditingRequest(request);
+                          setOpenMenuId(null);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      >
+                        <Pencil size={14} />
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
                           setCancelRequest(request);
                           setCancelRemarks("");
                           setOpenMenuId(null);
@@ -1017,9 +1029,9 @@ return (
 
             <p
               className="mt-0.5 truncate text-sm text-slate-700"
-              title={capitalizeFirst(request.purpose)}
+              title={titleCase(request.purpose)}
             >
-              {capitalizeFirst(request.purpose)}
+              {titleCase(request.purpose)}
             </p>
 
           </div>
