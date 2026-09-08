@@ -186,6 +186,20 @@ export default function RideBookingPage() {
   );
 
   // ==========================================================
+  // BRANCH DOT COLORS
+  //
+  // Branch name to its colour, mirroring the room page so the
+  // booking details panel can tag each ride with its branch.
+  // ==========================================================
+
+  const branchDotColors = Object.fromEntries(
+    branches.map((branch) => [
+      branch,
+      getBranchColor(branch),
+    ])
+  );
+
+  // ==========================================================
   // CALENDAR EVENTS
   // ==========================================================
 
@@ -201,11 +215,7 @@ export default function RideBookingPage() {
 
       end: start,
 
-      backgroundColor: getBranchColor(booking.site),
-
-      borderColor: getBranchColor(booking.site),
-
-      textColor: "#ffffff",
+      color: getBranchColor(booking.site),
     };
   });
 
@@ -214,11 +224,11 @@ export default function RideBookingPage() {
   // ==========================================================
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="mx-auto max-w-[1800px]">
+    <div className="h-full overflow-hidden bg-slate-50 p-6">
+      <div className="mx-auto flex h-full max-w-[1800px] flex-col">
 
         {/* Page Header */}
-        <div className="mb-6 px-6">
+        <div className="mb-6 shrink-0 px-6">
           <h1 className="text-2xl font-semibold text-slate-900">
             Ride Reservation
           </h1>
@@ -229,13 +239,14 @@ export default function RideBookingPage() {
         </div>
 
         {/* Calendar + Bookings + Form */}
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr_1.2fr]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto xl:grid-cols-[1.4fr_1fr_1.2fr] xl:overflow-hidden">
 
           {/* Calendar */}
-          <div className="rounded-md bg-white p-6">
+          <div className="rounded-md bg-white p-6 xl:min-h-0 xl:overflow-y-auto">
 
-            <div className="mb-5 flex items-center justify-between">
+            <div className="mb-5 flex items-start justify-between">
 
+              {/* Left: Booking Overview + Dot Legend */}
               <div>
                 <h2 className="mb-1 text-lg font-semibold">
                   Bookings Overview
@@ -246,7 +257,7 @@ export default function RideBookingPage() {
                 </p>
               </div>
 
-              {/* Branch Dropdown */}
+              {/* Right: Branch Dropdown */}
               <div>
                 <label
                   htmlFor="ride-branch"
@@ -280,26 +291,6 @@ export default function RideBookingPage() {
 
             </div>
 
-            {/* Branch Legend */}
-            <div className="mb-5 flex flex-wrap items-center gap-4">
-              {branches.map((branch) => (
-                <div
-                  key={branch}
-                  className="flex items-center gap-2 text-xs text-slate-600"
-                >
-                  <span
-                    className="h-3 w-3 rounded-full"
-                    style={{
-                      backgroundColor:
-                        getBranchColor(branch),
-                    }}
-                  />
-
-                  <span>{branch}</span>
-                </div>
-              ))}
-            </div>
-
             {/* Calendar */}
             {loading ? (
               <div className="flex min-h-[300px] items-center justify-center">
@@ -310,6 +301,8 @@ export default function RideBookingPage() {
             ) : (
               <Calendar
                 events={calendarEvents}
+                showEventsAsDots
+                selectedDate={selectedDate}
                 onDateClick={(date) => {
                   setSelectedDate(date);
                 }}
@@ -319,15 +312,17 @@ export default function RideBookingPage() {
           </div>
 
           {/* Current Bookings */}
-          <div className="rounded-md bg-white p-6">
+          <div className="flex min-h-0 flex-col rounded-md bg-white p-6 xl:h-full xl:overflow-hidden">
             <RideBookingDetails
               selectedDate={selectedDate}
               bookings={selectedBookings}
+              branchColors={branchDotColors}
+              showBranch={selectedBranch === "all"}
             />
           </div>
 
           {/* Request Form */}
-          <div className="rounded-md bg-white p-6">
+          <div className="rounded-md bg-white p-6 xl:min-h-0 xl:overflow-y-auto">
 
             <h2 className="text-lg font-semibold">
               New Ride Request

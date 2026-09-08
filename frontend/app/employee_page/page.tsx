@@ -10,9 +10,9 @@ export default function EmployeePage() {
   const [activeBooking, setActiveBooking] = useState<"room" | "ride">("room");
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="flex h-screen flex-col overflow-hidden bg-slate-50">
       {/* Booking Type Toggle */}
-      <div className="flex justify-center px-6 pt-6">
+      <div className="flex shrink-0 justify-center px-6 pt-6">
         <div className="flex rounded-full border border-slate-200/50 bg-gray-100 p-1">
           <button
             type="button"
@@ -43,11 +43,13 @@ export default function EmployeePage() {
       </div>
 
       {/* Active Booking Page */}
-      {activeBooking === "room" ? (
-        <RoomBookingPage />
-      ) : (
-        <RideBookingPage />
-      )}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {activeBooking === "room" ? (
+          <RoomBookingPage />
+        ) : (
+          <RideBookingPage />
+        )}
+      </div>
     </main>
   );
 }

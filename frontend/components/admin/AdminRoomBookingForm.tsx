@@ -1014,6 +1014,11 @@ const confirmSubmit = async () => {
   </div>
 </div>
 
+{/* Note: manual entry fallback */}
+<p className="mt-3 text-xs text-slate-400">
+  If the requester&apos;s name or email doesn&apos;t appear in the suggestions, just type it in manually.
+</p>
+
           {/* =================================================
               SITE
           ================================================= */}
@@ -1075,7 +1080,9 @@ const confirmSubmit = async () => {
                   : "Select room"}
               </option>
 
-              {rooms.map((room) => (
+              {rooms
+                .filter((room) => room.is_active)
+                .map((room) => (
                 <option
                   key={room.room_id}
                   value={room.room_id}

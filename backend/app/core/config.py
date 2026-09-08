@@ -6,6 +6,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
+    # Days a password stays valid before the admin is forced to
+    # set a new one on their next login.
+    PASSWORD_EXPIRY_DAYS: int = 30
+
     BACKEND_HOST: str
     BACKEND_PORT: int
 

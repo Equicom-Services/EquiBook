@@ -125,8 +125,8 @@ export default function RoomBookingDetails({
   }, [filteredBookings, currentPage]);
 
   return (
-    <div>
-      <h2 className="text-lg font-semibold text-slate-900">
+    <div className="flex h-full min-h-0 flex-col">
+      <h2 className="shrink-0 text-lg font-semibold text-slate-900">
         Bookings for {formattedDate}
       </h2>
 
@@ -158,7 +158,7 @@ export default function RoomBookingDetails({
         )}
 
       {/* Search Bar + Room Filter */}
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+      <div className="mt-4 flex shrink-0 flex-col gap-3 sm:flex-row">
         <input
           type="text"
           value={searchQuery}
@@ -191,20 +191,20 @@ export default function RoomBookingDetails({
       </div>
 
       {bookings.length === 0 ? (
-        <div className="mt-5 flex min-h-[250px] items-center justify-center rounded-md bg-slate-50">
+        <div className="mt-5 flex min-h-[250px] flex-1 items-center justify-center rounded-md bg-slate-50">
           <p className="text-sm text-slate-500">
             No room bookings for this date.
           </p>
         </div>
       ) : filteredBookings.length === 0 ? (
-        <div className="mt-5 flex min-h-[200px] items-center justify-center rounded-md bg-slate-50">
+        <div className="mt-5 flex min-h-[200px] flex-1 items-center justify-center rounded-md bg-slate-50">
           <p className="text-sm text-slate-500">
             No bookings match your search.
           </p>
         </div>
       ) : (
         <>
-          <div className="mt-5 space-y-4">
+          <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             {paginatedBookings.map((booking) => {
               const startTime = new Date(
                 booking.start
@@ -223,11 +223,11 @@ export default function RoomBookingDetails({
               return (
                 <div
                   key={booking.id}
-                  className="rounded-md border border-slate-200 p-4"
+                  className="rounded-md border border-slate-200 p-3"
                 >
                   {/* Branch */}
                   {showBranch && (
-                    <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <div className="mb-2 flex items-center gap-2 border-b border-slate-100 pb-2">
                       <span
                         className="h-2.5 w-2.5 shrink-0 rounded-full"
                         style={{
@@ -243,13 +243,13 @@ export default function RoomBookingDetails({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                     {/* Room */}
                     <div>
                       <p className="text-xs text-slate-400">
                         Room
                       </p>
-                      <h3 className="mt-1 font-semibold text-slate-900">
+                      <h3 className="mt-0.5 font-semibold text-slate-900">
                         {booking.room}
                       </h3>
                     </div>
@@ -269,7 +269,7 @@ export default function RoomBookingDetails({
                       <p className="text-xs text-slate-400">
                         Time
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-0.5 text-sm text-slate-500">
                         {startTime} – {endTime}
                       </p>
                     </div>
@@ -279,7 +279,7 @@ export default function RoomBookingDetails({
                       <p className="text-xs text-slate-400">
                         Requested by
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-0.5 text-sm text-slate-500">
                         {booking.employee}
                       </p>
                     </div>
@@ -289,7 +289,7 @@ export default function RoomBookingDetails({
                       <p className="text-xs text-slate-400">
                         Purpose
                       </p>
-                      <p className="mt-1 text-sm text-slate-600">
+                      <p className="mt-0.5 text-sm text-slate-600">
                         {booking.purpose}
                       </p>
                     </div>
@@ -314,7 +314,7 @@ export default function RoomBookingDetails({
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-5 flex flex-col gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-4 flex shrink-0 flex-col gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-slate-500">
                 Showing{" "}
                 <span className="font-medium text-slate-700">

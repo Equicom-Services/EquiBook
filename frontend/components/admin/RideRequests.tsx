@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Grid2X2, List } from "lucide-react";
 
 import RideRequestCard from "./RideRequestCard";
-import { capitalizeFirst } from "@/lib/text";
+import AdminRideBookingForm from "./AdminRideBookingForm";
+import { capitalizeFirst, titleCase } from "@/lib/text";
 import {
   getErrorMessage,
   pickErrorMessage,
@@ -116,6 +117,10 @@ export default function RideRequests({
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+  // The approved booking currently being edited, if any.
+  const [editingBooking, setEditingBooking] =
+    useState<RideBooking | null>(null);
+
   // ==========================================================
   // FETCH RIDE RESERVATIONS
   // ==========================================================
@@ -170,7 +175,7 @@ export default function RideRequests({
 
             return {
               id: String(reservation.ride_reservation_id),
-              title: capitalizeFirst(reservation.purpose),
+              title: titleCase(reservation.purpose),
               start,
               end: start,
 
@@ -588,10 +593,53 @@ const cancelRideReservation = async (
   booking={booking}
   onStatusUpdate={updateRideReservationStatus}
   onCancel={cancelRideReservation}
+  onEdit={(id) => {
+    const target = bookings.find(
+      (item) => item.id === id
+    );
+    if (target) {
+      setEditingBooking(target);
+    }
+  }}
   collapsible={viewMode === "list"}
 />
         ))}
       </div>
+
+      {/* EDIT APPROVED BOOKING */}
+      {editingBooking && (
+        <AdminRideBookingForm
+          editingReservation={{
+            id: editingBooking.id,
+            employee: editingBooking.employee,
+            employee_email: editingBooking.employee_email,
+            travel_date: editingBooking.travel_date,
+            departure_time: editingBooking.departure_time,
+            roundtrip: editingBooking.roundtrip,
+            return_pickup: editingBooking.return_pickup,
+            pickup_location: editingBooking.pickup_location,
+            pickup_maps_link: editingBooking.pickup_maps_link,
+            dropoff_destination:
+              editingBooking.dropoff_destination,
+            drop_off_maps_link:
+              editingBooking.drop_off_maps_link,
+            return_drop_off_location:
+              editingBooking.return_drop_off_location,
+            return_drop_off_maps_link:
+              editingBooking.return_drop_off_maps_link,
+            purpose: editingBooking.purpose,
+            passengers_count: editingBooking.passengers_count,
+            vehicle_type: editingBooking.vehicle_type,
+            admin_remarks: editingBooking.admin_remarks,
+          }}
+          onClose={() => setEditingBooking(null)}
+          onSuccess={() => {
+            setEditingBooking(null);
+            fetchRideReservations(false);
+            onActionComplete?.();
+          }}
+        />
+      )}
     </>
   );
 }

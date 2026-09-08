@@ -28,6 +28,14 @@ interface RideReservation {
 interface RideBookingDetailsProps {
   selectedDate: string;
   bookings: RideReservation[];
+
+  // Branch name to its colour. Each booking is tagged with its
+  // branch here, mirroring the room booking details panel.
+  branchColors?: Record<string, string>;
+
+  // Only worth labelling when the list can hold more than one
+  // branch, so this is off while a single branch is selected.
+  showBranch?: boolean;
 }
 
 const ITEMS_PER_PAGE = 5;
@@ -35,6 +43,8 @@ const ITEMS_PER_PAGE = 5;
 export default function RideBookingDetails({
   selectedDate,
   bookings,
+  branchColors = {},
+  showBranch = false,
 }: RideBookingDetailsProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -115,13 +125,40 @@ export default function RideBookingDetails({
   }, [filteredBookings, currentPage]);
 
   return (
-    <div>
-      <h2 className="text-lg font-semibold text-slate-900">
+    <div className="flex h-full min-h-0 flex-col">
+      <h2 className="shrink-0 text-lg font-semibold text-slate-900">
         Rides for {formattedDate}
       </h2>
 
+      {/* Branch Color Legend
+
+          Sits here rather than over the calendar, because this
+          is where the colours are actually used. */}
+      {showBranch &&
+        Object.keys(branchColors).length > 0 && (
+          <div className="mt-3 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
+            {Object.entries(branchColors).map(
+              ([branch, color]) => (
+                <div
+                  key={branch}
+                  className="flex items-center gap-2"
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
+
+                  <span className="text-xs text-slate-600">
+                    {branch}
+                  </span>
+                </div>
+              )
+            )}
+          </div>
+        )}
+
       {/* Search Bar */}
-      <div className="mt-4">
+      <div className="mt-4 shrink-0">
         <input
           type="text"
           value={searchQuery}
@@ -135,20 +172,20 @@ export default function RideBookingDetails({
       </div>
 
       {bookings.length === 0 ? (
-        <div className="mt-5 flex min-h-[250px] items-center justify-center rounded-md bg-slate-50">
+        <div className="mt-5 flex min-h-[250px] flex-1 items-center justify-center rounded-md bg-slate-50">
           <p className="text-sm text-slate-500">
             No ride bookings for this date.
           </p>
         </div>
       ) : filteredBookings.length === 0 ? (
-        <div className="mt-5 flex min-h-[200px] items-center justify-center rounded-md bg-slate-50">
+        <div className="mt-5 flex min-h-[200px] flex-1 items-center justify-center rounded-md bg-slate-50">
           <p className="text-sm text-slate-500">
             No ride bookings match your search.
           </p>
         </div>
       ) : (
         <>
-          <div className="mt-5 space-y-4">
+          <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             {paginatedBookings.map((booking) => {
               const departureTime = new Date(
                 `${booking.travel_date}T${booking.departure_time}`
@@ -160,15 +197,35 @@ export default function RideBookingDetails({
               return (
                 <div
                   key={booking.ride_reservation_id}
-                  className="rounded-md border border-slate-200 p-4"
+                  className="rounded-md border border-slate-200 p-3"
                 >
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                  {/* Branch */}
+                  {showBranch && (
+                    <div className="mb-2 flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor:
+                            branchColors[
+                              booking.site ?? ""
+                            ] ?? "#64748b",
+                        }}
+                      />
+
+                      <span className="text-xs font-medium text-slate-600">
+                        {booking.site ??
+                          `Site #${booking.site_id}`}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                     {/* Booking / Transportation Type */}
                     <div>
                       <p className="text-xs text-slate-400">
                         Booking
                       </p>
-                      <h3 className="mt-1 font-semibold text-slate-900">
+                      <h3 className="mt-0.5 font-semibold text-slate-900">
                         {booking.vehicle_type ?? "Not specified"}
                       </h3>
                     </div>
@@ -178,13 +235,13 @@ export default function RideBookingDetails({
                       <p className="text-xs text-slate-400">
                         Route
                       </p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">
+                      <p className="mt-0.5 text-sm font-medium text-slate-900">
                         {booking.pickup_location} →{" "}
                         {booking.dropoff_destination}
                       </p>
 
                       {booking.roundtrip && (
-                        <span className="mt-1 inline-block text-xs font-semibold text-[#03045e]">
+                        <span className="mt-0.5 inline-block text-xs font-semibold text-[#03045e]">
                           Roundtrip
                         </span>
                       )}
@@ -195,7 +252,7 @@ export default function RideBookingDetails({
                       <p className="text-xs text-slate-400">
                         Departure
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-0.5 text-sm text-slate-500">
                         {departureTime}
                       </p>
                     </div>
@@ -205,7 +262,7 @@ export default function RideBookingDetails({
                       <p className="text-xs text-slate-400">
                         Requested by
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-0.5 text-sm text-slate-500">
                         {booking.employee_name}
                       </p>
                     </div>
@@ -215,22 +272,11 @@ export default function RideBookingDetails({
                       <p className="text-xs text-slate-400">
                         Passengers
                       </p>
-                      <p className="mt-1 text-sm text-slate-600">
+                      <p className="mt-0.5 text-sm text-slate-600">
                         {booking.passenger_count}{" "}
                         {booking.passenger_count === 1
                           ? "passenger"
                           : "passengers"}
-                      </p>
-                    </div>
-
-                    {/* Site */}
-                    <div>
-                      <p className="text-xs text-slate-400">
-                        Site
-                      </p>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {booking.site ??
-                          `Site #${booking.site_id}`}
                       </p>
                     </div>
 
@@ -239,7 +285,7 @@ export default function RideBookingDetails({
                       <p className="text-xs text-slate-400">
                         Purpose
                       </p>
-                      <p className="mt-1 text-sm text-slate-600">
+                      <p className="mt-0.5 text-sm text-slate-600">
                         {booking.purpose}
                       </p>
                     </div>
@@ -266,7 +312,7 @@ export default function RideBookingDetails({
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-5 flex flex-col gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-4 flex shrink-0 flex-col gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-slate-500">
                 Showing{" "}
                 <span className="font-medium text-slate-700">

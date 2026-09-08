@@ -21,9 +21,10 @@ import {
   getErrorMessage,
   getThrownMessage,
 } from "@/lib/api";
-import { capitalizeFirst } from "@/lib/text";
+import { capitalizeFirst, titleCase } from "@/lib/text";
 import AdminRoomBookingForm from "./AdminRoomBookingForm";
 import AdminRideBookingForm from "./AdminRideBookingForm";
+import ChangePasswordModal from "./ChangePasswordModal";
 
 type ReservationType = "room" | "ride";
 
@@ -74,6 +75,7 @@ interface Admin {
   name: string;
   email: string;
   site_id: number;
+  must_change_password?: boolean;
 }
 
 interface Room {
@@ -94,6 +96,54 @@ interface CalendarEvent {
   status?: "approved" | "pending";
 }
 
+/*
+ * One row in the calendar modal's day list.
+ *
+ * Room and ride bookings carry very different fields, so both are
+ * flattened into this shape and the type-specific parts end up as
+ * label/value pairs in `details`.
+ */
+interface CalendarDayBooking {
+  id: string;
+  title: string;
+  time: string;
+  employee: string;
+  details: { label: string; value: string }[];
+}
+
+/* "2026-12-30" + "13:45:00" -> "1:45 PM" */
+function formatTime(
+  date: string,
+  time: string
+): string {
+  const parsed = new Date(`${date}T${time}`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return time;
+  }
+
+  return parsed.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/* "2026-12-30" -> "December 30, 2026" */
+function formatDayLabel(date: string): string {
+  const parsed = new Date(`${date}T00:00:00`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  return parsed.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -109,8 +159,22 @@ export default function AdminDashboard() {
   const [showCalendar, setShowCalendar] =
     useState(false);
 
+  // Day whose bookings the calendar modal is listing, and the
+  // booking expanded inside that list. Clicking a cell sets the
+  // first; clicking a row in the list sets the second.
+  const [calendarDay, setCalendarDay] =
+    useState<string | null>(null);
+
+  const [expandedBookingId, setExpandedBookingId] =
+    useState<string | null>(null);
+
   const [admin, setAdmin] =
     useState<Admin | null>(null);
+
+  // Forces the password-change modal when the account is on its
+  // first login or its password has passed the 30-day expiry.
+  const [mustChangePassword, setMustChangePassword] =
+    useState(false);
     
  
   // ==========================================================
@@ -189,6 +253,9 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
         const data: Admin = await response.json();
 
         setAdmin(data);
+        setMustChangePassword(
+          Boolean(data.must_change_password)
+        );
       } catch (error) {
         console.error(
           "Error fetching admin:",
@@ -484,11 +551,172 @@ const [showAdminRideBooking, setShowAdminRideBooking] = useState(false);
     ]);
 
   // ==========================================================
+  // BOOKINGS ON THE SELECTED DAY
+  //
+  // The calendar cell only has room for a few chips, so the day
+  // list below it is what actually shows everything booked that
+  // day — and, expanded, the details of each one.
+  // ==========================================================
+
+  const calendarDayBookings: CalendarDayBooking[] =
+    useMemo(() => {
+      if (!calendarDay) {
+        return [];
+      }
+
+      if (activeType === "room") {
+        return filteredRoomCalendarBookings
+          .filter(
+            (booking) =>
+              booking.reservation_date === calendarDay
+          )
+          .map((booking) => ({
+            id: String(booking.room_reservation_id),
+
+            title: booking.room,
+
+            time: `${formatTime(
+              booking.reservation_date,
+              booking.start_time
+            )} – ${formatTime(
+              booking.reservation_date,
+              booking.end_time
+            )}`,
+
+            employee: booking.employee_name,
+
+            details: [
+              { label: "Room", value: booking.room },
+              { label: "Site", value: booking.site },
+              {
+                label: "Requested by",
+                value: booking.employee_name,
+              },
+              {
+                label: "Status",
+                value: capitalizeFirst(booking.status),
+              },
+            ],
+          }))
+          .sort((a, b) =>
+            a.time.localeCompare(b.time)
+          );
+      }
+
+      return filteredRideCalendarBookings
+        .filter(
+          (booking) =>
+            booking.travel_date === calendarDay
+        )
+        .map((booking) => ({
+          id: String(booking.ride_reservation_id),
+
+          title: `${capitalizeFirst(
+            booking.pickup_location
+          )} → ${capitalizeFirst(
+            booking.dropoff_destination
+          )}`,
+
+          time: formatTime(
+            booking.travel_date,
+            booking.departure_time
+          ),
+
+          employee: booking.employee_name,
+
+          details: [
+            {
+              label: "Purpose",
+              value: titleCase(booking.purpose),
+            },
+            {
+              label: "Pickup",
+              value: capitalizeFirst(
+                booking.pickup_location
+              ),
+            },
+            {
+              label: "Drop-off",
+              value: capitalizeFirst(
+                booking.dropoff_destination
+              ),
+            },
+            {
+              label: "Trip Type",
+              value: booking.roundtrip
+                ? "Round Trip"
+                : "One Way",
+            },
+            {
+              label: "Passengers",
+              value: String(booking.passenger_count),
+            },
+            {
+              label: "Vehicle",
+              value:
+                capitalizeFirst(
+                  booking.vehicle_type
+                ) || "Not assigned",
+            },
+            {
+              label: "Requested by",
+              value: booking.employee_name,
+            },
+            {
+              label: "Email",
+              value: booking.employee_email,
+            },
+            {
+              label: "Site",
+              value: booking.site || "—",
+            },
+          ],
+        }));
+    }, [
+      calendarDay,
+      activeType,
+      filteredRoomCalendarBookings,
+      filteredRideCalendarBookings,
+    ]);
+
+  // ==========================================================
+  // CALENDAR SELECTION
+  // ==========================================================
+
+  const handleCalendarDayClick = (date: string) => {
+    setCalendarDay(date);
+
+    setExpandedBookingId(null);
+  };
+
+  /*
+   * A chip inside a cell is a click on that day too — it just
+   * also opens the booking it was drawn for.
+   */
+  const handleCalendarEventClick = (eventId: string) => {
+    const event = calendarEvents.find(
+      (candidate) => candidate.id === eventId
+    );
+
+    if (!event) {
+      return;
+    }
+
+    setCalendarDay(event.start.split("T")[0]);
+
+    setExpandedBookingId(eventId);
+  };
+
+  // ==========================================================
   // OPEN CALENDAR
   // ==========================================================
 
   const openCalendar = async () => {
     setShowCalendar(true);
+
+    setCalendarDay(null);
+
+    setExpandedBookingId(null);
 
     await fetchCalendarBookings();
   };
@@ -538,6 +766,11 @@ const handleReservationTypeChange = (
   // between reservation types.
   setSearchQuery("");
 
+  // The calendar's day list belongs to the old type's bookings.
+  setCalendarDay(null);
+
+  setExpandedBookingId(null);
+
   // Room-specific filter.
   if (type === "room") {
     setSelectedRoom("all");
@@ -550,6 +783,13 @@ const handleReservationTypeChange = (
 
   return (
     <main className="min-h-screen bg-slate-50">
+      {mustChangePassword && (
+        <ChangePasswordModal
+          title="Password update required"
+          subtitle="Your password needs to be updated before you can continue."
+          onSuccess={() => setMustChangePassword(false)}
+        />
+      )}
       <div className="mx-auto max-w-7xl px-6 py-8">
 
         {/* ==================================================
@@ -949,9 +1189,178 @@ const handleReservationTypeChange = (
 
                 /* Calendar */
 
-                <Calendar
-                  events={calendarEvents}
-                />
+                <>
+                  <Calendar
+                    events={calendarEvents}
+                    onDateClick={handleCalendarDayClick}
+                    onEventClick={handleCalendarEventClick}
+                    selectedDate={
+                      calendarDay ?? undefined
+                    }
+                  />
+
+                  {/* ==================================
+                      SELECTED DAY BOOKINGS
+                  ================================== */}
+
+                  <div className="mt-5 border-t border-slate-200 pt-5">
+
+                    {!calendarDay ? (
+
+                      <p className="text-sm text-slate-500">
+                        Select a date to see everything
+                        booked that day.
+                      </p>
+
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between gap-4">
+
+                          <div>
+
+                            <h3 className="text-sm font-semibold text-slate-900">
+                              {formatDayLabel(calendarDay)}
+                            </h3>
+
+                            <p className="mt-0.5 text-xs text-slate-500">
+                              {calendarDayBookings.length}{" "}
+                              {calendarDayBookings.length === 1
+                                ? "booking"
+                                : "bookings"}
+                            </p>
+
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCalendarDay(null);
+                              setExpandedBookingId(null);
+                            }}
+                            className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                          >
+                            Clear
+                          </button>
+
+                        </div>
+
+                        {calendarDayBookings.length === 0 ? (
+
+                          <p className="mt-3 text-sm text-slate-500">
+                            No approved{" "}
+                            {activeType === "room"
+                              ? "room"
+                              : "ride"}{" "}
+                            bookings on this date.
+                          </p>
+
+                        ) : (
+
+                          <ul className="mt-3 space-y-2">
+
+                            {calendarDayBookings.map(
+                              (booking) => {
+                                const isExpanded =
+                                  expandedBookingId ===
+                                  booking.id;
+
+                                return (
+                                  <li
+                                    key={booking.id}
+                                    className="overflow-hidden rounded-lg border border-slate-200"
+                                  >
+
+                                    <button
+                                      type="button"
+                                      aria-expanded={isExpanded}
+                                      onClick={() =>
+                                        setExpandedBookingId(
+                                          isExpanded
+                                            ? null
+                                            : booking.id
+                                        )
+                                      }
+                                      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-slate-50"
+                                    >
+
+                                      <div className="min-w-0">
+
+                                        <p className="truncate text-sm font-medium text-slate-900">
+                                          {booking.title}
+                                        </p>
+
+                                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                                          {booking.time} ·{" "}
+                                          {booking.employee}
+                                        </p>
+
+                                      </div>
+
+                                      <span className="shrink-0 text-xs font-medium text-[#03045e]">
+                                        {isExpanded
+                                          ? "Hide"
+                                          : "View details"}
+                                      </span>
+
+                                    </button>
+
+                                    {isExpanded && (
+
+                                      <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
+
+                                        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+
+                                          <div className="min-w-0">
+
+                                            <dt className="text-[11px] text-slate-400">
+                                              Time
+                                            </dt>
+
+                                            <dd className="mt-0.5 text-sm text-slate-700">
+                                              {booking.time}
+                                            </dd>
+
+                                          </div>
+
+                                          {booking.details.map(
+                                            (detail) => (
+                                              <div
+                                                key={detail.label}
+                                                className="min-w-0"
+                                              >
+
+                                                <dt className="text-[11px] text-slate-400">
+                                                  {detail.label}
+                                                </dt>
+
+                                                <dd
+                                                  className="mt-0.5 truncate text-sm text-slate-700"
+                                                  title={detail.value}
+                                                >
+                                                  {detail.value}
+                                                </dd>
+
+                                              </div>
+                                            )
+                                          )}
+
+                                        </dl>
+
+                                      </div>
+                                    )}
+
+                                  </li>
+                                );
+                              }
+                            )}
+
+                          </ul>
+                        )}
+                      </>
+                    )}
+
+                  </div>
+                </>
 
               )}
 

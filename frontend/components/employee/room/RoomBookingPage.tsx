@@ -350,6 +350,8 @@ export default function RoomBookingPage() {
     start: booking.start,
 
     end: booking.end,
+
+    color: branchDotColors[booking.site],
   }));
 
   // ==========================================================
@@ -357,11 +359,11 @@ export default function RoomBookingPage() {
   // ==========================================================
 
 return (
-  <div className="min-h-screen bg-slate-50 p-6">
-    <div className="mx-auto max-w-[1800px]">
+  <div className="h-full overflow-hidden bg-slate-50 p-6">
+    <div className="mx-auto flex h-full max-w-[1800px] flex-col">
 
       {/* Page Header */}
-      <div className="mb-6 px-6">
+      <div className="mb-6 shrink-0 px-6">
         <h1 className="text-2xl font-semibold text-slate-900">
           Room Reservation
         </h1>
@@ -379,10 +381,10 @@ return (
       )} */}
 
       {/* Calendar + Bookings + Form */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr_1.2fr]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto xl:grid-cols-[1.4fr_1fr_1.2fr] xl:overflow-hidden">
 
         {/* Calendar */}
-        <div className="rounded-md bg-white p-6">
+        <div className="rounded-md bg-white p-6 xl:min-h-0 xl:overflow-y-auto">
           <div className="mb-5 flex items-start justify-between">
 
             {/* Left: Booking Overview + Branch Legend */}
@@ -394,14 +396,6 @@ return (
               <p className="text-sm text-slate-500">
                 Select a date to view room bookings.
               </p>
-
-              <div className="mt-4 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#2563eb]" />
-
-                <span className="text-xs text-slate-500">
-                  Each dot is one booking on that date.
-                </span>
-              </div>
             </div>
 
             {/* Right: Branch Dropdown */}
@@ -449,7 +443,7 @@ return (
         </div>
 
         {/* Current Bookings */}
-        <div className="rounded-md bg-white p-6">
+        <div className="flex min-h-0 flex-col rounded-md bg-white p-6 xl:h-full xl:overflow-hidden">
           <RoomBookingDetails
             selectedDate={selectedDate}
             bookings={selectedBookings}
@@ -462,7 +456,7 @@ return (
         </div>
 
         {/* Request Form */}
-        <div className="rounded-md bg-white p-6">
+        <div className="rounded-md bg-white p-6 xl:min-h-0 xl:overflow-y-auto">
           <h2 className="text-lg font-semibold">
             New Room Request
           </h2>

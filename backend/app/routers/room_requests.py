@@ -623,6 +623,9 @@ def create_admin_room_booking(
 ):
     # ---------------------------------------------------------
     # 1. Find room and verify it belongs to admin's site
+    #
+    # Look the room up in the admin's site first, so a disabled
+    # room reports as disabled rather than as a site mismatch.
     # ---------------------------------------------------------
 
     room = (
@@ -633,7 +636,6 @@ def create_admin_room_booking(
         )
         .filter(
             Room.room_id == booking.room_id,
-            Room.is_active == True,
             Site.is_active == True,
             Site.site_name == current_admin.site,
         )
@@ -644,6 +646,16 @@ def create_admin_room_booking(
         raise HTTPException(
             status_code=403,
             detail="You can only book rooms within your assigned site.",
+        )
+
+    if not room.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "This room is currently disabled and cannot "
+                "be booked. Please enable it or choose another "
+                "room."
+            ),
         )
 
     # ---------------------------------------------------------
@@ -923,6 +935,11 @@ def update_admin_room_booking(
             ),
         )
 
+    # Editing a pending request approves it, so the requester
+    # gets an approval notice. Editing an already-approved
+    # booking is a modification, so they get an "updated" notice.
+    was_already_approved = room_request.status == "APPROVED"
+
     # ---------------------------------------------------------
     # 3. Find new room
     # ---------------------------------------------------------
@@ -935,7 +952,6 @@ def update_admin_room_booking(
         )
         .filter(
             Room.room_id == booking.room_id,
-            Room.is_active == True,
             Site.is_active == True,
             Site.site_name == current_admin.site,
         )
@@ -946,6 +962,16 @@ def update_admin_room_booking(
         raise HTTPException(
             status_code=403,
             detail="You can only use rooms within your assigned site.",
+        )
+
+    if not room.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "This room is currently disabled and cannot "
+                "be booked. Please enable it or choose another "
+                "room."
+            ),
         )
 
     site = (
@@ -1124,6 +1150,7 @@ def update_admin_room_booking(
             end_time=conflict.end_time,
             purpose=conflict.purpose,
             remarks=conflict.admin_remarks,
+            admin_name=current_admin.name,
         )
 
         background_tasks.add_task(
@@ -1140,9 +1167,19 @@ def update_admin_room_booking(
     # 10. Tell the requester their booking is approved
     # ---------------------------------------------------------
 
+    email_status = (
+        "updated" if was_already_approved else "approved"
+    )
+
+    email_subject = (
+        "Room Booking Updated"
+        if was_already_approved
+        else "Room Booking Approved"
+    )
+
     html_body = booking_status_email(
         employee_name=room_request.employee_name,
-        status="approved",
+        status=email_status,
         room=room.room_name,
         site=site.site_name if site else None,
         reservation_date=room_request.reservation_date,
@@ -1150,12 +1187,13 @@ def update_admin_room_booking(
         end_time=room_request.end_time,
         purpose=room_request.purpose,
         remarks=room_request.admin_remarks,
+        admin_name=current_admin.name,
     )
 
     background_tasks.add_task(
         send_email,
         [room_request.employee_email],
-        "Room Booking Approved",
+        email_subject,
         html_body,
     )
 
@@ -1333,6 +1371,7 @@ def cancel_admin_room_booking(
         end_time=room_request.end_time,
         purpose=room_request.purpose,
         remarks=room_request.admin_remarks,
+        admin_name=current_admin.name,
     )
 
     background_tasks.add_task(
@@ -1545,6 +1584,7 @@ def update_room_request_status(
                 end_time=conflict.end_time,
                 purpose=conflict.purpose,
                 remarks=conflict.admin_remarks,
+                admin_name=current_admin.name,
             )
 
             background_tasks.add_task(
@@ -1603,6 +1643,7 @@ def update_room_request_status(
             end_time=room_request.end_time,
             purpose=room_request.purpose,
             remarks=room_request.admin_remarks,
+            admin_name=current_admin.name,
         )
 
         background_tasks.add_task(
@@ -1628,6 +1669,7 @@ def update_room_request_status(
             end_time=room_request.end_time,
             purpose=room_request.purpose,
             remarks=room_request.admin_remarks,
+            admin_name=current_admin.name,
         )
 
         background_tasks.add_task(

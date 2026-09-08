@@ -1,6 +1,6 @@
 "use client";
 
-import { capitalizeFirst } from "@/lib/text";
+import { capitalizeFirst, titleCase } from "@/lib/text";
 
 import {
   ArrowRight,
@@ -20,7 +20,8 @@ import {
   XCircle,
   Trash2,
   MoreVertical,
-  ChevronDown
+  ChevronDown,
+  Pencil
 } from "lucide-react";
 import { useState } from "react";
 import { getThrownMessage } from "@/lib/api";
@@ -71,6 +72,9 @@ interface RideRequestCardProps {
     adminRemarks: string
   ) => Promise<void>;
 
+  // Opens the edit form for an approved booking.
+  onEdit?: (id: string) => void;
+
   /*
    * List view shows the card collapsed until it is expanded.
    */
@@ -81,6 +85,7 @@ export default function RideRequestCard({
   booking,
   onStatusUpdate,
   onCancel,
+  onEdit,
   collapsible = false,
 }: RideRequestCardProps) {
   const [updating, setUpdating] = useState(false);
@@ -361,6 +366,19 @@ return (
 
             {showMenu && (
               <div className="absolute right-0 z-20 mt-2 w-32 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                {/* Edit */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false);
+                    onEdit?.(booking.id);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </button>
+
                 {/* Cancel */}
                 <button
                   type="button"
@@ -655,9 +673,9 @@ return (
 
               <p
                 className="mt-0.5 line-clamp-2 text-xs leading-5 text-slate-600"
-                title={capitalizeFirst(booking.purpose)}
+                title={titleCase(booking.purpose)}
               >
-                {capitalizeFirst(booking.purpose)}
+                {titleCase(booking.purpose)}
               </p>
             </div>
           </div>

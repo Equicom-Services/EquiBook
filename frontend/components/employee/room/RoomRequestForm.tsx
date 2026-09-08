@@ -776,6 +776,11 @@ async function confirmSubmit() {
             className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
           />
         </div>
+
+        {/* Note: manual entry fallback */}
+        <p className="text-xs text-slate-400 md:col-span-2">
+          If your name or email doesn&apos;t appear in the suggestions, just type it in manually.
+        </p>
 {/* Site */}
 <div>
   <label className="mb-1 block text-sm font-medium text-slate-700">

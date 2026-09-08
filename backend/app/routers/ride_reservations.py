@@ -27,6 +27,7 @@ from app.schemas.ride_reservation import (
     RideReservationStatusUpdate,
     RideReservationCancel,
     AdminRideReservationCreate,
+    AdminRideReservationUpdate,
 )
 
 
@@ -1096,5 +1097,274 @@ def create_admin_ride_booking(
 
         "created_at": new_reservation.created_at,
         "updated_at": new_reservation.updated_at,
+    }
+
+
+# ============================================================
+# EDIT ADMIN RIDE BOOKING
+# ADMIN ONLY
+#
+# Lets an admin transfer an approved (or still pending) ride to
+# another date or change any of its details. Mirrors the room
+# booking edit: an edit doubles as an approval, so the ride ends
+# up APPROVED regardless of its previous state.
+# ============================================================
+
+@router.put(
+    "/admin/bookings/{ride_reservation_id}",
+    response_model=RideReservationResponse,
+)
+def update_admin_ride_booking(
+    ride_reservation_id: int,
+    request: AdminRideReservationUpdate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
+):
+    # ---------------------------------------------------------
+    # 1. Find reservation, scoped to the admin's site
+    # ---------------------------------------------------------
+    reservation = (
+        db.query(RideReservation)
+        .filter(
+            RideReservation.ride_reservation_id
+            == ride_reservation_id,
+            RideReservation.site == current_admin.site,
+        )
+        .first()
+    )
+
+    if not reservation:
+        raise HTTPException(
+            status_code=404,
+            detail="Ride reservation not found.",
+        )
+
+    # A rejected or cancelled reservation is finished, so it can
+    # no longer be edited.
+    if reservation.status.upper() not in (
+        "PENDING",
+        "APPROVED",
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Only pending or approved ride reservations "
+                "can be edited."
+            ),
+        )
+
+    # Editing a pending reservation approves it (approval notice);
+    # editing an approved one is a modification (updated notice).
+    was_already_approved = (
+        reservation.status.upper() == "APPROVED"
+    )
+
+    # ---------------------------------------------------------
+    # 2. Validate requester
+    # ---------------------------------------------------------
+    if not request.employee_name.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Requester name is required.",
+        )
+
+    if not request.employee_email.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Requester email is required.",
+        )
+
+    # ---------------------------------------------------------
+    # 3. Validate passenger count
+    # ---------------------------------------------------------
+    if request.passenger_count <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Passenger count must be greater than 0.",
+        )
+
+    # ---------------------------------------------------------
+    # 4. Validate round trip
+    # ---------------------------------------------------------
+    if request.roundtrip and not request.return_pickup:
+        raise HTTPException(
+            status_code=400,
+            detail="Return pickup is required for round-trip reservations.",
+        )
+
+    # ---------------------------------------------------------
+    # 5. Vehicle is required for an admin booking
+    # ---------------------------------------------------------
+    if not request.vehicle_type:
+        raise HTTPException(
+            status_code=400,
+            detail="Vehicle type is required.",
+        )
+
+    # ---------------------------------------------------------
+    # 6. Apply changes
+    # ---------------------------------------------------------
+    now = datetime.now()
+
+    reservation.employee_name = request.employee_name.strip()
+    reservation.employee_email = (
+        request.employee_email.strip()
+    )
+
+    reservation.travel_date = request.travel_date
+    reservation.departure_time = request.departure_time
+    reservation.roundtrip = request.roundtrip
+    reservation.return_pickup = request.return_pickup
+
+    reservation.pickup_location = (
+        request.pickup_location.strip()
+    )
+    reservation.pickup_maps_link = request.pickup_maps_link
+
+    reservation.dropoff_destination = (
+        request.dropoff_destination.strip()
+    )
+    reservation.drop_off_maps_link = (
+        request.drop_off_maps_link
+    )
+
+    reservation.return_drop_off_location = (
+        request.return_drop_off_location
+    )
+    reservation.return_drop_off_maps_link = (
+        request.return_drop_off_maps_link
+    )
+
+    reservation.purpose = request.purpose.strip()
+    reservation.passenger_count = request.passenger_count
+    reservation.vehicle_type = request.vehicle_type
+    reservation.admin_remarks = request.admin_remarks
+
+    # An admin edit doubles as an approval, so the reservation is
+    # approved whether it was pending or already approved.
+    reservation.status = "APPROVED"
+    reservation.approved_rejected_by = current_admin.id
+    reservation.approved_rejected_date_time = now
+    reservation.updated_at = now
+
+    db.commit()
+    db.refresh(reservation)
+
+    # ---------------------------------------------------------
+    # 7. Resolve site for the response + email
+    # ---------------------------------------------------------
+    site = (
+        db.query(Site)
+        .filter(Site.site_name == reservation.site)
+        .first()
+    )
+
+    if not site:
+        raise HTTPException(
+            status_code=404,
+            detail="Reservation site not found.",
+        )
+
+    # ---------------------------------------------------------
+    # 8. Notify the requester of the updated, approved booking
+    # ---------------------------------------------------------
+    email_body = ride_booking_status_email(
+        employee_name=reservation.employee_name,
+        employee_email=reservation.employee_email,
+        site=reservation.site,
+        travel_date=reservation.travel_date,
+        departure_time=reservation.departure_time,
+        roundtrip=reservation.roundtrip,
+        return_pickup=reservation.return_pickup,
+
+        pickup_location=reservation.pickup_location,
+        pickup_maps_link=reservation.pickup_maps_link,
+
+        dropoff_destination=reservation.dropoff_destination,
+        drop_off_maps_link=reservation.drop_off_maps_link,
+
+        return_drop_off_location=(
+            reservation.return_drop_off_location
+        ),
+        return_drop_off_maps_link=(
+            reservation.return_drop_off_maps_link
+        ),
+
+        purpose=reservation.purpose,
+        passenger_count=reservation.passenger_count,
+
+        vehicle_type=reservation.vehicle_type,
+        status=(
+            "UPDATED"
+            if was_already_approved
+            else reservation.status
+        ),
+        admin_remarks=reservation.admin_remarks,
+
+        admin_name=current_admin.name,
+    )
+
+    background_tasks.add_task(
+        send_email,
+        [reservation.employee_email],
+        (
+            "Ride Reservation Updated"
+            if was_already_approved
+            else "Ride Reservation Approved"
+        ),
+        email_body,
+    )
+
+    # ---------------------------------------------------------
+    # 9. Return updated reservation
+    # ---------------------------------------------------------
+    return {
+        "ride_reservation_id": reservation.ride_reservation_id,
+        "request_date_time": reservation.request_date_time,
+        "employee_name": reservation.employee_name,
+        "employee_email": reservation.employee_email,
+
+        "site_id": site.site_id,
+        "site": site.site_name,
+
+        "travel_date": reservation.travel_date,
+        "departure_time": reservation.departure_time,
+        "roundtrip": reservation.roundtrip,
+        "return_pickup": reservation.return_pickup,
+
+        "pickup_location": reservation.pickup_location,
+        "pickup_maps_link": reservation.pickup_maps_link,
+
+        "dropoff_destination": reservation.dropoff_destination,
+        "drop_off_maps_link": reservation.drop_off_maps_link,
+
+        "return_drop_off_location":
+            reservation.return_drop_off_location,
+
+        "return_drop_off_maps_link":
+            reservation.return_drop_off_maps_link,
+
+        "purpose": reservation.purpose,
+        "passenger_count": reservation.passenger_count,
+
+        "vehicle_type": reservation.vehicle_type,
+        "status": reservation.status,
+        "admin_remarks": reservation.admin_remarks,
+
+        "approved_rejected_by":
+            reservation.approved_rejected_by,
+
+        "approved_rejected_by_name":
+            current_admin.name,
+
+        "approved_rejected_date_time":
+            reservation.approved_rejected_date_time,
+
+        "calendar_event_id":
+            reservation.calendar_event_id,
+
+        "created_at": reservation.created_at,
+        "updated_at": reservation.updated_at,
     }
 

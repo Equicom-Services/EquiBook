@@ -1,4 +1,4 @@
-import { capitalizeFirst } from "@/lib/text";
+import { titleCase } from "@/lib/text";
 
 interface RoomBooking {
   id: string;
@@ -66,7 +66,7 @@ export default function RoomRequestCard({
           </p>
 
           <p className="mt-1 text-sm font-medium text-slate-900">
-            {booking.title}
+            {titleCase(booking.title)}
           </p>
         </div>
 
@@ -125,7 +125,7 @@ export default function RoomRequestCard({
           </p>
 
           <p className="mt-1 text-sm text-slate-600">
-            {capitalizeFirst(booking.purpose)}
+            {titleCase(booking.purpose)}
           </p>
         </div>
 

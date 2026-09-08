@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.security import get_current_admin
+from app.core.security import (
+    get_current_admin,
+    password_change_required,
+)
 from app.core.database import get_db
 from app.models.site import Site
 
@@ -36,4 +39,7 @@ def get_current_admin_info(
         "name": current_admin.name,
         "site_id": site.site_id,
         "site_name": site.site_name,
+        "must_change_password": password_change_required(
+            current_admin
+        ),
     }

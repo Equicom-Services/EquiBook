@@ -1,10 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.admin import Admin
-from app.core.security import (
-    verify_password,
-    create_access_token
-)
+from app.core.security import verify_password
 
 
 def authenticate_admin(
@@ -12,6 +9,12 @@ def authenticate_admin(
     email: str,
     password: str
 ):
+    """
+    Return the matching active admin, or None on any failure.
+
+    The token and any password-expiry decision are left to the
+    caller, which needs the admin row to build both.
+    """
 
     admin = (
         db.query(Admin)
@@ -31,10 +34,4 @@ def authenticate_admin(
     if not admin.is_active:
         return None
 
-    token = create_access_token({
-        "sub": str(admin.id),
-        "email": admin.email,
-        "role": "admin"
-    })
-
-    return token
+    return admin
