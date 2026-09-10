@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equibook Control Panel</title>
+<style>
+    :root {
+        --navy: #03045e;
+        --navy-tint: #eef2ff;
+        --border: #e2e8f0;
+        --muted: #64748b;
+        --bg: #f4f6f8;
+        --pending: #f59e0b;
+        --approved: #16a34a;
+        --rejected: #dc2626;
+        --cancelled: #94a3b8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        background: var(--bg);
+        font-family: Arial, Helvetica, sans-serif;
+        color: #1f2937;
+        font-size: 14px;
+    }
+
+    header {
+        background: var(--navy);
+        color: #fff;
+        padding: 22px 32px 0;
+    }
+
+    header .eyebrow {
+        font-size: 12px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: #bfdbfe;
+        margin-bottom: 6px;
+    }
+
+    header h1 {
+        margin: 0 0 18px;
+        font-size: 22px;
+        font-weight: 600;
+    }
+
+    nav {
+        display: flex;
+        gap: 4px;
+    }
+
+    nav button {
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #bfdbfe;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 12px 20px;
+        cursor: pointer;
+    }
+
+    nav button:hover { color: #fff; }
+
+    nav button.active {
+        color: #fff;
+        border-bottom-color: #fff;
+    }
+
+    main {
+        max-width: 1220px;
+        margin: 26px auto 70px;
+        padding: 0 20px;
+    }
+
+    .card {
+        background: #fff;
+        border: 1px solid var(--border);
+        padding: 22px;
+        margin-bottom: 20px;
+    }
+
+    .card > h2 {
+        margin: 0 0 4px;
+        font-size: 13px;
+        font-weight: bold;
+        letter-spacing: .5px;
+        text-transform: uppercase;
+        color: var(--navy);
+    }
+
+    .card > .hint {
+        margin: 0 0 18px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--muted);
+        border-bottom: 2px solid var(--navy);
+        padding-bottom: 12px;
+    }
+
+    label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+    }
+
+    input, select {
+        width: 100%;
+        padding: 9px 11px;
+        font-size: 14px;
+        font-family: inherit;
+        color: #111827;
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        border-radius: 0;
+    }
+
+    input:focus, select:focus { outline: none; border-color: var(--navy); }
+
+    button.primary {
+        background: var(--navy);
+        color: #fff;
+        border: none;
+        padding: 11px 24px;
+        font-size: 14px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+    }
+
+    button.primary:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    button.secondary {
+        background: #fff;
+        color: var(--navy);
+        border: 1px solid var(--navy);
+        padding: 10px 18px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+    }
+
+    button.secondary:hover { background: var(--navy-tint); }
+
+    button.link {
+        background: none;
+        border: none;
+        color: var(--navy);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 4px 8px;
+        cursor: pointer;
+        text-decoration: underline;
+    }
+
+    button.link.danger { color: #b91c1c; }
+    button.link:disabled { color: #94a3b8; cursor: not-allowed; text-decoration: none; }
+
+    .status { font-size: 13px; color: var(--muted); }
+
+    .notice {
+        border-left: 4px solid #f59e0b;
+        background: #fffbeb;
+        color: #92400e;
+        padding: 13px 18px;
+        font-size: 13px;
+        line-height: 1.6;
+        margin-bottom: 20px;
+    }
+
+    .error {
+        border-left: 4px solid #b91c1c;
+        background: #fef2f2;
+        color: #991b1b;
+        padding: 13px 18px;
+        font-size: 13px;
+        line-height: 1.6;
+        margin-bottom: 20px;
+    }
+
+    .ok {
+        border-left: 4px solid #16a34a;
+        background: #f0fdf4;
+        color: #166534;
+        padding: 13px 18px;
+        font-size: 13px;
+        line-height: 1.6;
+        margin-bottom: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+    }
+
+    th {
+        text-align: left;
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: var(--muted);
+        padding: 10px 12px 10px 0;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+    }
+
+    td {
+        padding: 12px 12px 12px 0;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+    }
+
+    tr:hover td { background: #fafbfc; }
+
+    .badge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: bold;
+        letter-spacing: .4px;
+        text-transform: uppercase;
+        padding: 4px 9px;
+        white-space: nowrap;
+    }
+
+    .badge.ok       { background: #dcfce7; color: #166534; }
+    .badge.skipped  { background: #f1f5f9; color: #475569; }
+    .badge.failed   { background: #fee2e2; color: #991b1b; }
+    .badge.PENDING  { background: #fef3c7; color: #92400e; }
+    .badge.APPROVED { background: #dcfce7; color: #166534; }
+    .badge.REJECTED { background: #fee2e2; color: #991b1b; }
+    .badge.CANCELLED{ background: #f1f5f9; color: #475569; }
+    .badge.inactive { background: #f1f5f9; color: #475569; }
+
+    .filters {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr) auto;
+        gap: 12px;
+        align-items: end;
+    }
+
+    .rows .row {
+        display: grid;
+        grid-template-columns: 1fr 1.3fr 1fr 1fr 40px;
+        gap: 12px;
+        align-items: end;
+        padding: 13px 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .rows .row:last-child { border-bottom: none; }
+
+    .remove {
+        background: none;
+        border: 1px solid #cbd5e1;
+        color: #b91c1c;
+        font-size: 18px;
+        line-height: 1;
+        height: 37px;
+        cursor: pointer;
+    }
+
+    .remove:hover { background: #fef2f2; border-color: #fca5a5; }
+
+    .actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-top: 20px;
+        flex-wrap: wrap;
+    }
+
+    /* KPI tiles */
+    .kpis {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+
+    .kpi {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--navy);
+        padding: 16px 18px;
+    }
+
+    .kpi .label {
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: var(--muted);
+        margin-bottom: 8px;
+    }
+
+    .kpi .value {
+        font-size: 26px;
+        font-weight: 600;
+        color: var(--navy);
+        line-height: 1.1;
+    }
+
+    .kpi .sub {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+    }
+
+    .kpi.pending   { border-top-color: var(--pending); }
+    .kpi.approved  { border-top-color: var(--approved); }
+    .kpi.rejected  { border-top-color: var(--rejected); }
+
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .chart svg { width: 100%; height: auto; display: block; }
+
+    .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 14px;
+        font-size: 12.5px;
+        color: #334155;
+    }
+
+    .legend span.dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        margin-right: 6px;
+        vertical-align: -1px;
+    }
+
+    .empty {
+        padding: 34px 0;
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .stack {
+        display: flex;
+        height: 10px;
+        width: 100%;
+        min-width: 120px;
+        background: #f1f5f9;
+    }
+
+    .muted { color: var(--muted); }
+    .nowrap { white-space: nowrap; }
+    .right { text-align: right; }
+
+    dialog {
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--navy);
+        padding: 0;
+        width: min(460px, 92vw);
+        font-family: inherit;
+    }
+
+    dialog::backdrop { background: rgba(15, 23, 42, .45); }
+
+    dialog .body { padding: 24px; }
+
+    dialog h3 {
+        margin: 0 0 10px;
+        font-size: 16px;
+        color: var(--navy);
+    }
+
+    dialog p {
+        margin: 0 0 18px;
+        font-size: 13.5px;
+        line-height: 1.6;
+        color: #475569;
+    }
+
+    /* Sign-in gate */
+    .gate {
+        max-width: 420px;
+        margin: 70px auto;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--navy);
+        padding: 32px;
+    }
+
+    .gate h2 {
+        margin: 0 0 6px;
+        font-size: 18px;
+        color: var(--navy);
+    }
+
+    .gate p.lead {
+        margin: 0 0 24px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--muted);
+    }
+
+    .gate .field { margin-bottom: 16px; }
+
+    .gate button.primary { width: 100%; margin-top: 6px; }
+
+    .whoami {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 12.5px;
+        color: #bfdbfe;
+    }
+
+    .whoami button {
+        background: none;
+        border: 1px solid rgba(255, 255, 255, .35);
+        color: #fff;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 14px;
+        cursor: pointer;
+    }
+
+    .whoami button:hover { background: rgba(255, 255, 255, .12); }
+
+    .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    @media (max-width: 1080px) {
+        .kpis { grid-template-columns: repeat(3, 1fr); }
+        .grid-2 { grid-template-columns: 1fr; }
+        .filters { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 720px) {
+        .kpis { grid-template-columns: repeat(2, 1fr); }
+        .rows .row { grid-template-columns: 1fr; }
+        .remove { width: 100%; }
+        .filters { grid-template-columns: 1fr; }
+        .scroll-x { overflow-x: auto; }
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="header-top">
+        <div>
+            <div class="eyebrow">Equicom Services</div>
+            <h1>Equibook Control Panel</h1>
+        </div>
+        <div class="whoami" id="whoami" hidden>
+            <span id="whoami-text"></span>
+            <button type="button" id="logout">Sign out</button>
+        </div>
+    </div>
+    <nav id="nav" hidden>
+        <button data-tab="admins" class="active">Admins</button>
+        <button data-tab="bookings">Bookings</button>
+        <button data-tab="analytics">Analytics</button>
+    </nav>
+</header>
+
+<main>
+
+    <div id="banner"></div>
+
+    <!-- ============ SIGN IN ============ -->
+    <div class="gate" id="gate" hidden>
+        <h2>Sign in</h2>
+        <p class="lead">
+            Use your Equibook admin account. The panel manages admins and
+            bookings for every branch, so it is limited to accounts that have
+            been granted control panel access.
+        </p>
+
+        <div id="gate-error"></div>
+
+        <div class="field">
+            <label>Email</label>
+            <input type="email" id="gate-email" autocomplete="username">
+        </div>
+
+        <div class="field">
+            <label>Password</label>
+            <input type="password" id="gate-password" autocomplete="current-password">
+        </div>
+
+        <button type="button" class="primary" id="gate-submit">Sign in</button>
+    </div>
+
+    <div id="app" hidden>
+
+    <!-- ============ ADMINS ============ -->
+    <section data-panel="admins">
+
+        <div class="card">
+            <h2>Admin Accounts</h2>
+            <p class="hint">
+                Every account that can sign in to Equibook, with the branch it
+                is scoped to. Resetting a password emails the new one to that
+                admin and forces them to change it on their next sign-in.
+                <strong>Panel access</strong> is who may open this console;
+                new accounts start without it.
+            </p>
+
+            <div class="scroll-x">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Branch</th>
+                            <th>State</th>
+                            <th>Panel access</th>
+                            <th>Password</th>
+                            <th>Created</th>
+                            <th class="right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admins-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Add Admins</h2>
+            <p class="hint">
+                One row per admin. Each is emailed separately, in a message
+                addressed to them alone &mdash; no two people ever see each
+                other&rsquo;s credentials. Leave the password blank to issue
+                the default (<strong id="default-password">ChangeMe123</strong>).
+                An email that already has an account is skipped.
+            </p>
+
+            <div class="rows" id="rows"></div>
+
+            <div class="actions">
+                <button type="button" class="secondary" id="add-row">+ Add another admin</button>
+                <button type="button" class="primary" id="create">Create &amp; email credentials</button>
+                <span class="status" id="create-status"></span>
+            </div>
+        </div>
+
+        <div class="card" id="results-card" style="display:none;">
+            <h2>Last Run</h2>
+            <p class="hint">One line per account, with whether its email went out.</p>
+            <div class="scroll-x">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:130px;">Result</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Branch</th>
+                            <th>Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ============ BOOKINGS ============ -->
+    <section data-panel="bookings" hidden>
+
+        <div class="card">
+            <h2>Filters</h2>
+            <p class="hint">Applies to both the table below and the Analytics tab.</p>
+            <div class="filters" id="filters"></div>
+        </div>
+
+        <div class="card">
+            <h2>Bookings</h2>
+            <p class="hint" id="bookings-hint">Loading&hellip;</p>
+
+            <div class="scroll-x">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Requester</th>
+                            <th>Branch</th>
+                            <th>Room / Route</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Purpose</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bookings-body"></tbody>
+                </table>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="secondary" id="export-csv">Export CSV</button>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ============ ANALYTICS ============ -->
+    <section data-panel="analytics" hidden>
+
+        <div class="card">
+            <h2>Filters</h2>
+            <p class="hint">Same filters as the Bookings tab &mdash; every chart is drawn from exactly those rows.</p>
+            <div class="filters" id="filters-analytics"></div>
+        </div>
+
+        <div class="kpis" id="kpis"></div>
+
+        <div class="grid-2">
+            <div class="card chart">
+                <h2>Booking Volume</h2>
+                <p class="hint">Requests per day across the selected range.</p>
+                <div id="chart-series"></div>
+            </div>
+
+            <div class="card chart">
+                <h2>Status Mix</h2>
+                <p class="hint">Where every request in range ended up.</p>
+                <div id="chart-status"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Per Branch</h2>
+            <p class="hint">Room and ride volume for each office, and how each branch&rsquo;s requests were resolved.</p>
+            <div class="scroll-x">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Branch</th>
+                            <th class="right">Rooms</th>
+                            <th class="right">Rides</th>
+                            <th class="right">Total</th>
+                            <th style="width:34%;">Status split</th>
+                            <th class="right">Approval</th>
+                        </tr>
+                    </thead>
+                    <tbody id="branch-body"></tbody>
+                </table>
+            </div>
+            <div class="legend" id="branch-legend"></div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card chart">
+                <h2>Branch Volume</h2>
+                <p class="hint">Total requests per office.</p>
+                <div id="chart-branch"></div>
+            </div>
+
+            <div class="card chart">
+                <h2>Peak Hours</h2>
+                <p class="hint">Start time of every room booking and ride departure.</p>
+                <div id="chart-hours"></div>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card chart">
+                <h2>Busiest Rooms</h2>
+                <p class="hint">Most requested rooms in range.</p>
+                <div id="chart-rooms"></div>
+            </div>
+
+            <div class="card">
+                <h2>Top Requesters</h2>
+                <p class="hint">Employees who booked the most.</p>
+                <div class="scroll-x">
+                    <table>
+                        <thead>
+                            <tr><th>Employee</th><th>Email</th><th class="right">Bookings</th></tr>
+                        </thead>
+                        <tbody id="requesters-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+    </div>
+
+</main>
+
+<dialog id="confirm">
+    <div class="body">
+        <h3 id="confirm-title">Are you sure?</h3>
+        <p id="confirm-text"></p>
+        <div class="actions" style="margin:0;">
+            <button type="button" class="primary" id="confirm-yes">Confirm</button>
+            <button type="button" class="secondary" id="confirm-no">Cancel</button>
+        </div>
+    </div>
+</dialog>
+
+<script>
+"use strict";
+
+const STATUS_COLORS = {
+    PENDING: "#f59e0b",
+    APPROVED: "#16a34a",
+    REJECTED: "#dc2626",
+    CANCELLED: "#94a3b8",
+};
+
+const NAVY = "#03045e";
+
+let boot = { sites: [], statuses: [], default_password: "ChangeMe123" };
+let session = { authenticated: false, email: "" };
+let filters = { kind: "", site: "", status: "", from: "", to: "" };
+let bookings = [];
+
+const $ = (id) => document.getElementById(id);
+
+function esc(value) {
+    return String(value === null || value === undefined ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function banner(kind, message) {
+    $("banner").innerHTML = message
+        ? `<div class="${kind}">${esc(message)}</div>`
+        : "";
+
+    if (message) window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function api(path, options) {
+    const response = await fetch(path, options);
+    const data = await response.json();
+
+    if (response.status === 401 && path !== "/api/login") {
+        // The session expired or the server restarted. Drop back to
+        // the sign-in form rather than showing half-loaded tables.
+        showGate("Your session has ended. Please sign in again.");
+        throw new Error("Signed out.");
+    }
+
+    if (!response.ok) throw new Error(data.detail || "Request failed.");
+
+    return data;
+}
+
+function confirmDialog(title, text, confirmLabel) {
+    const dialog = $("confirm");
+
+    $("confirm-title").textContent = title;
+    $("confirm-text").textContent = text;
+    $("confirm-yes").textContent = confirmLabel || "Confirm";
+
+    dialog.showModal();
+
+    return new Promise((resolve) => {
+        const done = (answer) => {
+            dialog.close();
+            $("confirm-yes").onclick = null;
+            $("confirm-no").onclick = null;
+            resolve(answer);
+        };
+
+        $("confirm-yes").onclick = () => done(true);
+        $("confirm-no").onclick = () => done(false);
+    });
+}
+
+/* ==========================================================
+   SVG CHARTS
+   Hand-drawn so the panel needs no CDN and works on an
+   air-gapped office network. Every mark carries a <title>,
+   which browsers show as a native tooltip on hover.
+   ========================================================== */
+
+const W = 720;
+const H = 260;
+const PAD = { top: 18, right: 18, bottom: 38, left: 44 };
+
+function svgWrap(inner) {
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" font-family="Arial, Helvetica, sans-serif">${inner}</svg>`;
+}
+
+function emptyChart(message) {
+    return `<div class="empty">${esc(message)}</div>`;
+}
+
+function niceMax(value) {
+    if (value <= 5) return 5;
+
+    const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+    return Math.ceil(value / magnitude) * magnitude;
+}
+
+function axis(max, plotW, plotH) {
+    let out = "";
+
+    for (let i = 0; i <= 4; i++) {
+        const y = PAD.top + plotH - (plotH * i) / 4;
+        const value = Math.round((max * i) / 4);
+
+        out += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left + plotW}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`;
+        out += `<text x="${PAD.left - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="#94a3b8">${value}</text>`;
+    }
+
+    return out;
+}
+
+function lineChart(points) {
+    if (!points.length) return emptyChart("No bookings in this range.");
+
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+    const max = niceMax(Math.max(...points.map((p) => p.value), 1));
+
+    const x = (i) => PAD.left + (points.length === 1
+        ? plotW / 2
+        : (plotW * i) / (points.length - 1));
+
+    const y = (v) => PAD.top + plotH - (plotH * v) / max;
+
+    const line = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join("");
+
+    const area = `${line}L${x(points.length - 1).toFixed(1)},${PAD.top + plotH}L${x(0).toFixed(1)},${PAD.top + plotH}Z`;
+
+    let dots = "";
+    let labels = "";
+
+    const step = Math.max(1, Math.ceil(points.length / 8));
+
+    points.forEach((point, i) => {
+        if (point.value > 0) {
+            dots += `<circle cx="${x(i).toFixed(1)}" cy="${y(point.value).toFixed(1)}" r="3.5" fill="${NAVY}">`
+                + `<title>${esc(point.label)}: ${point.value}</title></circle>`;
+        }
+
+        if (i % step === 0 || i === points.length - 1) {
+            labels += `<text x="${x(i).toFixed(1)}" y="${H - 14}" text-anchor="middle" font-size="10.5" fill="#94a3b8">${esc(point.label.slice(5))}</text>`;
+        }
+    });
+
+    return svgWrap(
+        axis(max, plotW, plotH)
+        + `<path d="${area}" fill="${NAVY}" opacity="0.08"/>`
+        + `<path d="${line}" fill="none" stroke="${NAVY}" stroke-width="2.5" stroke-linejoin="round"/>`
+        + dots
+        + labels
+    );
+}
+
+function barChart(items, color) {
+    const total = items.reduce((sum, item) => sum + item.value, 0);
+
+    if (!total) return emptyChart("No bookings in this range.");
+
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+    const max = niceMax(Math.max(...items.map((i) => i.value), 1));
+
+    const slot = plotW / items.length;
+    const width = Math.min(slot * 0.62, 46);
+
+    let bars = "";
+
+    items.forEach((item, i) => {
+        const height = (plotH * item.value) / max;
+        const cx = PAD.left + slot * i + slot / 2;
+        const y = PAD.top + plotH - height;
+
+        bars += `<rect x="${(cx - width / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${Math.max(height, 0).toFixed(1)}" fill="${item.color || color || NAVY}">`
+            + `<title>${esc(item.label)}: ${item.value}</title></rect>`;
+
+        bars += `<text x="${cx.toFixed(1)}" y="${H - 14}" text-anchor="middle" font-size="10.5" fill="#94a3b8">${esc(item.label)}</text>`;
+
+        if (item.value > 0) {
+            bars += `<text x="${cx.toFixed(1)}" y="${(y - 6).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="bold" fill="#475569">${item.value}</text>`;
+        }
+    });
+
+    return svgWrap(axis(max, plotW, plotH) + bars);
+}
+
+function hBarChart(items) {
+    const total = items.reduce((sum, item) => sum + item.value, 0);
+
+    if (!total) return emptyChart("No bookings in this range.");
+
+    const rowH = 30;
+    const height = Math.max(items.length * rowH + 24, 120);
+    const labelW = 190;
+    const plotW = W - labelW - 60;
+    const max = Math.max(...items.map((i) => i.value), 1);
+
+    let rows = "";
+
+    items.forEach((item, i) => {
+        const y = 12 + i * rowH;
+        const width = (plotW * item.value) / max;
+
+        rows += `<text x="0" y="${y + 15}" font-size="12" fill="#334155">${esc(item.label.length > 26 ? item.label.slice(0, 25) + "…" : item.label)}<title>${esc(item.label)}</title></text>`;
+        rows += `<rect x="${labelW}" y="${y + 4}" width="${Math.max(width, 2).toFixed(1)}" height="16" fill="${NAVY}" opacity="0.85"><title>${esc(item.label)}: ${item.value}</title></rect>`;
+        rows += `<text x="${(labelW + Math.max(width, 2) + 8).toFixed(1)}" y="${y + 17}" font-size="11.5" font-weight="bold" fill="#475569">${item.value}</text>`;
+    });
+
+    return `<svg viewBox="0 0 ${W} ${height}" role="img" font-family="Arial, Helvetica, sans-serif">${rows}</svg>`;
+}
+
+function donutChart(items) {
+    const total = items.reduce((sum, item) => sum + item.value, 0);
+
+    if (!total) return emptyChart("No bookings in this range.");
+
+    const cx = 150;
+    const cy = 130;
+    const outer = 96;
+    const inner = 60;
+
+    let angle = -Math.PI / 2;
+    let arcs = "";
+
+    items.forEach((item) => {
+        if (!item.value) return;
+
+        const sweep = (item.value / total) * Math.PI * 2;
+        const end = angle + sweep;
+        const large = sweep > Math.PI ? 1 : 0;
+
+        // A single slice covering the whole circle cannot be drawn
+        // as an arc (start and end land on the same point), so it
+        // becomes two rings instead.
+        if (item.value === total) {
+            arcs += `<circle cx="${cx}" cy="${cy}" r="${(outer + inner) / 2}" fill="none" stroke="${item.color}" stroke-width="${outer - inner}">`
+                + `<title>${esc(item.label)}: ${item.value} (100%)</title></circle>`;
+            angle = end;
+            return;
+        }
+
+        const p = (radius, a) => `${(cx + radius * Math.cos(a)).toFixed(2)},${(cy + radius * Math.sin(a)).toFixed(2)}`;
+
+        arcs += `<path d="M${p(outer, angle)}A${outer},${outer} 0 ${large} 1 ${p(outer, end)}L${p(inner, end)}A${inner},${inner} 0 ${large} 0 ${p(inner, angle)}Z" fill="${item.color}">`
+            + `<title>${esc(item.label)}: ${item.value} (${Math.round((item.value / total) * 100)}%)</title></path>`;
+
+        angle = end;
+    });
+
+    const center = `<text x="${cx}" y="${cy - 2}" text-anchor="middle" font-size="30" font-weight="bold" fill="${NAVY}">${total}</text>`
+        + `<text x="${cx}" y="${cy + 20}" text-anchor="middle" font-size="11.5" fill="#94a3b8">REQUESTS</text>`;
+
+    let legend = "";
+
+    items.forEach((item, i) => {
+        const y = 44 + i * 30;
+        const percent = total ? Math.round((item.value / total) * 100) : 0;
+
+        legend += `<rect x="330" y="${y}" width="11" height="11" fill="${item.color}"/>`;
+        legend += `<text x="350" y="${y + 10}" font-size="12.5" fill="#334155">${esc(item.label)}</text>`;
+        legend += `<text x="${W - 18}" y="${y + 10}" text-anchor="end" font-size="12.5" font-weight="bold" fill="#475569">${item.value} · ${percent}%</text>`;
+    });
+
+    return `<svg viewBox="0 0 ${W} 260" role="img" font-family="Arial, Helvetica, sans-serif">${arcs}${center}${legend}</svg>`;
+}
+
+/* ==========================================================
+   ADMINS
+   ========================================================== */
+
+function siteField(className, selected) {
+    if (!boot.sites.length) {
+        return `<input type="text" class="${className}" value="${esc(selected || "")}" placeholder="Zapote">`;
+    }
+
+    const options = boot.sites
+        .map((site) => `<option value="${esc(site)}"${site === selected ? " selected" : ""}>${esc(site)}</option>`)
+        .join("");
+
+    return `<select class="${className}">${options}</select>`;
+}
+
+function addRow() {
+    const row = document.createElement("div");
+    row.className = "row";
+
+    row.innerHTML = `
+        <div><label>Name</label><input type="text" class="name" placeholder="Juan Dela Cruz"></div>
+        <div><label>Email</label><input type="email" class="email" placeholder="juan.delacruz@equicomservices.com"></div>
+        <div><label>Branch</label>${siteField("site")}</div>
+        <div><label>Password (optional)</label><input type="text" class="password" placeholder="${esc(boot.default_password)}"></div>
+        <button type="button" class="remove" title="Remove this row">&times;</button>
+    `;
+
+    row.querySelector(".remove").addEventListener("click", () => {
+        row.remove();
+        if (!$("rows").children.length) addRow();
+    });
+
+    $("rows").appendChild(row);
+}
+
+async function loadAdmins() {
+    const body = $("admins-body");
+
+    try {
+        const data = await api("/api/admins");
+
+        if (!data.admins.length) {
+            body.innerHTML = `<tr><td colspan="8" class="empty">No admin accounts yet.</td></tr>`;
+            return;
+        }
+
+        body.innerHTML = data.admins.map((admin) => `
+            <tr>
+                <td><strong>${esc(admin.name)}</strong></td>
+                <td>${esc(admin.email)}</td>
+                <td>${esc(admin.site)}</td>
+                <td><span class="badge ${admin.is_active ? "ok" : "inactive"}">${admin.is_active ? "Active" : "Inactive"}</span></td>
+                <td><span class="badge ${admin.overall_access ? "ok" : "inactive"}">${admin.overall_access ? "Granted" : "None"}</span></td>
+                <td class="nowrap muted">${esc(admin.password_state)}</td>
+                <td class="nowrap muted">${esc((admin.created_at || "").slice(0, 10))}</td>
+                <td class="right nowrap">
+                    <button class="link" data-action="access" data-id="${admin.id}" data-name="${esc(admin.name)}" data-granted="${admin.overall_access ? 1 : 0}"${admin.email === session.email && admin.overall_access ? " disabled title=\"You cannot revoke your own access\"" : ""}>${admin.overall_access ? "Revoke access" : "Grant access"}</button>
+                    <button class="link" data-action="reset" data-id="${admin.id}" data-name="${esc(admin.name)}">Reset password</button>
+                    <button class="link" data-action="toggle" data-id="${admin.id}" data-name="${esc(admin.name)}" data-active="${admin.is_active ? 1 : 0}">${admin.is_active ? "Deactivate" : "Activate"}</button>
+                    <button class="link danger" data-action="delete" data-id="${admin.id}" data-name="${esc(admin.name)}">Delete</button>
+                </td>
+            </tr>
+        `).join("");
+
+    } catch (error) {
+        body.innerHTML = `<tr><td colspan="8" class="empty">${esc(error.message)}</td></tr>`;
+    }
+}
+
+async function onAdminAction(event) {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+
+    const { action, id, name } = button.dataset;
+
+    try {
+        if (action === "access") {
+            const granted = button.dataset.granted === "1";
+
+            const ok = await confirmDialog(
+                granted ? "Revoke panel access?" : "Grant panel access?",
+                granted
+                    ? `${name} will no longer be able to open this control panel. Their Equibook admin account is unaffected.`
+                    : `${name} will be able to open this control panel, which manages admins and bookings for every branch - not just their own.`,
+                granted ? "Revoke" : "Grant"
+            );
+
+            if (!ok) return;
+
+            const result = await api("/api/admins/access", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: Number(id), overall_access: !granted }),
+            });
+
+            banner("ok", result.message);
+        }
+
+        if (action === "reset") {
+            const ok = await confirmDialog(
+                "Reset password?",
+                `${name} will be emailed a new temporary password and asked to change it at their next sign-in.`,
+                "Reset & email"
+            );
+
+            if (!ok) return;
+
+            const result = await api("/api/admins/reset", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: Number(id) }),
+            });
+
+            banner(result.emailed ? "ok" : "notice", result.message);
+        }
+
+        if (action === "toggle") {
+            const isActive = button.dataset.active === "1";
+
+            if (isActive) {
+                const ok = await confirmDialog(
+                    "Deactivate admin?",
+                    `${name} will not be able to sign in. Their account and approval history stay intact, and you can reactivate them later.`,
+                    "Deactivate"
+                );
+
+                if (!ok) return;
+            }
+
+            const result = await api("/api/admins/status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: Number(id), is_active: !isActive }),
+            });
+
+            banner("ok", result.message);
+        }
+
+        if (action === "delete") {
+            const ok = await confirmDialog(
+                "Delete admin?",
+                `${name}'s account will be removed permanently. Deactivating is the reversible option.`,
+                "Delete"
+            );
+
+            if (!ok) return;
+
+            let result = await api("/api/admins/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: Number(id) }),
+            });
+
+            if (result.needs_force) {
+                const forced = await confirmDialog(
+                    "Approval history will be lost",
+                    result.message,
+                    "Delete anyway"
+                );
+
+                if (!forced) {
+                    banner("notice", "Delete cancelled - nothing was changed.");
+                    return;
+                }
+
+                result = await api("/api/admins/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: Number(id), force: true }),
+                });
+            }
+
+            banner("ok", result.message);
+        }
+
+        await loadAdmins();
+
+    } catch (error) {
+        banner("error", error.message);
+    }
+}
+
+async function createAdmins() {
+    const rows = Array.from($("rows").children).map((row) => ({
+        name: row.querySelector(".name").value.trim(),
+        email: row.querySelector(".email").value.trim(),
+        site: row.querySelector(".site").value.trim(),
+        password: row.querySelector(".password").value.trim(),
+    })).filter((entry) => entry.name || entry.email);
+
+    if (!rows.length) {
+        banner("error", "Fill in at least one admin before submitting.");
+        return;
+    }
+
+    $("create").disabled = true;
+    $("create-status").textContent = "Creating accounts and sending emails one by one…";
+    banner("", "");
+
+    try {
+        const data = await api("/api/admins", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ admins: rows }),
+        });
+
+        $("results-body").innerHTML = data.results.map((result) => {
+            const badge = result.created && result.emailed
+                ? '<span class="badge ok">Created</span>'
+                : result.created
+                    ? '<span class="badge failed">Email failed</span>'
+                    : '<span class="badge skipped">Skipped</span>';
+
+            return `<tr>
+                <td>${badge}</td>
+                <td>${esc(result.name) || "&mdash;"}</td>
+                <td>${esc(result.email) || "&mdash;"}</td>
+                <td>${esc(result.site) || "&mdash;"}</td>
+                <td>${esc(result.message)}</td>
+            </tr>`;
+        }).join("");
+
+        $("results-card").style.display = "block";
+
+        const created = data.results.filter((r) => r.created).length;
+        const emailed = data.results.filter((r) => r.emailed).length;
+
+        $("create-status").textContent = `${created} created, ${emailed} email(s) sent.`;
+
+        if (created) {
+            $("rows").innerHTML = "";
+            addRow();
+        }
+
+        await loadAdmins();
+
+    } catch (error) {
+        banner("error", error.message);
+        $("create-status").textContent = "";
+
+    } finally {
+        $("create").disabled = false;
+    }
+}
+
+/* ==========================================================
+   FILTERS (shared by Bookings and Analytics)
+   ========================================================== */
+
+function filterMarkup() {
+    const siteOptions = ['<option value="">All branches</option>']
+        .concat(boot.sites.map((site) => `<option value="${esc(site)}"${filters.site === site ? " selected" : ""}>${esc(site)}</option>`))
+        .join("");
+
+    const statusOptions = ['<option value="">Any status</option>']
+        .concat(boot.statuses.map((status) => `<option value="${status}"${filters.status === status ? " selected" : ""}>${status}</option>`))
+        .join("");
+
+    return `
+        <div><label>Branch</label><select data-filter="site">${siteOptions}</select></div>
+        <div><label>Type</label>
+            <select data-filter="kind">
+                <option value=""${filters.kind === "" ? " selected" : ""}>Rooms &amp; rides</option>
+                <option value="room"${filters.kind === "room" ? " selected" : ""}>Rooms only</option>
+                <option value="ride"${filters.kind === "ride" ? " selected" : ""}>Rides only</option>
+            </select>
+        </div>
+        <div><label>Status</label><select data-filter="status">${statusOptions}</select></div>
+        <div><label>From</label><input type="date" data-filter="from" value="${esc(filters.from)}"></div>
+        <div><label>To</label><input type="date" data-filter="to" value="${esc(filters.to)}"></div>
+        <div><button type="button" class="secondary" data-preset="reset">Last 90 days</button></div>
+    `;
+}
+
+function renderFilters() {
+    ["filters", "filters-analytics"].forEach((id) => {
+        $(id).innerHTML = filterMarkup();
+    });
+}
+
+function onFilterChange(event) {
+    const field = event.target.closest("[data-filter]");
+    if (!field) return;
+
+    filters[field.dataset.filter] = field.value;
+
+    // Re-rendered so the Bookings and Analytics filter bars stay in
+    // step. Only on "change", never on "click": rebuilding the bar
+    // while a dropdown is open would snap it shut.
+    renderFilters();
+    refresh();
+}
+
+function onFilterPreset(event) {
+    if (!event.target.closest("[data-preset]")) return;
+
+    setDefaultRange();
+    renderFilters();
+    refresh();
+}
+
+function query() {
+    return new URLSearchParams(filters).toString();
+}
+
+function setDefaultRange() {
+    const today = new Date(boot.today || Date.now());
+
+    const back = new Date(today);
+    back.setDate(back.getDate() - 90);
+
+    const forward = new Date(today);
+    forward.setDate(forward.getDate() + 90);
+
+    filters.from = back.toISOString().slice(0, 10);
+    filters.to = forward.toISOString().slice(0, 10);
+    filters.site = "";
+    filters.kind = "";
+    filters.status = "";
+}
+
+/* ==========================================================
+   BOOKINGS
+   ========================================================== */
+
+async function loadBookings() {
+    const body = $("bookings-body");
+
+    try {
+        const data = await api(`/api/bookings?${query()}`);
+        bookings = data.bookings;
+
+        $("bookings-hint").innerHTML = data.truncated
+            ? `Showing the first 1,000 of ${data.count} bookings. Narrow the date range to see the rest.`
+            : `${data.count} booking${data.count === 1 ? "" : "s"} in range.`;
+
+        if (!bookings.length) {
+            body.innerHTML = `<tr><td colspan="8" class="empty">No bookings match these filters.</td></tr>`;
+            return;
+        }
+
+        body.innerHTML = bookings.map((row) => `
+            <tr>
+                <td class="nowrap">${esc(row.kind)}</td>
+                <td>${esc(row.employee_name)}<div class="muted">${esc(row.employee_email)}</div></td>
+                <td class="nowrap">${esc(row.site)}</td>
+                <td>${esc(row.detail)}</td>
+                <td class="nowrap">${esc(row.date)}</td>
+                <td class="nowrap">${esc(row.time)}</td>
+                <td><span class="badge ${esc(row.status)}">${esc(row.status)}</span></td>
+                <td>${esc(row.purpose)}</td>
+            </tr>
+        `).join("");
+
+    } catch (error) {
+        body.innerHTML = `<tr><td colspan="8" class="empty">${esc(error.message)}</td></tr>`;
+    }
+}
+
+function exportCsv() {
+    if (!bookings.length) {
+        banner("notice", "Nothing to export for these filters.");
+        return;
+    }
+
+    const columns = ["kind", "id", "employee_name", "employee_email", "site",
+        "detail", "date", "time", "duration_minutes", "passengers", "status",
+        "purpose", "requested_at"];
+
+    const cell = (value) => `"${String(value === null || value === undefined ? "" : value).replace(/"/g, '""')}"`;
+
+    const csv = [columns.join(",")]
+        .concat(bookings.map((row) => columns.map((column) => cell(row[column])).join(",")))
+        .join("\n");
+
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `equibook-bookings-${filters.from}-to-${filters.to}.csv`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+}
+
+/* ==========================================================
+   ANALYTICS
+   ========================================================== */
+
+function kpi(label, value, sub, tone) {
+    return `<div class="kpi ${tone || ""}">
+        <div class="label">${esc(label)}</div>
+        <div class="value">${esc(value)}</div>
+        <div class="sub">${esc(sub)}</div>
+    </div>`;
+}
+
+function stackBar(bucket) {
+    const total = bucket.total || 1;
+
+    return `<div class="stack">` + ["APPROVED", "PENDING", "REJECTED", "CANCELLED"]
+        .map((status) => {
+            const count = bucket[status] || 0;
+            if (!count) return "";
+
+            const percent = (count / total) * 100;
+
+            return `<div style="width:${percent}%;background:${STATUS_COLORS[status]}" title="${status}: ${count}"></div>`;
+        }).join("") + `</div>`;
+}
+
+async function loadAnalytics() {
+    try {
+        const data = await api(`/api/analytics?${query()}`);
+        const totals = data.totals;
+
+        $("kpis").innerHTML = [
+            kpi("Total requests", totals.total, `${data.range.from} → ${data.range.to}`),
+            kpi("Approved", totals.approved, `${totals.approval_rate}% of decided`, "approved"),
+            kpi("Pending", totals.pending, "awaiting an admin", "pending"),
+            kpi("Rejected", totals.rejected, `${totals.cancelled} cancelled`, "rejected"),
+            kpi("Rooms / Rides", `${totals.rooms} / ${totals.rides}`, `avg room booking ${totals.avg_duration_minutes} min`),
+            kpi("Branches", totals.branches, "with activity in range"),
+        ].join("");
+
+        $("chart-series").innerHTML = lineChart(data.series);
+
+        $("chart-status").innerHTML = donutChart(
+            data.by_status.map((item) => ({ ...item, color: STATUS_COLORS[item.label] }))
+        );
+
+        $("chart-branch").innerHTML = barChart(
+            data.by_site.map((bucket) => ({ label: bucket.site, value: bucket.total }))
+        );
+
+        $("chart-hours").innerHTML = barChart(data.by_hour);
+        $("chart-rooms").innerHTML = hBarChart(data.top_rooms);
+
+        $("branch-body").innerHTML = data.by_site.length
+            ? data.by_site.map((bucket) => {
+                const decided = bucket.APPROVED + bucket.REJECTED;
+                const rate = decided ? Math.round((bucket.APPROVED / decided) * 100) : 0;
+
+                return `<tr>
+                    <td><strong>${esc(bucket.site)}</strong></td>
+                    <td class="right">${bucket.rooms}</td>
+                    <td class="right">${bucket.rides}</td>
+                    <td class="right"><strong>${bucket.total}</strong></td>
+                    <td>${stackBar(bucket)}</td>
+                    <td class="right">${decided ? rate + "%" : "&mdash;"}</td>
+                </tr>`;
+            }).join("")
+            : `<tr><td colspan="6" class="empty">No bookings match these filters.</td></tr>`;
+
+        $("branch-legend").innerHTML = Object.entries(STATUS_COLORS)
+            .map(([status, color]) => `<div><span class="dot" style="background:${color}"></span>${status}</div>`)
+            .join("");
+
+        $("requesters-body").innerHTML = data.top_requesters.length
+            ? data.top_requesters.map((person) => `<tr>
+                <td>${esc(person.label)}</td>
+                <td class="muted">${esc(person.email)}</td>
+                <td class="right"><strong>${person.value}</strong></td>
+            </tr>`).join("")
+            : `<tr><td colspan="3" class="empty">No bookings match these filters.</td></tr>`;
+
+    } catch (error) {
+        banner("error", error.message);
+    }
+}
+
+/* ==========================================================
+   TABS + BOOT
+   ========================================================== */
+
+let currentTab = "admins";
+
+function showTab(tab) {
+    currentTab = tab;
+
+    document.querySelectorAll("nav button[data-tab]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.tab === tab);
+    });
+
+    document.querySelectorAll("[data-panel]").forEach((panel) => {
+        panel.hidden = panel.dataset.panel !== tab;
+    });
+
+    refresh();
+}
+
+function refresh() {
+    if (currentTab === "admins") loadAdmins();
+    if (currentTab === "bookings") loadBookings();
+    if (currentTab === "analytics") loadAnalytics();
+}
+
+function showGate(message) {
+    session = { authenticated: false, email: "" };
+
+    $("gate").hidden = false;
+    $("app").hidden = true;
+    $("nav").hidden = true;
+    $("whoami").hidden = true;
+    $("banner").innerHTML = "";
+
+    $("gate-error").innerHTML = message ? `<div class="error">${esc(message)}</div>` : "";
+    $("gate-password").value = "";
+    $("gate-email").focus();
+}
+
+async function showApp() {
+    $("gate").hidden = true;
+    $("app").hidden = false;
+    $("nav").hidden = false;
+    $("whoami").hidden = false;
+    $("whoami-text").textContent = `${session.name} · ${session.site}`;
+
+    try {
+        boot = await api("/api/bootstrap");
+
+    } catch (error) {
+        return;
+    }
+
+    $("default-password").textContent = boot.default_password;
+
+    setDefaultRange();
+    renderFilters();
+
+    $("rows").innerHTML = "";
+    addRow();
+
+    showTab("admins");
+}
+
+async function signIn() {
+    const email = $("gate-email").value.trim();
+    const password = $("gate-password").value;
+
+    $("gate-submit").disabled = true;
+    $("gate-error").innerHTML = "";
+
+    try {
+        const response = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            $("gate-error").innerHTML = `<div class="error">${esc(data.detail)}</div>`;
+            $("gate-password").value = "";
+            return;
+        }
+
+        session = { authenticated: true, ...data.admin };
+        await showApp();
+
+    } catch (error) {
+        $("gate-error").innerHTML = `<div class="error">${esc("Could not reach the panel: " + error.message)}</div>`;
+
+    } finally {
+        $("gate-submit").disabled = false;
+    }
+}
+
+async function signOut() {
+    try {
+        await fetch("/api/logout", { method: "POST" });
+
+    } catch (error) {
+        // Signing out locally is still the right outcome.
+    }
+
+    showGate("");
+}
+
+async function init() {
+    try {
+        const data = await api("/api/session");
+
+        if (!data.authenticated) {
+            showGate("");
+            return;
+        }
+
+        session = { authenticated: true, ...data.admin };
+        await showApp();
+
+    } catch (error) {
+        showGate("Could not reach the panel backend: " + error.message);
+    }
+}
+
+document.querySelectorAll("nav button[data-tab]").forEach((button) => {
+    button.addEventListener("click", () => showTab(button.dataset.tab));
+});
+
+$("gate-submit").addEventListener("click", signIn);
+$("logout").addEventListener("click", signOut);
+
+["gate-email", "gate-password"].forEach((id) => {
+    $(id).addEventListener("keydown", (event) => {
+        if (event.key === "Enter") signIn();
+    });
+});
+
+$("add-row").addEventListener("click", addRow);
+$("create").addEventListener("click", createAdmins);
+$("admins-body").addEventListener("click", onAdminAction);
+$("export-csv").addEventListener("click", exportCsv);
+["filters", "filters-analytics"].forEach((id) => {
+    $(id).addEventListener("change", onFilterChange);
+    $(id).addEventListener("click", onFilterPreset);
+});
+
+init();
+</script>
+
+</body>
+</html>

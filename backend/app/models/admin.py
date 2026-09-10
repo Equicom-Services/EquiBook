@@ -61,3 +61,15 @@ class Admin(Base):
         nullable=False,
         default=True
     )
+
+    # Whether this admin may open the local control panel
+    # (scripts/seed_admin.py): 1 = yes, 0 = no. Every account starts
+    # at 0 -- panel access is granted deliberately, one admin at a
+    # time, because the panel can delete admins and reset passwords
+    # for every site, not just the holder's own.
+    overall_access = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0"
+    )
