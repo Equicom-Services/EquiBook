@@ -17,12 +17,22 @@ two-part monorepo:
 ```bash
 source .venv/bin/activate          # deps live in .venv (see requirements.txt)
 python run.py                      # start API with uvicorn --reload (host/port from .env)
-python -m scripts.seed_admin       # create the initial admin account
+python -m scripts.seed_admin       # open the local control panel on 127.0.0.1:8090
+python -m scripts.seed_admin --seed    # instead, seed the ADMINS list in that file
+python -m scripts.seed_admin --grant EMAIL    # let that admin sign in to the panel
 python seed_bookings.py            # seed sample bookings for local dev
 python -m scripts.test_email       # smoke-test SMTP config
 ```
 `run.py` reads `BACKEND_HOST`/`BACKEND_PORT` from `backend/.env` (currently `10.11.1.135:8080`).
 There is no test suite and no linter configured for the backend.
+
+`scripts/seed_admin.py` + `scripts/seed_admin.html` are a self-contained control panel
+(admins, bookings, analytics) served by a stdlib HTTP server, deliberately **outside** the
+FastAPI app — admin create/delete/reset never becomes a live endpoint. Signing in needs an
+Equibook admin whose `admin.overall_access` is 1; new accounts default to 0 and access is
+granted per admin (`--grant`, or from the panel). It still binds to 127.0.0.1 — the login is a
+second lock, not a reason to expose it. Credential emails are always sent one recipient per
+message.
 
 ### Frontend (run from `frontend/`)
 ```bash
@@ -48,6 +58,9 @@ Requests flow `routers/ → services/ → models/`, with `schemas/` (Pydantic) f
 - `core/security.py` — bcrypt hashing, JWT (HS256) create/decode, and the **`get_current_admin`
   dependency that routers actually use**. Note: `dependencies/auth.py` contains a *second*,
   unused `get_current_admin` (HTTPBearer + role check); don't confuse the two.
+
+`admin.overall_access` (1/0, default 0) is **not** part of the API's authorization — it only
+gates the local control panel. Site scoping below is still the only boundary the API enforces.
 
 ### The central authorization model: site scoping
 Every admin row has a `site` string (e.g. `"Zapote"`). This is the app's multi-tenancy boundary:

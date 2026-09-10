@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from sqlalchemy import inspect, text
 
 from app.core.config import settings
-from app.core.database import Base, engine
+from app.core.database import Base, engine, ensure_overall_access_column
 
 from app.routers import auth
 from app.routers import admin
@@ -55,6 +55,7 @@ def ensure_password_changed_at_column():
 
 
 ensure_password_changed_at_column()
+ensure_overall_access_column()
 
 
 def ensure_performance_indexes():
