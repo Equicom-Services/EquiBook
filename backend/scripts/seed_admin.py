@@ -451,7 +451,7 @@ def password_reset_email(
 # ==============================================================
 
 def login_url() -> str:
-    return f"{settings.FRONTEND_URL.rstrip('/')}/admin/login"
+    return f"{settings.FRONTEND_URL.rstrip('/')}/EquiBook/employee_page"
 
 
 def send_one(recipients_email: str, subject: str, html_body: str):
