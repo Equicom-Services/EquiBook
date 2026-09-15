@@ -50,7 +50,7 @@ from app.services.booking_access_emails import (
     requester_action_admin_email,
     verification_code_email,
 )
-from app.services.email_service import send_email
+from app.core.email_notifications import queue_email
 from app.services.email_templates import (
     booking_status_email,
     ride_booking_status_email,
@@ -509,8 +509,8 @@ def request_code(
 
     db.commit()
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [booking.employee_email],
         f"Your Equibook verification code (Booking ID #{body.booking_id})",
         verification_code_email(
@@ -521,6 +521,7 @@ def request_code(
             action=body.action,
             expires_minutes=CODE_TTL_MINUTES,
         ),
+        event="Verification code sent to requester",
     )
 
     return {
@@ -690,18 +691,19 @@ def cancel_booking(
         site_names = {booking.site}
         eyebrow = "Ride Reservation"
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [booking.employee_email],
         requester_subject,
         requester_html,
+        event="Cancellation sent to requester",
     )
 
     admin_emails = _site_admin_emails(db, site_names)
 
     if admin_emails:
-        background_tasks.add_task(
-            send_email,
+        queue_email(
+            background_tasks,
             admin_emails,
             admin_subject,
             requester_action_admin_email(
@@ -714,6 +716,7 @@ def cancel_booking(
                 booking_id=booking_id,
                 rows=rows + [("Reason", reason)],
             ),
+            event="Cancellation sent to site admins",
         )
 
     return {
@@ -804,8 +807,8 @@ def edit_room_booking(
 
     room, site = _room_context(db, booking)
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [booking.employee_email],
         f"Room Booking Changes Received (Booking ID #{booking_id})",
         booking_status_email(
@@ -819,6 +822,7 @@ def edit_room_booking(
             end_time=booking.end_time,
             purpose=booking.purpose,
         ),
+        event="Change confirmation sent to requester",
     )
 
     site_names = {
@@ -830,8 +834,8 @@ def edit_room_booking(
     admin_emails = _site_admin_emails(db, site_names)
 
     if admin_emails:
-        background_tasks.add_task(
-            send_email,
+        queue_email(
+            background_tasks,
             admin_emails,
             (
                 f"Room Booking Changed by Requester - Review Required "
@@ -855,6 +859,7 @@ def edit_room_booking(
                     else None
                 ),
             ),
+            event="Changed booking sent to site admins",
         )
 
     return {
@@ -965,8 +970,8 @@ def edit_ride_booking(
     db.commit()
     db.refresh(booking)
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [booking.employee_email],
         f"Ride Reservation Changes Received (Booking ID #{booking_id})",
         ride_booking_submitted_email(
@@ -987,6 +992,7 @@ def edit_ride_booking(
             purpose=booking.purpose,
             passenger_count=booking.passenger_count,
         ),
+        event="Change confirmation sent to requester",
     )
 
     admin_emails = _site_admin_emails(
@@ -995,8 +1001,8 @@ def edit_ride_booking(
     )
 
     if admin_emails:
-        background_tasks.add_task(
-            send_email,
+        queue_email(
+            background_tasks,
             admin_emails,
             (
                 f"Ride Reservation Changed by Requester - Review Required "
@@ -1020,6 +1026,7 @@ def edit_ride_booking(
                     else None
                 ),
             ),
+            event="Changed booking sent to site admins",
         )
 
     return {

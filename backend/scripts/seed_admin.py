@@ -451,7 +451,7 @@ def password_reset_email(
 # ==============================================================
 
 def login_url() -> str:
-    return f"{settings.FRONTEND_URL.rstrip('/')}/EquiBook/employee_page"
+    return f"{settings.FRONTEND_URL.rstrip('/')}/EquiBook/admin/login"
 
 
 def send_one(recipients_email: str, subject: str, html_body: str):
@@ -1828,8 +1828,8 @@ def main():
     parser.add_argument(
         "--port",
         type=int,
-        default=8090,
-        help="Port to bind (default: 8090).",
+        default=8091,
+        help="Port to bind (default: 8091).",
     )
 
     args = parser.parse_args()

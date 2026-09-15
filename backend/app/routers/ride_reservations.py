@@ -7,7 +7,7 @@ from fastapi import (
     HTTPException,
 )
 
-from app.services.email_service import send_email
+from app.core.email_notifications import queue_email
 from app.services.email_templates import (
     ride_booking_submitted_email,
     ride_booking_admin_email,
@@ -181,11 +181,12 @@ def create_ride_reservation(
         passenger_count=new_reservation.passenger_count,
     )
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [new_reservation.employee_email],
         f"Ride Reservation Submitted (Booking ID #{new_reservation.ride_reservation_id})",
         requester_email_body,
+        event="Request confirmation sent to requester",
     )
 
 
@@ -215,11 +216,12 @@ def create_ride_reservation(
             passenger_count=new_reservation.passenger_count,
         )
 
-        background_tasks.add_task(
-            send_email,
+        queue_email(
+            background_tasks,
             admin_emails,
             f"New Ride Reservation Request (Booking ID #{new_reservation.ride_reservation_id})",
             admin_email_body,
+            event="New ride request sent to site admins",
         )
 
     # ---------------------------------------------------------
@@ -483,11 +485,12 @@ def update_ride_reservation_status(
         admin_name=current_admin.name,
     )
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [reservation.employee_email],
         f"Ride Reservation {reservation.status.capitalize()} (Booking ID #{reservation.ride_reservation_id})",
         email_body,
+        event=f"{reservation.status.capitalize()} notice sent to requester",
     )
 
     site = (
@@ -658,11 +661,12 @@ def cancel_ride_reservation(
         admin_name=current_admin.name,
     )
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [reservation.employee_email],
         f"Ride Reservation Cancelled (Booking ID #{reservation.ride_reservation_id})",
         email_body,
+        event="Cancellation sent to requester",
     )
 
     site = (
@@ -1045,11 +1049,12 @@ def create_admin_ride_booking(
         admin_name=current_admin.name,
     )
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [new_reservation.employee_email],
         f"Ride Reservation Approved (Booking ID #{new_reservation.ride_reservation_id})",
         email_body,
+        event="Approval sent to requester",
     )
 
     # ---------------------------------------------------------
@@ -1311,8 +1316,8 @@ def update_admin_ride_booking(
         admin_name=current_admin.name,
     )
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [reservation.employee_email],
         (
             f"Ride Reservation Updated (Booking ID #{reservation.ride_reservation_id})"
@@ -1320,6 +1325,11 @@ def update_admin_ride_booking(
             else f"Ride Reservation Approved (Booking ID #{reservation.ride_reservation_id})"
         ),
         email_body,
+        event=(
+            "Update sent to requester"
+            if was_already_approved
+            else "Approval sent to requester"
+        ),
     )
 
     # ---------------------------------------------------------

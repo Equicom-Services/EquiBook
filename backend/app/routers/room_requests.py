@@ -19,7 +19,7 @@ from app.schemas.room_request import (
     RoomBookingCancel,
 )
 
-from app.services.email_service import send_email
+from app.core.email_notifications import queue_email
 from app.services.email_templates import (
     booking_submitted_email,
     booking_status_email,
@@ -169,11 +169,12 @@ def create_room_request(
             purpose=new_request.purpose,
         )
 
-        background_tasks.add_task(
-            send_email,
+        queue_email(
+            background_tasks,
             admin_emails,
             f"New Room Booking Request (Booking ID #{new_request.room_reservation_id})",
             html_body,
+            event="New room request sent to site admins",
         )
 
     # --------------------------------------------------------
@@ -197,11 +198,12 @@ def create_room_request(
             purpose=new_request.purpose,
         )
 
-        background_tasks.add_task(
-            send_email,
+        queue_email(
+            background_tasks,
             [new_request.employee_email],
             f"Room Booking Request Received (Booking ID #{new_request.room_reservation_id})",
             requester_html_body,
+            event="Request confirmation sent to requester",
         )
 
 
@@ -1156,11 +1158,12 @@ def update_admin_room_booking(
             admin_name=current_admin.name,
         )
 
-        background_tasks.add_task(
-            send_email,
+        queue_email(
+            background_tasks,
             [conflict.employee_email],
             f"Room Booking Rejected (Booking ID #{conflict.room_reservation_id})",
             conflict_html,
+            event="Auto-rejection sent for overlapping booking",
         )
 
     db.commit()
@@ -1194,11 +1197,12 @@ def update_admin_room_booking(
         admin_name=current_admin.name,
     )
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [room_request.employee_email],
         f"{email_subject} (Booking ID #{room_request.room_reservation_id})",
         html_body,
+        event=f"{email_status.capitalize()} notice sent to requester",
     )
 
     # ---------------------------------------------------------
@@ -1379,11 +1383,12 @@ def cancel_admin_room_booking(
         admin_name=current_admin.name,
     )
 
-    background_tasks.add_task(
-        send_email,
+    queue_email(
+        background_tasks,
         [room_request.employee_email],
         f"Room Booking Cancelled (Booking ID #{room_request.room_reservation_id})",
         html_body,
+        event="Cancellation sent to requester",
     )
 
     return {
@@ -1593,11 +1598,12 @@ def update_room_request_status(
                 admin_name=current_admin.name,
             )
 
-            background_tasks.add_task(
-                send_email,
+            queue_email(
+                background_tasks,
                 [conflict.employee_email],
                 f"Room Booking Rejected (Booking ID #{conflict.room_reservation_id})",
                 conflict_html,
+                event="Auto-rejection sent for overlapping booking",
             )
 
     else:
@@ -1653,11 +1659,12 @@ def update_room_request_status(
             admin_name=current_admin.name,
         )
 
-        background_tasks.add_task(
-            send_email,
+        queue_email(
+            background_tasks,
             [room_request.employee_email],
             f"Room Booking Approved (Booking ID #{room_request.room_reservation_id})",
             html_body,
+            event="Approval sent to requester",
         )
 
     # --------------------------------------------------------
@@ -1680,11 +1687,12 @@ def update_room_request_status(
             admin_name=current_admin.name,
         )
 
-        background_tasks.add_task(
-            send_email,
+        queue_email(
+            background_tasks,
             [room_request.employee_email],
             f"Room Booking Rejected (Booking ID #{room_request.room_reservation_id})",
             html_body,
+            event="Rejection sent to requester",
         )
 
     # --------------------------------------------------------

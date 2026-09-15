@@ -5,6 +5,7 @@ import { useCallback, useState, useEffect } from "react";
 import Calendar from "@/components/shared/Calendar";
 import RoomBookingDetails from "./RoomBookingDetails";
 import RoomRequestForm from "./RoomRequestForm";
+import RoomBookingHelp from "./RoomBookingHelp";
 
 interface RoomBooking {
   id: string;
@@ -467,13 +468,20 @@ return (
 
         {/* Request Form */}
         <div className="rounded-md bg-white p-6 xl:min-h-0 xl:overflow-y-auto">
-          <h2 className="text-lg font-semibold">
-            New Room Request
-          </h2>
+          <div className="mb-6 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">
+                New Room Request
+              </h2>
 
-          <p className="mt-1 mb-6 text-sm text-slate-500">
-            Fill in the details below to request a room.
-          </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Fill in the details below to request a room.
+              </p>
+            </div>
+
+            {/* Opens the guide to this form. */}
+            <RoomBookingHelp />
+          </div>
 
           <RoomRequestForm
             selectedDate={selectedDate}
