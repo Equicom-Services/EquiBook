@@ -12,6 +12,10 @@ import {
   getErrorMessage,
   getThrownMessage,
 } from "@/lib/api";
+import type {
+  RoomBookingRecord,
+  RoomRequestPayload,
+} from "@/lib/bookingAccess";
 
 interface RoomRequestFormProps {
   selectedDate: string;
@@ -21,6 +25,21 @@ interface RoomRequestFormProps {
    * created, so the parent page can refresh its bookings.
    */
   onSuccess?: () => void | Promise<void>;
+
+  /*
+   * Edit mode. The form is prefilled from this booking, holds
+   * a single schedule, keeps the requester read-only, and
+   * saves through onSubmitEdit instead of creating requests.
+   */
+  editBooking?: RoomBookingRecord;
+
+  /*
+   * Receives the same body a single create would POST.
+   * Throwing shows the error in the form's dialog.
+   */
+  onSubmitEdit?: (
+    payload: RoomRequestPayload
+  ) => Promise<void>;
 }
 
 interface Site{
@@ -56,24 +75,40 @@ const OPENING_HOUR = 6;
 const CLOSING_HOUR = 22;
 
 interface ApprovedBooking {
+  room_reservation_id?: number;
   room_id: number;
   reservation_date: string;
   start_time: string;
   end_time: string;
   status: string;
 }
+
+/*
+ * "HH:MM:SS" from the API to the "HH:MM" the time lists use.
+ */
+function toTimeValue(time: string): string {
+  return time ? time.slice(0, 5) : "";
+}
+
 export default function RoomRequestForm({
   selectedDate,
   onSuccess,
+  editBooking,
+  onSubmitEdit,
 }: RoomRequestFormProps) {
+  const isEditing = editBooking !== undefined;
+
   const [formData, setFormData] = useState({
-    name: "",
-    company_email: "",
-    site: "",
-    room: "",
-    purpose: "",
-    site_id: "",
-    room_id: ""
+    name: editBooking?.employee_name ?? "",
+    company_email: editBooking?.employee_email ?? "",
+    site: editBooking?.site ?? "",
+    room: editBooking?.room ?? "",
+    purpose: editBooking?.purpose ?? "",
+    site_id:
+      editBooking?.site_id != null
+        ? String(editBooking.site_id)
+        : "",
+    room_id: editBooking ? String(editBooking.room_id) : ""
   });
 
 
@@ -99,11 +134,15 @@ const getTimeOptions = (
   ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   // Get approved bookings for this specific room and date
+  // The booking being edited must not block its own slot.
   const roomBookings = approvedBookings.filter(
     (booking) =>
       String(booking.room_id) === roomId &&
       booking.reservation_date === selectedDate &&
-      booking.status === "APPROVED"
+      booking.status === "APPROVED" &&
+      (!editBooking ||
+        booking.room_reservation_id !==
+          editBooking.room_reservation_id)
   );
 
   // Get the current schedule
@@ -323,12 +362,19 @@ useEffect(() => {
   const [bookingSchedules, setBookingSchedules] = useState<
     BookingSchedule[]
   >([
-    {
-      id: Date.now(),
-      date: selectedDate,
-      start_time: "",
-      end_time: "",
-    },
+    editBooking
+      ? {
+          id: editBooking.room_reservation_id,
+          date: editBooking.reservation_date,
+          start_time: toTimeValue(editBooking.start_time),
+          end_time: toTimeValue(editBooking.end_time),
+        }
+      : {
+          id: Date.now(),
+          date: selectedDate,
+          start_time: "",
+          end_time: "",
+        },
   ]);
 
 
@@ -591,9 +637,54 @@ async function handleSubmit(
   // Open confirmation modal
   setShowConfirmation(true);
 }
+/*
+ * The body for one booking. An edit sends exactly this body
+ * too, so both paths build it here.
+ */
+function buildPayload(
+  schedule: BookingSchedule
+): RoomRequestPayload {
+  return {
+    room_id: Number(formData.room_id),
+
+    room_name: (() => {
+      const selectedRoom = rooms.find(
+        (room) =>
+          String(room.room_id) === formData.room_id
+      );
+
+      return selectedRoom?.room_name || "";
+    })(),
+
+    employee_name: formData.name,
+    employee_email: formData.company_email,
+
+    reservation_date: schedule.date,
+    start_time: schedule.start_time,
+    end_time: schedule.end_time,
+
+    purpose: formData.purpose,
+
+    site: formData.site_id,
+  };
+}
+
 async function confirmSubmit() {
   try {
     setSubmitting(true);
+
+    /*
+     * Edit mode saves the single booking through the caller,
+     * which closes the form once it succeeds.
+     */
+    if (isEditing) {
+      await onSubmitEdit?.(
+        buildPayload(bookingSchedules[0])
+      );
+
+      setShowConfirmation(false);
+      return;
+    }
 
     const responses = await Promise.all(
       bookingSchedules.map((schedule) =>
@@ -604,29 +695,7 @@ async function confirmSubmit() {
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              room_id: Number(formData.room_id),
-
-              room_name: (() => {
-                const selectedRoom = rooms.find(
-                  (room) =>
-                    String(room.room_id) === formData.room_id
-                );
-
-                return selectedRoom?.room_name || "";
-              })(),
-
-              employee_name: formData.name,
-              employee_email: formData.company_email,
-
-              reservation_date: schedule.date,
-              start_time: schedule.start_time,
-              end_time: schedule.end_time,
-
-              purpose: formData.purpose,
-
-              site: formData.site_id,
-            }),
+            body: JSON.stringify(buildPayload(schedule)),
           }
         )
       )
@@ -717,10 +786,12 @@ async function confirmSubmit() {
 
     showDialog(
       "error",
-      "Submission Failed",
+      isEditing ? "Update Failed" : "Submission Failed",
       getThrownMessage(
         error,
-        "We could not submit your room request. Please try again."
+        isEditing
+          ? "We could not save your changes. Please try again."
+          : "We could not submit your room request. Please try again."
       )
     );
   } finally {
@@ -756,7 +827,8 @@ async function confirmSubmit() {
             }
             placeholder="Enter your name"
             required
-            className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
+            disabled={isEditing}
+            className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 disabled:bg-slate-100 disabled:text-slate-500"
           />
         </div>
 
@@ -773,13 +845,16 @@ async function confirmSubmit() {
             onChange={handleChange}
             placeholder="name@company.com"
             required
-            className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
+            disabled={isEditing}
+            className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 disabled:bg-slate-100 disabled:text-slate-500"
           />
         </div>
 
         {/* Note: manual entry fallback */}
         <p className="text-xs text-slate-400 md:col-span-2">
-          If your name or email doesn&apos;t appear in the suggestions, just type it in manually.
+          {isEditing
+            ? "The name and email on a booking can't be changed."
+            : "If your name or email doesn't appear in the suggestions, just type it in manually."}
         </p>
 {/* Site */}
 <div>
@@ -871,18 +946,22 @@ async function confirmSubmit() {
               Reservation Schedule
             </h3>
 
-            <p className="mt-1 text-xs text-slate-400">
-              Add multiple dates if you need recurring reservations.
-            </p>
+            {!isEditing && (
+              <p className="mt-1 text-xs text-slate-400">
+                Add multiple dates if you need recurring reservations.
+              </p>
+            )}
           </div>
 
-          <button
-            type="button"
-            onClick={addSchedule}
-            className="rounded-md border border-[#03045e] px-3 py-2 text-xs font-semibold text-[#03045e] transition hover:bg-[#03045e] hover:text-white"
-          >
-            + Add Another Date
-          </button>
+          {!isEditing && (
+            <button
+              type="button"
+              onClick={addSchedule}
+              className="rounded-md border border-[#03045e] px-3 py-2 text-xs font-semibold text-[#03045e] transition hover:bg-[#03045e] hover:text-white"
+            >
+              + Add Another Date
+            </button>
+          )}
         </div>
 
         {bookingSchedules.map((schedule, index) => (
@@ -892,7 +971,9 @@ async function confirmSubmit() {
           >
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-700">
-                Reservation {index + 1}
+                {editBooking
+                  ? `Booking #${editBooking.room_reservation_id}`
+                  : `Reservation ${index + 1}`}
               </p>
 
               {bookingSchedules.length > 1 && (
@@ -1027,7 +1108,7 @@ async function confirmSubmit() {
         type="submit"
         className="w-full rounded-md bg-[#03045e] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
       >
-        Submit Room Request
+        {isEditing ? "Save changes" : "Submit Room Request"}
       </button>
       <RoomRequestConfirmationModal
   isOpen={showConfirmation}
@@ -1038,6 +1119,17 @@ async function confirmSubmit() {
   onEdit={() => setShowConfirmation(false)}
   onConfirm={confirmSubmit}
   submitting={submitting}
+  {...(isEditing
+    ? {
+        title: "Confirm Changes",
+        description:
+          "Please review your updated booking before saving.",
+        notice:
+          "Saving these changes sends this booking back to pending admin approval.",
+        confirmLabel: "Save Changes",
+        submittingLabel: "Saving...",
+      }
+    : {})}
 />
 
       <MessageDialog

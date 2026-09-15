@@ -50,7 +50,17 @@ interface RoomResponse {
   room_name: string;
 }
 
-export default function RoomBookingPage() {
+interface RoomBookingPageProps {
+  /*
+   * Changing this reloads the bookings, e.g. after the booking
+   * assistant cancels or edits one.
+   */
+  refreshKey?: number;
+}
+
+export default function RoomBookingPage({
+  refreshKey = 0,
+}: RoomBookingPageProps) {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
@@ -252,7 +262,7 @@ export default function RoomBookingPage() {
 
   useEffect(() => {
     fetchBookings();
-  }, [fetchBookings]);
+  }, [fetchBookings, refreshKey]);
 
   // ==========================================================
   // FILTER BOOKINGS BY BRANCH

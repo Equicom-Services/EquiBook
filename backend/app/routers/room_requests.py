@@ -158,6 +158,7 @@ def create_room_request(
     if admin_emails:
 
         html_body = booking_submitted_email(
+            booking_id=new_request.room_reservation_id,
             employee_name=new_request.employee_name,
             employee_email=new_request.employee_email,
             room=room.room_name,
@@ -171,7 +172,7 @@ def create_room_request(
         background_tasks.add_task(
             send_email,
             admin_emails,
-            "New Room Booking Request",
+            f"New Room Booking Request (Booking ID #{new_request.room_reservation_id})",
             html_body,
         )
 
@@ -185,6 +186,7 @@ def create_room_request(
     if new_request.employee_email:
 
         requester_html_body = booking_status_email(
+            booking_id=new_request.room_reservation_id,
             employee_name=new_request.employee_name,
             status="pending",
             room=room.room_name,
@@ -198,7 +200,7 @@ def create_room_request(
         background_tasks.add_task(
             send_email,
             [new_request.employee_email],
-            "Room Booking Request Received",
+            f"Room Booking Request Received (Booking ID #{new_request.room_reservation_id})",
             requester_html_body,
         )
 
@@ -1141,6 +1143,7 @@ def update_admin_room_booking(
         conflict.updated_at = now
 
         conflict_html = booking_status_email(
+            booking_id=conflict.room_reservation_id,
             employee_name=conflict.employee_name,
             status="rejected",
             room=room.room_name,
@@ -1156,7 +1159,7 @@ def update_admin_room_booking(
         background_tasks.add_task(
             send_email,
             [conflict.employee_email],
-            "Room Booking Rejected",
+            f"Room Booking Rejected (Booking ID #{conflict.room_reservation_id})",
             conflict_html,
         )
 
@@ -1178,6 +1181,7 @@ def update_admin_room_booking(
     )
 
     html_body = booking_status_email(
+        booking_id=room_request.room_reservation_id,
         employee_name=room_request.employee_name,
         status=email_status,
         room=room.room_name,
@@ -1193,7 +1197,7 @@ def update_admin_room_booking(
     background_tasks.add_task(
         send_email,
         [room_request.employee_email],
-        email_subject,
+        f"{email_subject} (Booking ID #{room_request.room_reservation_id})",
         html_body,
     )
 
@@ -1362,6 +1366,7 @@ def cancel_admin_room_booking(
     # ---------------------------------------------------------
 
     html_body = booking_status_email(
+        booking_id=room_request.room_reservation_id,
         employee_name=room_request.employee_name,
         status="cancelled",
         room=room.room_name,
@@ -1377,7 +1382,7 @@ def cancel_admin_room_booking(
     background_tasks.add_task(
         send_email,
         [room_request.employee_email],
-        "Room Booking Cancelled",
+        f"Room Booking Cancelled (Booking ID #{room_request.room_reservation_id})",
         html_body,
     )
 
@@ -1575,6 +1580,7 @@ def update_room_request_status(
             # ----------------------------------------------------
 
             conflict_html = booking_status_email(
+                booking_id=conflict.room_reservation_id,
                 employee_name=conflict.employee_name,
                 status="rejected",
                 room=room.room_name,
@@ -1590,7 +1596,7 @@ def update_room_request_status(
             background_tasks.add_task(
                 send_email,
                 [conflict.employee_email],
-                "Room Booking Rejected",
+                f"Room Booking Rejected (Booking ID #{conflict.room_reservation_id})",
                 conflict_html,
             )
 
@@ -1634,6 +1640,7 @@ def update_room_request_status(
     if room_request.status == "APPROVED":
 
         html_body = booking_status_email(
+            booking_id=room_request.room_reservation_id,
             employee_name=room_request.employee_name,
             status="approved",
             room=room.room_name,
@@ -1649,7 +1656,7 @@ def update_room_request_status(
         background_tasks.add_task(
             send_email,
             [room_request.employee_email],
-            "Room Booking Approved",
+            f"Room Booking Approved (Booking ID #{room_request.room_reservation_id})",
             html_body,
         )
 
@@ -1660,6 +1667,7 @@ def update_room_request_status(
     elif room_request.status == "REJECTED":
 
         html_body = booking_status_email(
+            booking_id=room_request.room_reservation_id,
             employee_name=room_request.employee_name,
             status="rejected",
             room=room.room_name,
@@ -1675,7 +1683,7 @@ def update_room_request_status(
         background_tasks.add_task(
             send_email,
             [room_request.employee_email],
-            "Room Booking Rejected",
+            f"Room Booking Rejected (Booking ID #{room_request.room_reservation_id})",
             html_body,
         )
 

@@ -10,6 +10,10 @@ import {
   getErrorMessage,
   getThrownMessage,
 } from "@/lib/api";
+import type {
+  RideBookingRecord,
+  RideReservationPayload,
+} from "@/lib/bookingAccess";
 
 interface RideRequestFormProps {
   selectedDate: string;
@@ -19,6 +23,21 @@ interface RideRequestFormProps {
    * created, so the parent page can refresh its bookings.
    */
   onSuccess?: () => void | Promise<void>;
+
+  /*
+   * Edit mode. The form is prefilled from this booking, holds
+   * a single schedule, keeps the requester read-only, and
+   * saves through onSubmitEdit instead of creating bookings.
+   */
+  editBooking?: RideBookingRecord;
+
+  /*
+   * Receives the same body a single create would POST.
+   * Throwing shows the error in the form's dialog.
+   */
+  onSubmitEdit?: (
+    payload: RideReservationPayload
+  ) => Promise<void>;
 }
 
 interface Site {
@@ -87,23 +106,42 @@ function toDateString(date: Date): string {
   ).padStart(2, "0")}`;
 }
 
+/*
+ * "HH:MM:SS" from the API to the "HH:MM" the time list uses.
+ */
+function toTimeValue(time: string): string {
+  return time ? time.slice(0, 5) : "";
+}
+
+/*
+ * An API date time to the "YYYY-MM-DDTHH:MM" that a
+ * datetime-local input expects.
+ */
+function toDateTimeValue(value: string | null): string {
+  return value ? value.replace(" ", "T").slice(0, 16) : "";
+}
+
 export default function RideRequestForm({
   selectedDate,
   onSuccess,
+  editBooking,
+  onSubmitEdit,
 }: RideRequestFormProps) {
   const today = new Date().toISOString().split("T")[0];
 
+  const isEditing = editBooking !== undefined;
+
 const [formData, setFormData] = useState<RideFormData>({
-  name: "",
-  company_email: "",
-  site: "",
-  site_id: null,
-  pickup_location: "",
-  pickup_maps_link: "",
-  dropoff_destination: "",
-  drop_off_maps_link: "",
-  purpose: "",
-  passenger_count: 1,
+  name: editBooking?.employee_name ?? "",
+  company_email: editBooking?.employee_email ?? "",
+  site: editBooking?.site ?? "",
+  site_id: editBooking?.site_id ?? null,
+  pickup_location: editBooking?.pickup_location ?? "",
+  pickup_maps_link: editBooking?.pickup_maps_link ?? "",
+  dropoff_destination: editBooking?.dropoff_destination ?? "",
+  drop_off_maps_link: editBooking?.drop_off_maps_link ?? "",
+  purpose: editBooking?.purpose ?? "",
+  passenger_count: editBooking?.passenger_count ?? 1,
 });
 
   const [sites, setSites] = useState<Site[]>([]);
@@ -120,7 +158,27 @@ const [formData, setFormData] = useState<RideFormData>({
    */
   const [travelSchedules, setTravelSchedules] = useState<
     TravelSchedule[]
-  >([emptySchedule(selectedDate)]);
+  >(
+    editBooking
+      ? [
+          {
+            id: editBooking.ride_reservation_id,
+            date: editBooking.travel_date,
+            departure_time: toTimeValue(
+              editBooking.departure_time
+            ),
+            roundtrip: editBooking.roundtrip,
+            return_pickup: toDateTimeValue(
+              editBooking.return_pickup
+            ),
+            return_drop_off_location:
+              editBooking.return_drop_off_location ?? "",
+            return_drop_off_maps_link:
+              editBooking.return_drop_off_maps_link ?? "",
+          },
+        ]
+      : [emptySchedule(selectedDate)]
+  );
 
   /*
    * Success and error messages shown in a dialog.
@@ -521,7 +579,9 @@ async function confirmSubmit() {
   try {
     setSubmitting(true);
 
-    const buildPayload = (schedule: TravelSchedule) => ({
+    const buildPayload = (
+      schedule: TravelSchedule
+    ): RideReservationPayload => ({
       employee_name: formData.name,
       employee_email: formData.company_email,
       site_id: formData.site_id,
@@ -549,6 +609,19 @@ async function confirmSubmit() {
       purpose: formData.purpose,
       passenger_count: formData.passenger_count,
     });
+
+    /*
+     * Edit mode saves the single booking through the caller,
+     * which closes the form once it succeeds.
+     */
+    if (isEditing) {
+      await onSubmitEdit?.(
+        buildPayload(travelSchedules[0])
+      );
+
+      setShowConfirmation(false);
+      return;
+    }
 
     const responses = await Promise.all(
       travelSchedules.map((schedule) =>
@@ -632,10 +705,12 @@ async function confirmSubmit() {
 
     showDialog(
       "error",
-      "Submission Failed",
+      isEditing ? "Update Failed" : "Submission Failed",
       getThrownMessage(
         error,
-        "We could not submit your ride reservation. Please try again."
+        isEditing
+          ? "We could not save your changes. Please try again."
+          : "We could not submit your ride reservation. Please try again."
       )
     );
   } finally {
@@ -675,7 +750,8 @@ async function confirmSubmit() {
             }
             placeholder="Enter your name"
             required
-            className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
+            disabled={isEditing}
+            className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 disabled:bg-slate-100 disabled:text-slate-500"
           />
         </div>
 
@@ -693,13 +769,16 @@ async function confirmSubmit() {
             onChange={handleChange}
             placeholder="name@company.com"
             required
-            className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
+            disabled={isEditing}
+            className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 disabled:bg-slate-100 disabled:text-slate-500"
           />
         </div>
 
         {/* Note: manual entry fallback */}
         <p className="text-xs text-slate-400 md:col-span-2">
-          If your name or email doesn&apos;t appear in the suggestions, just type it in manually.
+          {isEditing
+            ? "The name and email on a booking can't be changed."
+            : "If your name or email doesn't appear in the suggestions, just type it in manually."}
         </p>
 
         {/* Site */}
@@ -780,19 +859,23 @@ async function confirmSubmit() {
                 Travel Schedule
               </h4>
 
-              <p className="mt-1 text-xs text-slate-400">
-                Add multiple dates if you need recurring
-                reservations.
-              </p>
+              {!isEditing && (
+                <p className="mt-1 text-xs text-slate-400">
+                  Add multiple dates if you need recurring
+                  reservations.
+                </p>
+              )}
             </div>
 
-            <button
-              type="button"
-              onClick={addSchedule}
-              className="rounded-md border border-[#03045e] px-3 py-2 text-xs font-semibold text-[#03045e] transition hover:bg-[#03045e] hover:text-white"
-            >
-              + Add Another Date
-            </button>
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={addSchedule}
+                className="rounded-md border border-[#03045e] px-3 py-2 text-xs font-semibold text-[#03045e] transition hover:bg-[#03045e] hover:text-white"
+              >
+                + Add Another Date
+              </button>
+            )}
           </div>
 
           {travelSchedules.map((schedule, index) => (
@@ -802,7 +885,9 @@ async function confirmSubmit() {
             >
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-700">
-                  Reservation {index + 1}
+                  {editBooking
+                    ? `Booking #${editBooking.ride_reservation_id}`
+                    : `Reservation ${index + 1}`}
                 </p>
 
                 {travelSchedules.length > 1 && (
@@ -1093,12 +1178,12 @@ async function confirmSubmit() {
         type="submit"
         className="w-full rounded-md bg-[#03045e] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
       >
-        Submit Ride Request
+        {isEditing ? "Save changes" : "Submit Ride Request"}
       </button>
 
       {/* Confirmation Modal */}
 
-      
+
 <RideRequestConfirmationModal
   isOpen={showConfirmation}
   formData={formData}
@@ -1106,6 +1191,15 @@ async function confirmSubmit() {
   onEdit={() => setShowConfirmation(false)}
   onConfirm={confirmSubmit}
   submitting={submitting}
+  {...(isEditing
+    ? {
+        title: "Confirm Changes",
+        description:
+          "Please review your updated booking. Saving sends it back to pending admin approval.",
+        confirmLabel: "Save Changes",
+        submittingLabel: "Saving...",
+      }
+    : {})}
 />
 
       <MessageDialog

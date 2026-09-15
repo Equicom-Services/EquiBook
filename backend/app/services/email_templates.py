@@ -7,6 +7,7 @@ def booking_submitted_email(
     start_time,
     end_time,
     purpose: str,
+    booking_id: int | None = None,
 ):
     return f"""
 <!DOCTYPE html>
@@ -69,6 +70,14 @@ def booking_submitted_email(
                                     ">
                                         New Booking Request
                                     </div>
+
+                <div style="
+                    margin-top:6px;
+                    font-size:13px;
+                    color:#dbeafe;
+                ">
+                    Booking ID #{booking_id}
+                </div>
                                 </td>
 
                                 <td
@@ -325,6 +334,7 @@ def booking_status_email(
     purpose: str,
     remarks: str | None = None,
     admin_name: str | None = None,
+    booking_id: int | None = None,
 ):
     status = status.lower()
 
@@ -507,6 +517,14 @@ def booking_status_email(
                         ">
                             {status_title}
                         </div>
+
+                <div style="
+                    margin-top:6px;
+                    font-size:13px;
+                    color:#dbeafe;
+                ">
+                    Booking ID #{booking_id}
+                </div>
                     </td>
                 </tr>
 
@@ -725,6 +743,7 @@ def ride_booking_submitted_email(
     return_drop_off_maps_link: str | None,
     purpose: str,
     passenger_count: int,
+    booking_id: int | None = None,
 ):
     roundtrip_text = "Yes" if roundtrip else "No"
 
@@ -829,6 +848,14 @@ def ride_booking_submitted_email(
             ">
                 Reservation Submitted
             </div>
+
+                <div style="
+                    margin-top:6px;
+                    font-size:13px;
+                    color:#dbeafe;
+                ">
+                    Booking ID #{booking_id}
+                </div>
         </td>
     </tr>
 
@@ -1202,6 +1229,7 @@ def ride_booking_admin_email(
     return_drop_off_maps_link: str | None,
     purpose: str,
     passenger_count: int,
+    booking_id: int | None = None,
 ):
     roundtrip_text = "Yes" if roundtrip else "No"
 
@@ -1306,6 +1334,14 @@ def ride_booking_admin_email(
             ">
                 New Reservation Request
             </div>
+
+                <div style="
+                    margin-top:6px;
+                    font-size:13px;
+                    color:#dbeafe;
+                ">
+                    Booking ID #{booking_id}
+                </div>
         </td>
     </tr>
 
@@ -1685,6 +1721,7 @@ def ride_booking_status_email(
     status: str,
     admin_remarks: str | None,
     admin_name: str | None,
+    booking_id: int | None = None,
 ):
     status_upper = status.upper()
     status_title = status.capitalize()
@@ -1902,6 +1939,14 @@ def ride_booking_status_email(
             ">
                 Reservation {status_title}
             </div>
+
+                <div style="
+                    margin-top:6px;
+                    font-size:13px;
+                    color:#dbeafe;
+                ">
+                    Booking ID #{booking_id}
+                </div>
         </td>
     </tr>
 

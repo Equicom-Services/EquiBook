@@ -687,6 +687,11 @@ return (
                   {request.employee_name}
                 </h3>
 
+                <span className="shrink-0 text-[11px] font-semibold text-[#03045e]">
+                  <span className="font-medium">Booking ID</span>{" "}
+                  #{request.room_reservation_id}
+                </span>
+
                 <span
                   className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium ${
                     request.status === "pending"

@@ -42,7 +42,17 @@ interface SiteResponse {
   site_name: string;
 }
 
-export default function RideBookingPage() {
+interface RideBookingPageProps {
+  /*
+   * Changing this reloads the bookings, e.g. after the booking
+   * assistant cancels or edits one.
+   */
+  refreshKey?: number;
+}
+
+export default function RideBookingPage({
+  refreshKey = 0,
+}: RideBookingPageProps) {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
@@ -133,7 +143,7 @@ export default function RideBookingPage() {
 
   useEffect(() => {
     fetchBookings();
-  }, [fetchBookings]);
+  }, [fetchBookings, refreshKey]);
 
   // ==========================================================
   // GET BRANCH COLOR

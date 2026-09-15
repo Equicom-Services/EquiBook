@@ -5,9 +5,16 @@ import { Car, DoorOpen } from "lucide-react";
 
 import RoomBookingPage from "@/components/employee/room/RoomBookingPage";
 import RideBookingPage from "@/components/employee/ride/RideBookingPage";
+import BookingAssistant from "@/components/employee/BookingAssistant";
 
 export default function EmployeePage() {
   const [activeBooking, setActiveBooking] = useState<"room" | "ride">("room");
+
+  /*
+   * Bumped when the booking assistant cancels or edits a
+   * booking, so the calendar on screen reloads its bookings.
+   */
+  const [refreshKey, setRefreshKey] = useState(0);
 
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-slate-50">
@@ -45,11 +52,19 @@ export default function EmployeePage() {
       {/* Active Booking Page */}
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeBooking === "room" ? (
-          <RoomBookingPage />
+          <RoomBookingPage refreshKey={refreshKey} />
         ) : (
-          <RideBookingPage />
+          <RideBookingPage refreshKey={refreshKey} />
         )}
       </div>
+
+      {/* Cancel / edit an existing booking */}
+      <BookingAssistant
+        activeBooking={activeBooking}
+        onBookingChanged={() =>
+          setRefreshKey((key) => key + 1)
+        }
+      />
     </main>
   );
 }

@@ -159,6 +159,7 @@ def create_ride_reservation(
 
     # Email requester
     requester_email_body = ride_booking_submitted_email(
+        booking_id=new_reservation.ride_reservation_id,
         employee_name=new_reservation.employee_name,
         employee_email=new_reservation.employee_email,
         site=new_reservation.site,
@@ -183,7 +184,7 @@ def create_ride_reservation(
     background_tasks.add_task(
         send_email,
         [new_reservation.employee_email],
-        "Ride Reservation Submitted",
+        f"Ride Reservation Submitted (Booking ID #{new_reservation.ride_reservation_id})",
         requester_email_body,
     )
 
@@ -192,6 +193,7 @@ def create_ride_reservation(
     if admin_emails:
 
         admin_email_body = ride_booking_admin_email(
+            booking_id=new_reservation.ride_reservation_id,
             employee_name=new_reservation.employee_name,
             employee_email=new_reservation.employee_email,
             site=new_reservation.site,
@@ -216,7 +218,7 @@ def create_ride_reservation(
         background_tasks.add_task(
             send_email,
             admin_emails,
-            "New Ride Reservation Request",
+            f"New Ride Reservation Request (Booking ID #{new_reservation.ride_reservation_id})",
             admin_email_body,
         )
 
@@ -455,6 +457,7 @@ def update_ride_reservation_status(
 # ---------------------------------------------------------
 
     email_body = ride_booking_status_email(
+        booking_id=reservation.ride_reservation_id,
         employee_name=reservation.employee_name,
         employee_email=reservation.employee_email,
         site=reservation.site,
@@ -483,7 +486,7 @@ def update_ride_reservation_status(
     background_tasks.add_task(
         send_email,
         [reservation.employee_email],
-        f"Ride Reservation {reservation.status.capitalize()}",
+        f"Ride Reservation {reservation.status.capitalize()} (Booking ID #{reservation.ride_reservation_id})",
         email_body,
     )
 
@@ -629,6 +632,7 @@ def cancel_ride_reservation(
 # ---------------------------------------------------------
 
     email_body = ride_booking_status_email(
+        booking_id=reservation.ride_reservation_id,
         employee_name=reservation.employee_name,
         employee_email=reservation.employee_email,
         site=reservation.site,
@@ -657,7 +661,7 @@ def cancel_ride_reservation(
     background_tasks.add_task(
         send_email,
         [reservation.employee_email],
-        "Ride Reservation Cancelled",
+        f"Ride Reservation Cancelled (Booking ID #{reservation.ride_reservation_id})",
         email_body,
     )
 
@@ -1008,6 +1012,7 @@ def create_admin_ride_booking(
     # 7. Send booking confirmation email to recipient
     # ---------------------------------------------------------
     email_body = ride_booking_status_email(
+        booking_id=new_reservation.ride_reservation_id,
         employee_name=new_reservation.employee_name,
         employee_email=new_reservation.employee_email,
         site=new_reservation.site,
@@ -1043,7 +1048,7 @@ def create_admin_ride_booking(
     background_tasks.add_task(
         send_email,
         [new_reservation.employee_email],
-        "Ride Reservation Approved",
+        f"Ride Reservation Approved (Booking ID #{new_reservation.ride_reservation_id})",
         email_body,
     )
 
@@ -1270,6 +1275,7 @@ def update_admin_ride_booking(
     # 8. Notify the requester of the updated, approved booking
     # ---------------------------------------------------------
     email_body = ride_booking_status_email(
+        booking_id=reservation.ride_reservation_id,
         employee_name=reservation.employee_name,
         employee_email=reservation.employee_email,
         site=reservation.site,
@@ -1309,9 +1315,9 @@ def update_admin_ride_booking(
         send_email,
         [reservation.employee_email],
         (
-            "Ride Reservation Updated"
+            f"Ride Reservation Updated (Booking ID #{reservation.ride_reservation_id})"
             if was_already_approved
-            else "Ride Reservation Approved"
+            else f"Ride Reservation Approved (Booking ID #{reservation.ride_reservation_id})"
         ),
         email_body,
     )
