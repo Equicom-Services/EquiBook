@@ -51,3 +51,17 @@ def ensure_overall_access_column():
                     "ADD COLUMN overall_access TINYINT NOT NULL DEFAULT 0"
                 )
             )
+
+
+def ensure_audit_log_table():
+    """
+    Create the ``audit_logs`` table if it is not there yet.
+
+    The control panel (``scripts/seed_admin.py``) is the only thing
+    that writes to it, and it runs without booting the API, so it
+    cannot rely on ``main.py``'s ``create_all``. ``checkfirst`` makes
+    this a no-op on every run after the first.
+    """
+    from app.models.audit_log import AuditLog
+
+    AuditLog.__table__.create(bind=engine, checkfirst=True)

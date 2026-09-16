@@ -18,6 +18,10 @@ It can:
   * reset an admin's password and email it to them
   * browse every room and ride booking, filtered by branch
   * chart booking volume, status mix, branch split, rooms and peak hours
+  * manage the room list for every branch -- see which rooms are
+    disabled, enable or disable them, add rooms and remove unused ones
+  * read the audit log: every administrative action taken here, who
+    took it, when, and what it landed on
 
 SECURITY: the panel requires an Equibook admin login, and that admin must
 have ``overall_access = 1``. Every account starts at 0, so access is
@@ -52,14 +56,21 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from sqlalchemy import func
+
 from app.core.config import settings
-from app.core.database import SessionLocal, ensure_overall_access_column
+from app.core.database import (
+    SessionLocal,
+    ensure_audit_log_table,
+    ensure_overall_access_column,
+)
 from app.core.security import (
     hash_password,
     password_change_required,
     verify_password,
 )
 from app.models.admin import Admin
+from app.models.audit_log import AuditLog
 from app.models.ride_reservation import RideReservation
 from app.models.room import Room
 from app.models.room_request import RoomRequest
@@ -98,6 +109,37 @@ SESSION_IDLE_SECONDS = 8 * 60 * 60
 # MySQL-only date functions. The cap stops a runaway table from
 # eating the panel's memory.
 ANALYTICS_ROW_CAP = 20000
+
+# The audit table only ever grows, so reads are capped the same way.
+AUDIT_ROW_CAP = 2000
+
+# Every action the panel records, with the wording the log shows.
+# Keeping the whole vocabulary in one place means the filter drop-down
+# and the rows can never drift apart, and an action nobody has taken
+# yet is still offered as a filter.
+AUDIT_ACTIONS = {
+    "session.login": "Signed in",
+    "session.login_failed": "Sign-in refused",
+    "session.logout": "Signed out",
+    "admin.create": "Admin created",
+    "admin.reset_password": "Password reset",
+    "admin.activate": "Admin activated",
+    "admin.deactivate": "Admin deactivated",
+    "admin.grant_access": "Panel access granted",
+    "admin.revoke_access": "Panel access revoked",
+    "admin.delete": "Admin deleted",
+    "room.create": "Room added",
+    "room.enable": "Room enabled",
+    "room.disable": "Room disabled",
+    "room.delete": "Room deleted",
+}
+
+AUDIT_OUTCOMES = ["success", "blocked", "failed"]
+
+# Actions taken from the command line rather than the panel: --seed,
+# --grant and --revoke. Recorded with no actor, because a shell on
+# this machine is not an identity the panel can vouch for.
+SHELL_ACTOR = None
 
 
 # ==============================================================
@@ -490,6 +532,177 @@ def iso(value):
 
 
 # ==============================================================
+# AUDIT LOG
+#
+# Every administrative action this panel performs is recorded to
+# the ``audit_logs`` table before the response goes out. The rules:
+#
+#   * The record is written by the route, not by the domain
+#     function, because the route is where the actor and their
+#     address are known -- and because the same domain functions
+#     are called from the shell, which is recorded differently.
+#   * Refusals are recorded too ("blocked"), including a failed
+#     sign-in. An attempt that did not go through is often the more
+#     interesting line in the log.
+#   * A failure to write the log never fails the action it is
+#     recording. Losing a line is bad; losing a password reset
+#     because its log line could not be written is worse. The loss
+#     is printed to the console the panel runs in, which is the one
+#     place someone is guaranteed to be watching.
+#   * Nothing here writes a password, a hash, or any part of one.
+# ==============================================================
+
+def record_audit(
+    actor: dict | None,
+    action: str,
+    *,
+    outcome: str = "success",
+    target_type: str = "",
+    target_id=None,
+    target_label: str = "",
+    site: str = "",
+    detail: str = "",
+    source: str = "panel",
+    ip_address: str = "",
+):
+    """Append one line to the audit log. Never raises."""
+    db = SessionLocal()
+
+    try:
+        db.add(AuditLog(
+            created_at=datetime.now(),
+            actor_id=(actor or {}).get("admin_id"),
+            actor_name=(actor or {}).get("name"),
+            actor_email=(actor or {}).get("email"),
+            source=source,
+            ip_address=(ip_address or None),
+            action=action,
+            outcome=outcome,
+            target_type=(target_type or None),
+            target_id=(str(target_id) if target_id is not None else None),
+            target_label=(target_label or None),
+            site=(site or None),
+            detail=(detail or None),
+        ))
+
+        db.commit()
+
+    except Exception as error:
+        db.rollback()
+        sys.stdout.write(f"  audit log write failed ({action}): {error}\n")
+
+    finally:
+        db.close()
+
+
+def audit_row(entry: AuditLog) -> dict:
+    return {
+        "id": entry.audit_log_id,
+        "at": iso(entry.created_at),
+        "actor_id": entry.actor_id,
+        "actor_name": entry.actor_name or "",
+        "actor_email": entry.actor_email or "",
+        "source": entry.source or "panel",
+        "ip_address": entry.ip_address or "",
+        "action": entry.action,
+        "action_label": AUDIT_ACTIONS.get(entry.action, entry.action),
+        "outcome": entry.outcome or "success",
+        "target_type": entry.target_type or "",
+        "target_id": entry.target_id or "",
+        "target_label": entry.target_label or "",
+        "site": entry.site or "",
+        "detail": entry.detail or "",
+    }
+
+
+def fetch_audit_logs(
+    action: str = "",
+    outcome: str = "",
+    actor: str = "",
+    site: str = "",
+    search: str = "",
+    start: date | None = None,
+    end: date | None = None,
+    limit: int = AUDIT_ROW_CAP,
+) -> dict:
+    """
+    Newest first, filtered.
+
+    ``end`` is a date, and the rows carry a timestamp, so the range
+    is closed with the *next* midnight -- otherwise "to today" would
+    silently drop everything that happened today after 00:00.
+    """
+    db = SessionLocal()
+
+    try:
+        query = db.query(AuditLog)
+
+        if start:
+            query = query.filter(AuditLog.created_at >= datetime.combine(start, datetime.min.time()))
+
+        if end:
+            query = query.filter(
+                AuditLog.created_at
+                < datetime.combine(end + timedelta(days=1), datetime.min.time())
+            )
+
+        if action:
+            query = query.filter(AuditLog.action == action)
+
+        if outcome:
+            query = query.filter(AuditLog.outcome == outcome)
+
+        if actor:
+            query = query.filter(AuditLog.actor_email == actor)
+
+        if site:
+            query = query.filter(AuditLog.site == site)
+
+        if search:
+            like = f"%{search.strip()}%"
+
+            query = query.filter(
+                AuditLog.target_label.like(like)
+                | AuditLog.detail.like(like)
+                | AuditLog.actor_name.like(like)
+                | AuditLog.actor_email.like(like)
+            )
+
+        total = query.count()
+
+        entries = (
+            query
+            .order_by(AuditLog.created_at.desc(), AuditLog.audit_log_id.desc())
+            .limit(limit)
+            .all()
+        )
+
+        # The actor list is drawn from the whole table, not from the
+        # filtered rows: a drop-down that only offers the people
+        # already on screen cannot be used to find anybody else.
+        actors = (
+            db.query(AuditLog.actor_email, AuditLog.actor_name)
+            .filter(AuditLog.actor_email.isnot(None))
+            .distinct()
+            .order_by(AuditLog.actor_email)
+            .all()
+        )
+
+        return {
+            "entries": [audit_row(entry) for entry in entries],
+            "count": total,
+            "truncated": total > len(entries),
+            "actors": [
+                {"email": email, "name": name or email}
+                for email, name in actors
+            ],
+        }
+
+    finally:
+        db.close()
+
+
+# ==============================================================
 # SESSIONS
 #
 # In memory only: stopping the server signs everybody out, which is
@@ -659,7 +872,11 @@ def grant_by_email(email: str, granted: bool) -> str:
         admin = db.query(Admin).filter(Admin.email == email).first()
 
         if not admin:
-            return f"No admin found with the email {email}."
+            # Raised rather than returned so the caller can tell a
+            # miss from a change that went through -- ``main`` prints
+            # it the same either way, but the audit line does not
+            # record a grant that never happened as a success.
+            raise ValueError(f"No admin found with the email {email}.")
 
         admin_id = admin.id
         last_one = (
@@ -1124,6 +1341,350 @@ def delete_admin(admin_id: int, force: bool = False) -> dict:
 
 
 # ==============================================================
+# ROOMS
+#
+# The facility list, for every branch. Deliberately not scoped to
+# the signed-in admin's own site, which matches
+# ``app/routers/rooms.py``: any admin may maintain rooms anywhere,
+# because this is the list of rooms that exist, not the bookings
+# made against them. Everything else in the panel that touches
+# booking data stays branch-filterable.
+#
+# The rules below are the same ones the API enforces, restated
+# here rather than imported, because the panel talks to the
+# database directly and never goes through FastAPI:
+#   * room codes are unique across every site
+#   * a room that has ever been booked cannot be deleted, only
+#     disabled -- its reservations point at it by room_id
+# ==============================================================
+
+ROOM_STATES = ["active", "disabled"]
+
+
+def room_booking_counts(db) -> tuple[dict, dict]:
+    """(bookings per room, upcoming approved bookings per room)."""
+    totals = dict(
+        db.query(
+            RoomRequest.room_id,
+            func.count(RoomRequest.room_reservation_id),
+        )
+        .group_by(RoomRequest.room_id)
+        .all()
+    )
+
+    upcoming = dict(
+        db.query(
+            RoomRequest.room_id,
+            func.count(RoomRequest.room_reservation_id),
+        )
+        .filter(RoomRequest.reservation_date >= date.today())
+        .filter(func.upper(RoomRequest.status) == "APPROVED")
+        .group_by(RoomRequest.room_id)
+        .all()
+    )
+
+    return totals, upcoming
+
+
+def room_row(room: Room, site_name: str, bookings: int, upcoming: int) -> dict:
+    return {
+        "id": room.room_id,
+        "room_code": room.room_code,
+        "room_name": room.room_name,
+        "site": site_name,
+        "site_id": room.site_id,
+        "capacity": room.capacity,
+        "location": room.location or "",
+        "is_active": bool(room.is_active),
+        "bookings": bookings,
+        "upcoming": upcoming,
+        # Deletion is refused once a room has history, so the page
+        # can say so up front instead of offering a button that
+        # only ever returns an error.
+        "deletable": bookings == 0,
+        "created_at": iso(room.created_at),
+        "updated_at": iso(room.updated_at),
+    }
+
+
+def list_rooms(site: str = "", state: str = "") -> dict:
+    db = SessionLocal()
+
+    try:
+        totals, upcoming = room_booking_counts(db)
+
+        query = (
+            db.query(Room, Site)
+            .join(Site, Site.site_id == Room.site_id)
+        )
+
+        if site:
+            query = query.filter(Site.site_name == site)
+
+        if state == "active":
+            query = query.filter(Room.is_active == True)
+
+        elif state == "disabled":
+            query = query.filter(Room.is_active == False)
+
+        rows = (
+            query
+            .order_by(Site.site_name, Room.room_name)
+            .all()
+        )
+
+        rooms = [
+            room_row(
+                room,
+                site_row.site_name,
+                totals.get(room.room_id, 0),
+                upcoming.get(room.room_id, 0),
+            )
+            for room, site_row in rows
+        ]
+
+        # Counted across every room, not just the filtered ones: the
+        # point of the summary is to answer "is anything disabled?"
+        # without first having to guess the filter that would show it.
+        every = (
+            db.query(Room, Site)
+            .join(Site, Site.site_id == Room.site_id)
+            .all()
+        )
+
+        disabled = [
+            {
+                "room_name": room.room_name,
+                "room_code": room.room_code,
+                "site": site_row.site_name,
+                "upcoming": upcoming.get(room.room_id, 0),
+            }
+            for room, site_row in every
+            if not room.is_active
+        ]
+
+        return {
+            "rooms": rooms,
+            "summary": {
+                "total": len(every),
+                "active": len(every) - len(disabled),
+                "disabled": len(disabled),
+                "branches": len({site_row.site_name for _, site_row in every}),
+                "shown": len(rooms),
+            },
+            # Disabled rooms that still have approved bookings ahead
+            # of them: nobody can book them any more, but the people
+            # already holding a reservation have not been told.
+            "stranded": [row for row in disabled if row["upcoming"]],
+        }
+
+    finally:
+        db.close()
+
+
+def create_room(
+    room_code: str,
+    room_name: str,
+    capacity,
+    location: str,
+    site_name: str,
+) -> dict:
+    room_code = str(room_code or "").strip()
+    room_name = str(room_name or "").strip()
+    location = str(location or "").strip()
+    site_name = str(site_name or "").strip()
+
+    if not room_code:
+        raise ValueError("Room code is required.")
+
+    if not room_name:
+        raise ValueError("Room name is required.")
+
+    try:
+        capacity = int(capacity)
+
+    except (TypeError, ValueError):
+        raise ValueError("Capacity must be a whole number.")
+
+    if capacity <= 0:
+        raise ValueError("Capacity must be greater than 0.")
+
+    db = SessionLocal()
+
+    try:
+        site = (
+            db.query(Site)
+            .filter(Site.site_name == site_name)
+            .filter(Site.is_active == True)
+            .first()
+        )
+
+        if not site:
+            raise ValueError(
+                f'"{site_name}" is not an active branch. Pick another.'
+            )
+
+        existing = (
+            db.query(Room)
+            .filter(Room.room_code == room_code)
+            .first()
+        )
+
+        if existing:
+            # Codes are unique across every site, so the clash is
+            # usually at a branch the admin was not looking at --
+            # name it, or the error is baffling.
+            where = (
+                db.query(Site)
+                .filter(Site.site_id == existing.site_id)
+                .first()
+            )
+
+            raise ValueError(
+                f'Room code "{room_code}" is already used by '
+                f'"{existing.room_name}" at '
+                f'{where.site_name if where else "another branch"}.'
+            )
+
+        now = datetime.now()
+
+        room = Room(
+            room_code=room_code,
+            room_name=room_name,
+            capacity=capacity,
+            location=location or None,
+            is_active=True,
+            site_id=site.site_id,
+            created_at=now,
+            updated_at=now,
+        )
+
+        db.add(room)
+        db.commit()
+        db.refresh(room)
+
+        return {
+            "room": room_row(room, site.site_name, 0, 0),
+            "message": f'"{room_name}" added to {site.site_name}.',
+        }
+
+    except Exception:
+        db.rollback()
+        raise
+
+    finally:
+        db.close()
+
+
+def set_room_active(room_id: int, is_active: bool) -> dict:
+    db = SessionLocal()
+
+    try:
+        room = db.query(Room).filter(Room.room_id == room_id).first()
+
+        if not room:
+            raise ValueError("That room no longer exists.")
+
+        site = db.query(Site).filter(Site.site_id == room.site_id).first()
+        site_name = site.site_name if site else ""
+
+        room.is_active = bool(is_active)
+        room.updated_at = datetime.now()
+
+        db.commit()
+        db.refresh(room)
+
+        totals, upcoming = room_booking_counts(db)
+
+        ahead = upcoming.get(room.room_id, 0)
+
+        message = (
+            f'"{room.room_name}" is bookable again.'
+            if is_active
+            else f'"{room.room_name}" is hidden from the booking forms.'
+        )
+
+        # Disabling does not touch reservations already approved
+        # against the room, so say how many are still standing
+        # rather than let them go unnoticed.
+        if not is_active and ahead:
+            message += (
+                f" {ahead} approved booking(s) still ahead of it are "
+                "untouched - cancel them in Equibook if they should "
+                "not go ahead."
+            )
+
+        return {
+            "room": room_row(
+                room,
+                site_name,
+                totals.get(room.room_id, 0),
+                ahead,
+            ),
+            "message": message,
+        }
+
+    finally:
+        db.close()
+
+
+def delete_room(room_id: int) -> dict:
+    """
+    Remove a room that has never been booked.
+
+    A room with reservations is never deletable, not even forced:
+    the bookings and every report built on them point at it by
+    room_id, and there is no equivalent of the admin delete's
+    "clear the reference" that would not corrupt booking history.
+    Disabling is the answer, and the error says so.
+    """
+    db = SessionLocal()
+
+    try:
+        room = db.query(Room).filter(Room.room_id == room_id).first()
+
+        if not room:
+            raise ValueError("That room no longer exists.")
+
+        site = db.query(Site).filter(Site.site_id == room.site_id).first()
+
+        bookings = (
+            db.query(RoomRequest)
+            .filter(RoomRequest.room_id == room.room_id)
+            .count()
+        )
+
+        if bookings:
+            raise ValueError(
+                f'"{room.room_name}" has {bookings} reservation(s) on '
+                "record and cannot be deleted. Disable it instead - that "
+                "hides it from new bookings and keeps the history."
+            )
+
+        name = room.room_name
+        code = room.room_code
+        site_name = site.site_name if site else ""
+
+        db.delete(room)
+        db.commit()
+
+        return {
+            "deleted": True,
+            "room_name": name,
+            "room_code": code,
+            "site": site_name,
+            "message": f'"{name}" deleted from {site_name or "its branch"}.',
+        }
+
+    except Exception:
+        db.rollback()
+        raise
+
+    finally:
+        db.close()
+
+
+# ==============================================================
 # BOOKINGS
 # ==============================================================
 
@@ -1393,6 +1954,17 @@ class ControlPanelHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _client_ip(self) -> str:
+        # Recorded on every audit line. It is nearly always
+        # 127.0.0.1 -- the panel binds to loopback -- but it stops
+        # being a constant the moment someone tunnels in, which is
+        # exactly when it matters.
+        try:
+            return self.client_address[0]
+
+        except Exception:
+            return ""
+
     def _cookie_token(self) -> str | None:
         raw = self.headers.get("Cookie")
 
@@ -1447,6 +2019,50 @@ class ControlPanelHandler(BaseHTTPRequestHandler):
             raise ValueError("Malformed request body.")
 
         return payload
+
+    def _audit(self, session, action, **fields):
+        """Record one panel action against the signed-in admin."""
+        record_audit(
+            session,
+            action,
+            source="panel",
+            ip_address=self._client_ip(),
+            **fields,
+        )
+
+    def _room_filters(self, params: dict):
+        site = params.get("site", [""])[0] or ""
+        state = (params.get("state", [""])[0] or "").lower()
+
+        if state not in ROOM_STATES:
+            state = ""
+
+        return site, state
+
+    def _audit_filters(self, params: dict):
+        action = params.get("action", [""])[0] or ""
+        outcome = (params.get("outcome", [""])[0] or "").lower()
+        actor = params.get("actor", [""])[0] or ""
+        site = params.get("site", [""])[0] or ""
+        search = params.get("q", [""])[0] or ""
+
+        start = parse_date(
+            params.get("from", [""])[0],
+            date.today() - timedelta(days=30),
+        )
+
+        end = parse_date(params.get("to", [""])[0], date.today())
+
+        if start > end:
+            start, end = end, start
+
+        if action not in AUDIT_ACTIONS:
+            action = ""
+
+        if outcome not in AUDIT_OUTCOMES:
+            outcome = ""
+
+        return action, outcome, actor, site, search, start, end
 
     def _filters(self, params: dict):
         kind = (params.get("kind", [""])[0] or "").lower()
@@ -1511,6 +2127,12 @@ class ControlPanelHandler(BaseHTTPRequestHandler):
                     "password_expiry_days": settings.PASSWORD_EXPIRY_DAYS,
                     "statuses": STATUSES,
                     "sites": self._sites(),
+                    "room_states": ROOM_STATES,
+                    "audit_actions": [
+                        {"value": action, "label": label}
+                        for action, label in AUDIT_ACTIONS.items()
+                    ],
+                    "audit_outcomes": AUDIT_OUTCOMES,
                     "today": date.today().isoformat(),
                 })
                 return
@@ -1534,6 +2156,31 @@ class ControlPanelHandler(BaseHTTPRequestHandler):
                     "bookings": rows[:1000],
                     "count": len(rows),
                     "truncated": len(rows) > 1000,
+                })
+                return
+
+            if route == "/api/rooms":
+                site, state = self._room_filters(params)
+
+                self._json(200, list_rooms(site=site, state=state))
+                return
+
+            if route == "/api/audit":
+                action, outcome, actor, site, search, start, end = (
+                    self._audit_filters(params)
+                )
+
+                self._json(200, {
+                    **fetch_audit_logs(
+                        action=action,
+                        outcome=outcome,
+                        actor=actor,
+                        site=site,
+                        search=search,
+                        start=start,
+                        end=end,
+                    ),
+                    "range": {"from": start.isoformat(), "to": end.isoformat()},
                 })
                 return
 
@@ -1576,10 +2223,40 @@ class ControlPanelHandler(BaseHTTPRequestHandler):
                     # and so guessing in bulk is not worth the wait.
                     time.sleep(0.6)
 
+                    # The attempted address is recorded, never the
+                    # attempted password -- an audit log that stores
+                    # the passwords people typed is a liability, not
+                    # a record.
+                    record_audit(
+                        None,
+                        "session.login_failed",
+                        outcome="blocked",
+                        target_type="admin",
+                        target_label=str(payload.get("email", "")).strip()[:255],
+                        detail=str(error),
+                        source="panel",
+                        ip_address=self._client_ip(),
+                    )
+
                     self._json(401, {"detail": str(error)})
                     return
 
                 token = open_session(admin)
+
+                record_audit(
+                    {
+                        "admin_id": admin.id,
+                        "name": admin.name,
+                        "email": admin.email,
+                    },
+                    "session.login",
+                    target_type="admin",
+                    target_id=admin.id,
+                    target_label=admin.name,
+                    site=admin.site,
+                    source="panel",
+                    ip_address=self._client_ip(),
+                )
 
                 body = json.dumps({
                     "authenticated": True,
@@ -1599,6 +2276,18 @@ class ControlPanelHandler(BaseHTTPRequestHandler):
                 return
 
             if route == "/api/logout":
+                leaving = read_session(self._cookie_token())
+
+                if leaving:
+                    self._audit(
+                        leaving,
+                        "session.logout",
+                        target_type="admin",
+                        target_id=leaving["admin_id"],
+                        target_label=leaving["name"],
+                        site=leaving["site"],
+                    )
+
                 close_session(self._cookie_token())
 
                 body = json.dumps({"authenticated": False}).encode("utf-8")
@@ -1622,16 +2311,51 @@ class ControlPanelHandler(BaseHTTPRequestHandler):
                 # Revoking your own access mid-session is an easy way
                 # to shut yourself out by accident, so it is refused
                 # rather than merely warned about.
-                if target == session["admin_id"] and not payload.get("overall_access"):
+                granted = bool(payload.get("overall_access"))
+                action = "admin.grant_access" if granted else "admin.revoke_access"
+
+                if target == session["admin_id"] and not granted:
+                    self._audit(
+                        session,
+                        action,
+                        outcome="blocked",
+                        target_type="admin",
+                        target_id=target,
+                        target_label=session["name"],
+                        site=session["site"],
+                        detail="Refused: an admin cannot revoke their own panel access.",
+                    )
+
                     self._json(400, {
                         "detail": "You cannot revoke your own panel access.",
                     })
                     return
 
-                self._json(200, set_overall_access(
-                    target,
-                    bool(payload.get("overall_access")),
-                ))
+                try:
+                    result = set_overall_access(target, granted)
+
+                except ValueError as error:
+                    self._audit(
+                        session,
+                        action,
+                        outcome="blocked",
+                        target_type="admin",
+                        target_id=target,
+                        detail=str(error),
+                    )
+                    raise
+
+                self._audit(
+                    session,
+                    action,
+                    target_type="admin",
+                    target_id=target,
+                    target_label=result["admin"]["name"],
+                    site=result["admin"]["site"],
+                    detail=result["message"],
+                )
+
+                self._json(200, result)
                 return
 
             if route == "/api/admins":
@@ -1641,31 +2365,246 @@ class ControlPanelHandler(BaseHTTPRequestHandler):
                     self._json(400, {"detail": "Add at least one admin."})
                     return
 
-                self._json(200, {"results": seed_admins(entries)})
+                results = seed_admins(entries)
+
+                # One line per account rather than one per batch:
+                # a batch where three of five were skipped should
+                # read as three skips, not as one ambiguous entry.
+                for result in results:
+                    self._audit(
+                        session,
+                        "admin.create",
+                        outcome="success" if result["created"] else "blocked",
+                        target_type="admin",
+                        target_label=f"{result['name']} <{result['email']}>",
+                        site=result["site"],
+                        detail=result["message"],
+                    )
+
+                self._json(200, {"results": results})
                 return
 
             if route == "/api/admins/reset":
-                result = reset_password(
-                    int(payload.get("id")),
-                    payload.get("password", ""),
+                target = int(payload.get("id"))
+
+                result = reset_password(target, payload.get("password", ""))
+
+                # Whether a password was typed in or left to the
+                # default is worth knowing later; the password
+                # itself is never recorded either way.
+                chosen = (
+                    "a typed password"
+                    if str(payload.get("password", "")).strip()
+                    else "the default password"
+                )
+
+                self._audit(
+                    session,
+                    "admin.reset_password",
+                    target_type="admin",
+                    target_id=target,
+                    target_label=f"{result['name']} <{result['email']}>",
+                    detail=(
+                        f"Reset to {chosen}. "
+                        + ("Emailed." if result["emailed"] else "Email failed.")
+                    ),
                 )
 
                 self._json(200, result)
                 return
 
             if route == "/api/admins/status":
-                result = set_admin_active(
-                    int(payload.get("id")),
-                    bool(payload.get("is_active")),
+                target = int(payload.get("id"))
+                is_active = bool(payload.get("is_active"))
+                action = "admin.activate" if is_active else "admin.deactivate"
+
+                try:
+                    result = set_admin_active(target, is_active)
+
+                except ValueError as error:
+                    self._audit(
+                        session,
+                        action,
+                        outcome="blocked",
+                        target_type="admin",
+                        target_id=target,
+                        detail=str(error),
+                    )
+                    raise
+
+                self._audit(
+                    session,
+                    action,
+                    target_type="admin",
+                    target_id=target,
+                    target_label=result["admin"]["name"],
+                    site=result["admin"]["site"],
+                    detail=result["message"],
                 )
 
                 self._json(200, result)
                 return
 
             if route == "/api/admins/delete":
-                result = delete_admin(
-                    int(payload.get("id")),
-                    bool(payload.get("force")),
+                target = int(payload.get("id"))
+                forced = bool(payload.get("force"))
+
+                # Read the name before the row is gone, so the log
+                # line does not just say "admin 14".
+                doomed = next(
+                    (row for row in list_admins() if row["id"] == target),
+                    None,
+                )
+
+                label = (
+                    f"{doomed['name']} <{doomed['email']}>"
+                    if doomed
+                    else str(target)
+                )
+
+                try:
+                    result = delete_admin(target, forced)
+
+                except ValueError as error:
+                    self._audit(
+                        session,
+                        "admin.delete",
+                        outcome="blocked",
+                        target_type="admin",
+                        target_id=target,
+                        target_label=label,
+                        site=(doomed or {}).get("site", ""),
+                        detail=str(error),
+                    )
+                    raise
+
+                # A first attempt that comes back asking for
+                # confirmation has not deleted anything yet; it is
+                # logged as blocked so the trail shows the pause.
+                self._audit(
+                    session,
+                    "admin.delete",
+                    outcome="success" if result["deleted"] else "blocked",
+                    target_type="admin",
+                    target_id=target,
+                    target_label=label,
+                    site=(doomed or {}).get("site", ""),
+                    detail=(
+                        result["message"]
+                        + (
+                            " Approver cleared from "
+                            f"{result['references']['total']} booking(s)."
+                            if result["deleted"] and result["references"]["total"]
+                            else ""
+                        )
+                    ),
+                )
+
+                self._json(200, result)
+                return
+
+            if route == "/api/rooms":
+                site_name = str(payload.get("site", "")).strip()
+
+                try:
+                    result = create_room(
+                        payload.get("room_code", ""),
+                        payload.get("room_name", ""),
+                        payload.get("capacity", 0),
+                        payload.get("location", ""),
+                        site_name,
+                    )
+
+                except ValueError as error:
+                    self._audit(
+                        session,
+                        "room.create",
+                        outcome="blocked",
+                        target_type="room",
+                        target_label=str(payload.get("room_name", "")).strip()[:255],
+                        site=site_name,
+                        detail=str(error),
+                    )
+                    raise
+
+                room = result["room"]
+
+                self._audit(
+                    session,
+                    "room.create",
+                    target_type="room",
+                    target_id=room["id"],
+                    target_label=f"{room['room_name']} ({room['room_code']})",
+                    site=room["site"],
+                    detail=(
+                        f"Capacity {room['capacity']}"
+                        + (f", {room['location']}" if room["location"] else "")
+                    ),
+                )
+
+                self._json(200, result)
+                return
+
+            if route == "/api/rooms/status":
+                target = int(payload.get("id"))
+                is_active = bool(payload.get("is_active"))
+                action = "room.enable" if is_active else "room.disable"
+
+                try:
+                    result = set_room_active(target, is_active)
+
+                except ValueError as error:
+                    self._audit(
+                        session,
+                        action,
+                        outcome="blocked",
+                        target_type="room",
+                        target_id=target,
+                        detail=str(error),
+                    )
+                    raise
+
+                room = result["room"]
+
+                self._audit(
+                    session,
+                    action,
+                    target_type="room",
+                    target_id=target,
+                    target_label=f"{room['room_name']} ({room['room_code']})",
+                    site=room["site"],
+                    detail=result["message"],
+                )
+
+                self._json(200, result)
+                return
+
+            if route == "/api/rooms/delete":
+                target = int(payload.get("id"))
+
+                try:
+                    result = delete_room(target)
+
+                except ValueError as error:
+                    self._audit(
+                        session,
+                        "room.delete",
+                        outcome="blocked",
+                        target_type="room",
+                        target_id=target,
+                        target_label=str(payload.get("label", "")).strip()[:255],
+                        detail=str(error),
+                    )
+                    raise
+
+                self._audit(
+                    session,
+                    "room.delete",
+                    target_type="room",
+                    target_id=target,
+                    target_label=f"{result['room_name']} ({result['room_code']})",
+                    site=result["site"],
+                    detail=result["message"],
                 )
 
                 self._json(200, result)
@@ -1716,6 +2655,7 @@ def serve(host: str, port: int):
         return
 
     ensure_overall_access_column()
+    ensure_audit_log_table()
 
     db = SessionLocal()
 
@@ -1790,8 +2730,9 @@ def print_results(results: list[dict]):
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Equibook control panel: admins, bookings and analytics. "
-            "Sign-in needs an admin with overall_access = 1 (see --grant)."
+            "Equibook control panel: admins, bookings, analytics, rooms "
+            "and audit logs. Sign-in needs an admin with "
+            "overall_access = 1 (see --grant)."
         )
     )
 
@@ -1836,17 +2777,54 @@ def main():
 
     if args.grant or args.revoke:
         ensure_overall_access_column()
+        ensure_audit_log_table()
+
+        email = args.grant or args.revoke
+        granted = bool(args.grant)
 
         try:
-            print(grant_by_email(args.grant or args.revoke, bool(args.grant)))
+            message = grant_by_email(email, granted)
+            print(message)
+            outcome = "success"
 
         except ValueError as error:
-            print(error)
+            message = str(error)
+            print(message)
+            outcome = "blocked"
+
+        # Recorded with no actor: whoever ran this had a shell on
+        # the machine, which is not an identity the panel can put a
+        # name to. The source column says where it came from.
+        record_audit(
+            SHELL_ACTOR,
+            "admin.grant_access" if granted else "admin.revoke_access",
+            outcome=outcome,
+            target_type="admin",
+            target_label=email,
+            detail=message,
+            source="shell",
+        )
 
         return
 
     if args.seed:
-        print_results(seed_admins(ADMINS))
+        ensure_audit_log_table()
+
+        results = seed_admins(ADMINS)
+
+        for result in results:
+            record_audit(
+                SHELL_ACTOR,
+                "admin.create",
+                outcome="success" if result["created"] else "blocked",
+                target_type="admin",
+                target_label=f"{result['name']} <{result['email']}>",
+                site=result["site"],
+                detail=result["message"],
+                source="shell",
+            )
+
+        print_results(results)
         return
 
     serve(args.host, args.port)

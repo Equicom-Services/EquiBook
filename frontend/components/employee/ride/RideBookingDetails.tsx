@@ -18,7 +18,6 @@ interface RideReservation {
   drop_off_maps_link: string | null;
   return_drop_off_location: string | null;
   return_drop_off_maps_link: string | null;
-  purpose: string;
   passenger_count: number;
   vehicle_type: string | null;
   status: string;
@@ -87,9 +86,6 @@ export default function RideBookingDetails({
         .toLowerCase()
         .includes(query) ||
       (booking.site ?? "")
-        .toLowerCase()
-        .includes(query) ||
-      booking.purpose
         .toLowerCase()
         .includes(query) ||
       booking.status
@@ -166,7 +162,7 @@ export default function RideBookingDetails({
             setSearchQuery(e.target.value);
             goToPage(1);
           }}
-          placeholder="Search vehicle, route, employee, site, or purpose..."
+          placeholder="Search vehicle, route, employee, or site..."
           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
         />
       </div>
@@ -280,18 +276,8 @@ export default function RideBookingDetails({
                       </p>
                     </div>
 
-                    {/* Purpose */}
-                    <div>
-                      <p className="text-xs text-slate-400">
-                        Purpose
-                      </p>
-                      <p className="mt-0.5 text-sm text-slate-600">
-                        {booking.purpose}
-                      </p>
-                    </div>
-
                     {/* Status */}
-                    <div className="col-span-2 flex items-end justify-end">
+                    <div className="flex items-end justify-end">
                       <span
                         className={
                           booking.status === "APPROVED"
