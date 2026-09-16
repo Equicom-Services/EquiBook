@@ -5,7 +5,7 @@ import { useCallback, useState, useEffect } from "react";
 import Calendar from "@/components/shared/Calendar";
 import RoomBookingDetails from "./RoomBookingDetails";
 import RoomRequestForm from "./RoomRequestForm";
-import RoomBookingHelp from "./RoomBookingHelp";
+import BookingHelp from "@/components/employee/BookingHelp";
 
 interface RoomBooking {
   id: string;
@@ -479,8 +479,8 @@ return (
               </p>
             </div>
 
-            {/* Opens the guide to this form. */}
-            <RoomBookingHelp />
+            {/* Opens the guide, on its room section. */}
+            <BookingHelp topic="room" />
           </div>
 
           <RoomRequestForm

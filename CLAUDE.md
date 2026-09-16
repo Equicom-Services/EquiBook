@@ -66,7 +66,10 @@ gates the local control panel. Site scoping below is still the only boundary the
 Every admin row has a `site` string (e.g. `"Zapote"`). This is the app's multi-tenancy boundary:
 **admin endpoints filter results by `Site.site_name == current_admin.site`** and reject cross-site
 mutations with 403. When adding or reviewing admin endpoints, preserve this filter — it is the only
-thing isolating one office's data from another. Login issues a JWT carrying `sub` (admin id),
+thing isolating one office's data from another. The one deliberate exception is `routers/rooms.py`:
+room management (create / list / enable / delete) is open to **any** admin for **any** site, because
+it maintains the facility list rather than the bookings made against it. Requests, approvals,
+reports and the dashboard all stay scoped. Login issues a JWT carrying `sub` (admin id),
 `email`, and `role: "admin"`.
 
 Endpoints split into two access tiers:

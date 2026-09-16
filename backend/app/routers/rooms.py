@@ -38,10 +38,20 @@ class RoomStatusUpdate(BaseModel):
 # GET ROOMS
 # ADMIN ONLY
 #
-# GET /api/rooms?site_id={admin.site_id}
+# GET /api/rooms            -> every room, all sites
+# GET /api/rooms?site_id=N  -> every room of that one site
 #
-# Returns ALL rooms for the admin's assigned site,
-# including ACTIVE and INACTIVE rooms.
+# Includes ACTIVE and INACTIVE rooms: an admin has to see a
+# disabled room to be able to enable it again.
+#
+# NOTE ON SITE SCOPING
+#
+# The endpoints in this file are deliberately not scoped to the
+# admin's own site: any admin may set up and maintain rooms for
+# any office. This is the facility list, not the bookings made
+# against it - reservations, approvals and reports are still
+# filtered by Site.site_name == current_admin.site, and that
+# remains the boundary between one office's data and another's.
 # ============================================================
 
 @router.get("")
@@ -50,46 +60,13 @@ def get_rooms(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin),
 ):
-    # --------------------------------------------------------
-    # Find the admin's assigned site
-    # --------------------------------------------------------
+    query = db.query(Room)
 
-    admin_site = (
-        db.query(Site)
-        .filter(
-            Site.site_name == current_admin.site,
-            Site.is_active == True,
-        )
-        .first()
-    )
-
-    if not admin_site:
-        raise HTTPException(
-            status_code=403,
-            detail="Your admin account does not have a valid site assigned.",
-        )
-
-    # --------------------------------------------------------
-    # Prevent admin from accessing another site's rooms
-    # --------------------------------------------------------
-
-    if site_id is not None and site_id != admin_site.site_id:
-        raise HTTPException(
-            status_code=403,
-            detail="You are not authorized to access rooms from this site.",
-        )
-
-    # --------------------------------------------------------
-    # Return ALL rooms belonging to admin's site
-    #
-    # Admin needs to see inactive rooms so they can enable them.
-    # --------------------------------------------------------
+    if site_id is not None:
+        query = query.filter(Room.site_id == site_id)
 
     rooms = (
-        db.query(Room)
-        .filter(
-            Room.site_id == admin_site.site_id,
-        )
+        query
         .order_by(
             Room.room_id.desc()
         )
@@ -156,6 +133,10 @@ def get_available_rooms(
 # ============================================================
 # CREATE ROOM
 # ADMIN ONLY
+#
+# The room is created for the site named in the body, which is
+# any active site and not necessarily the admin's own - see the
+# note on site scoping above.
 # ============================================================
 
 @router.post("")
@@ -199,36 +180,32 @@ def create_room(
         )
 
     # --------------------------------------------------------
-    # Find admin's assigned site
+    # Find the site the room is being added to
     # --------------------------------------------------------
 
-    admin_site = (
+    site = (
         db.query(Site)
         .filter(
-            Site.site_name == current_admin.site,
+            Site.site_id == room_data.site_id,
             Site.is_active == True,
         )
         .first()
     )
 
-    if not admin_site:
+    if not site:
         raise HTTPException(
-            status_code=403,
-            detail="Your admin account does not have a valid site assigned.",
-        )
-
-    # --------------------------------------------------------
-    # Make sure submitted site belongs to admin
-    # --------------------------------------------------------
-
-    if room_data.site_id != admin_site.site_id:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only create rooms for your assigned site.",
+            status_code=404,
+            detail=(
+                "That site could not be found, or is no longer "
+                "active. Please choose another."
+            ),
         )
 
     # --------------------------------------------------------
     # Check duplicate room code
+    #
+    # Room codes are unique across every site, so the clash is
+    # named: it is often at a site the admin was not looking at.
     # --------------------------------------------------------
 
     existing_room = (
@@ -240,9 +217,26 @@ def create_room(
     )
 
     if existing_room:
+        existing_site = (
+            db.query(Site)
+            .filter(
+                Site.site_id == existing_room.site_id
+            )
+            .first()
+        )
+
+        where = (
+            existing_site.site_name
+            if existing_site
+            else "another site"
+        )
+
         raise HTTPException(
             status_code=409,
-            detail="A room with this room code already exists.",
+            detail=(
+                f'Room code "{room_code}" is already used by '
+                f'"{existing_room.room_name}" at {where}.'
+            ),
         )
 
     # --------------------------------------------------------
@@ -261,7 +255,7 @@ def create_room(
             else None
         ),
         is_active=True,
-        site_id=admin_site.site_id,
+        site_id=site.site_id,
         created_at=now,
         updated_at=now,
     )
@@ -288,33 +282,13 @@ def update_room_status(
     current_admin: Admin = Depends(get_current_admin),
 ):
     # --------------------------------------------------------
-    # Find admin's assigned site
-    # --------------------------------------------------------
-
-    admin_site = (
-        db.query(Site)
-        .filter(
-            Site.site_name == current_admin.site,
-            Site.is_active == True,
-        )
-        .first()
-    )
-
-    if not admin_site:
-        raise HTTPException(
-            status_code=403,
-            detail="Your admin account does not have a valid site assigned.",
-        )
-
-    # --------------------------------------------------------
-    # Find room belonging to admin's site
+    # Find the room, whichever site it belongs to
     # --------------------------------------------------------
 
     room = (
         db.query(Room)
         .filter(
             Room.room_id == room_id,
-            Room.site_id == admin_site.site_id,
         )
         .first()
     )
@@ -343,7 +317,7 @@ def update_room_status(
 #
 # DELETE /api/rooms/{room_id}
 #
-# Permanently removes a room from the admin's own site.
+# Permanently removes a room, at whichever site it belongs to.
 #
 # A room that has ever been booked is NOT deletable: its
 # reservations (and the reports built on them) name the room
@@ -359,33 +333,13 @@ def delete_room(
     current_admin: Admin = Depends(get_current_admin),
 ):
     # --------------------------------------------------------
-    # Find admin's assigned site
-    # --------------------------------------------------------
-
-    admin_site = (
-        db.query(Site)
-        .filter(
-            Site.site_name == current_admin.site,
-            Site.is_active == True,
-        )
-        .first()
-    )
-
-    if not admin_site:
-        raise HTTPException(
-            status_code=403,
-            detail="Your admin account does not have a valid site assigned.",
-        )
-
-    # --------------------------------------------------------
-    # Find room belonging to admin's site
+    # Find the room, whichever site it belongs to
     # --------------------------------------------------------
 
     room = (
         db.query(Room)
         .filter(
             Room.room_id == room_id,
-            Room.site_id == admin_site.site_id,
         )
         .first()
     )
