@@ -10,6 +10,7 @@ interface RoomBooking {
   room: string;
   site: string;
   employee: string;
+  purpose: string;
   status: "approved" | "pending";
 }
 
@@ -94,6 +95,7 @@ export default function RoomBookingDetails({
         booking.title.toLowerCase().includes(query) ||
         booking.site.toLowerCase().includes(query) ||
         booking.employee.toLowerCase().includes(query) ||
+        booking.purpose.toLowerCase().includes(query) ||
         booking.status.toLowerCase().includes(query)
       );
     });
@@ -164,7 +166,7 @@ export default function RoomBookingDetails({
             setSearchQuery(e.target.value);
             goToPage(1);
           }}
-          placeholder="Search room, booking, or employee..."
+          placeholder="Search room, booking, employee, or purpose..."
           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20"
         />
 
@@ -282,8 +284,18 @@ export default function RoomBookingDetails({
                       </p>
                     </div>
 
+                    {/* Purpose */}
+                    <div>
+                      <p className="text-xs text-slate-400">
+                        Purpose
+                      </p>
+                      <p className="mt-0.5 text-sm text-slate-600">
+                        {booking.purpose}
+                      </p>
+                    </div>
+
                     {/* Status */}
-                    <div className="flex items-end justify-end">
+                    <div className="col-span-2 flex items-end justify-end">
                       <span
                         className={
                           booking.status === "approved"

@@ -15,6 +15,7 @@ interface RoomBooking {
   room: string;
   site: string;
   employee: string;
+  purpose: string;
   status: "approved" | "pending";
 }
 
@@ -238,6 +239,8 @@ export default function RoomBookingPage({
             site: request.site,
 
             employee: request.employee_name,
+
+            purpose: request.purpose,
 
             status:
               request.status.toLowerCase() as
