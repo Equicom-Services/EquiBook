@@ -264,7 +264,7 @@ export default function RideBookingDetails({
                     </div>
 
                     {/* Status */}
-                    <div className="flex items-end justify-end">
+                    <div className="col-span-2 flex items-end justify-end">
                       <span
                         className={
                           booking.status === "APPROVED"
