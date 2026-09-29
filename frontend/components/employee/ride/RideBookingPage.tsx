@@ -7,6 +7,7 @@ import Calendar from "@/components/shared/Calendar";
 import RideBookingDetails from "./RideBookingDetails";
 
 import RideRequestForm from "./RideRequestForm";
+import BookingHelp from "@/components/employee/BookingHelp";
 
 interface RideReservation {
   ride_reservation_id: number;
@@ -42,7 +43,17 @@ interface SiteResponse {
   site_name: string;
 }
 
-export default function RideBookingPage() {
+interface RideBookingPageProps {
+  /*
+   * Changing this reloads the bookings, e.g. after the booking
+   * assistant cancels or edits one.
+   */
+  refreshKey?: number;
+}
+
+export default function RideBookingPage({
+  refreshKey = 0,
+}: RideBookingPageProps) {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
@@ -133,7 +144,7 @@ export default function RideBookingPage() {
 
   useEffect(() => {
     fetchBookings();
-  }, [fetchBookings]);
+  }, [fetchBookings, refreshKey]);
 
   // ==========================================================
   // GET BRANCH COLOR
@@ -324,13 +335,20 @@ export default function RideBookingPage() {
           {/* Request Form */}
           <div className="rounded-md bg-white p-6 xl:min-h-0 xl:overflow-y-auto">
 
-            <h2 className="text-lg font-semibold">
-              New Ride Request
-            </h2>
+            <div className="mb-6 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  New Ride Request
+                </h2>
 
-            <p className="mt-1 mb-6 text-sm text-slate-500">
-              Fill in the details below to request a company ride.
-            </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Fill in the details below to request a company ride.
+                </p>
+              </div>
+
+              {/* Opens the guide, on its ride section. */}
+              <BookingHelp topic="ride" />
+            </div>
 
             <RideRequestForm
               selectedDate={selectedDate}

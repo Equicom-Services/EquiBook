@@ -76,7 +76,7 @@ class RideReservation(Base):
     )
 
     pickup_maps_link: Mapped[str | None] = mapped_column(
-        String(500),
+        String(1000),
         nullable=True,
     )
 
@@ -86,7 +86,7 @@ class RideReservation(Base):
     )
 
     drop_off_maps_link: Mapped[str | None] = mapped_column(
-        String(500),
+        String(1000),
         nullable=True,
     )
 
@@ -96,7 +96,7 @@ class RideReservation(Base):
     )
 
     return_drop_off_maps_link: Mapped[str | None] = mapped_column(
-        String(500),
+        String(1000),
         nullable=True,
     )
 

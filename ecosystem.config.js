@@ -22,3 +22,7 @@ module.exports = {
     }
   ]
 };
+
+
+
+// pm2 restart equibook-api equibook-web

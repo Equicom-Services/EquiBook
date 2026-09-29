@@ -10,6 +10,12 @@ from sqlalchemy import inspect, text
 
 from app.core.config import settings
 from app.core.database import Base, engine, ensure_overall_access_column
+from app.core.email_notifications import (
+    EMAIL_HEADER,
+    header_value,
+    is_admin_request,
+    start_recording,
+)
 
 from app.routers import auth
 from app.routers import admin
@@ -20,6 +26,7 @@ from app.routers import room_requests
 from app.routers import ride_reservations
 from app.routers import dashboard
 from app.routers import employees
+from app.routers import booking_access
 
 from app.core.security import get_current_admin
 from app.models.admin import Admin
@@ -164,6 +171,49 @@ async def handle_unexpected_errors(
         )
 
 
+# ==============================================================
+# EMAIL NOTIFICATIONS
+#
+# Notification emails are dispatched as background tasks, so
+# they leave after the response body is built and no router can
+# report them in its own payload. Every dispatch is recorded
+# instead (see core/email_notifications.py) and listed here in a
+# response header, which the frontend turns into a toast.
+# ==============================================================
+
+@app.middleware("http")
+async def report_dispatched_emails(
+    request: Request,
+    call_next,
+):
+    """
+    List the emails this request sent in the response header.
+
+    Only a signed-in admin is told who was emailed. The employee
+    booking pages get the bare marker instead, so the recipients
+    of a booking's emails - the site's admins, and any employee
+    whose overlapping request was auto-rejected - are never handed
+    to whoever filled in the form.
+
+    Registered before the CORS middleware, like the handler
+    above, so CORS stays on the outside and can advertise the
+    header as readable by the browser.
+    """
+    records = start_recording()
+
+    response = await call_next(request)
+
+    value = header_value(
+        records,
+        detailed=is_admin_request(request),
+    )
+
+    if value:
+        response.headers[EMAIL_HEADER] = value
+
+    return response
+
+
 @app.exception_handler(RequestValidationError)
 async def handle_validation_error(
     request: Request,
@@ -199,7 +249,11 @@ app.add_middleware(
     allow_origins=[settings.FRONTEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
+
+    # The browser can only read a custom response header that
+    # is named here; without it the email toasts never fire.
+    expose_headers=[EMAIL_HEADER],
 )
 
 
@@ -242,6 +296,11 @@ app.include_router(
 
 app.include_router(
     employees.router,
+    prefix="/api",
+)
+
+app.include_router(
+    booking_access.router,
     prefix="/api",
 )
 

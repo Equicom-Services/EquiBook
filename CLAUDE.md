@@ -27,12 +27,27 @@ python -m scripts.test_email       # smoke-test SMTP config
 There is no test suite and no linter configured for the backend.
 
 `scripts/seed_admin.py` + `scripts/seed_admin.html` are a self-contained control panel
-(admins, bookings, analytics) served by a stdlib HTTP server, deliberately **outside** the
-FastAPI app — admin create/delete/reset never becomes a live endpoint. Signing in needs an
-Equibook admin whose `admin.overall_access` is 1; new accounts default to 0 and access is
-granted per admin (`--grant`, or from the panel). It still binds to 127.0.0.1 — the login is a
-second lock, not a reason to expose it. Credential emails are always sent one recipient per
-message.
+(tabs: Admins, Bookings, Analytics, Rooms, Audit logs) served by a stdlib HTTP server,
+deliberately **outside** the FastAPI app — admin create/delete/reset never becomes a live
+endpoint. Signing in needs an Equibook admin whose `admin.overall_access` is 1; new accounts
+default to 0 and access is granted per admin (`--grant`, or from the panel). It still binds to
+127.0.0.1 — the login is a second lock, not a reason to expose it. Credential emails are always
+sent one recipient per message.
+
+The **Rooms** tab is the facility list for every branch, matching `routers/rooms.py`: any admin
+may enable, disable, add or remove a room at any site. It flags disabled rooms that still have
+approved bookings ahead of them, and refuses to delete a room that has ever been booked (its
+reservations point at it by `room_id`) — disabling is the answer there.
+
+The **Audit logs** tab reads `models/audit_log.py` (`audit_logs`), written only by the panel.
+Rows are append-only and record refusals as well as successes (`outcome` is
+`success`/`blocked`/`failed`), including failed sign-ins. Three rules when extending it: the
+route records the action, not the domain function (the route is where the actor and IP are);
+a failed log write never fails the action it describes; nothing writes a password or a hash.
+The actor is **copied in as text with no FK to `admin.id`** so deleting an admin neither erases
+nor blocks the record of what they did. The table is created by `ensure_audit_log_table()` in
+`core/database.py`, called from the panel's `serve()` — the panel runs without booting the API,
+so it cannot rely on `main.py`'s `create_all`.
 
 ### Frontend (run from `frontend/`)
 ```bash
@@ -66,7 +81,10 @@ gates the local control panel. Site scoping below is still the only boundary the
 Every admin row has a `site` string (e.g. `"Zapote"`). This is the app's multi-tenancy boundary:
 **admin endpoints filter results by `Site.site_name == current_admin.site`** and reject cross-site
 mutations with 403. When adding or reviewing admin endpoints, preserve this filter — it is the only
-thing isolating one office's data from another. Login issues a JWT carrying `sub` (admin id),
+thing isolating one office's data from another. The one deliberate exception is `routers/rooms.py`:
+room management (create / list / enable / delete) is open to **any** admin for **any** site, because
+it maintains the facility list rather than the bookings made against it. Requests, approvals,
+reports and the dashboard all stay scoped. Login issues a JWT carrying `sub` (admin id),
 `email`, and `role: "admin"`.
 
 Endpoints split into two access tiers:

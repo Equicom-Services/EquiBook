@@ -29,7 +29,7 @@ def send_email(
 
         # IMPORTANT:
         # Do NOT call server.login()
-        # Gmail SMTP Relay is configured without SMTP authentication.
+        # Gmail SMTP Relay is configured without SMTP authentication. HAHAH
 
         server.sendmail(
             settings.SMTP_FROM_EMAIL,

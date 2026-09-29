@@ -25,9 +25,27 @@ interface Admin {
   site_name: string;
 }
 
+interface SiteOption {
+  site_id: number;
+  site_name: string;
+}
+
+/* Shown in the site filter when no one site is chosen. */
+const ALL_SITES = "all";
+
 export default function RoomManagement() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [admin, setAdmin] = useState<Admin | null>(null);
+
+  /*
+   * Rooms can be managed for any site, not only the admin's own,
+   * so every site is listed here: the table is filtered by one of
+   * them, and a new room is added to whichever one is chosen.
+   */
+  const [sites, setSites] = useState<SiteOption[]>([]);
+
+  /* A site_id as a string, or ALL_SITES. Set once the admin loads. */
+  const [siteFilter, setSiteFilter] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +69,7 @@ export default function RoomManagement() {
     room_name: "",
     capacity: "",
     location: "",
+    site_id: "",
   });
 
   // ==========================================================
@@ -93,32 +112,40 @@ export default function RoomManagement() {
       setAdmin(currentAdmin);
 
       // --------------------------------------------------------
-      // Fetch rooms for admin's assigned site
+      // Every site, for the filter and the Add Room form
       //
-      // GET /api/rooms?site_id={site_id}
+      // GET /api/sites
       // --------------------------------------------------------
 
-      const roomsResponse = await apiFetch(
-        `/api/rooms?site_id=${currentAdmin.site_id}`,
-        {
-          method: "GET",
-          cache: "no-store",
-        }
-      );
+      const sitesResponse = await apiFetch("/api/sites", {
+        method: "GET",
+        cache: "no-store",
+      });
 
-      const roomsData = await roomsResponse.json().catch(() => null);
+      const sitesData = await sitesResponse.json().catch(() => null);
 
-      if (!roomsResponse.ok) {
+      if (!sitesResponse.ok) {
         throw new Error(
           pickErrorMessage(
-            roomsResponse,
-            roomsData,
-            "Unable to load rooms."
+            sitesResponse,
+            sitesData,
+            "Unable to load sites."
           )
         );
       }
 
-      setRooms(roomsData);
+      setSites(sitesData);
+
+      // --------------------------------------------------------
+      // Rooms. The admin's own site is where they usually work,
+      // so that is what the table opens on.
+      // --------------------------------------------------------
+
+      const initialFilter = String(currentAdmin.site_id);
+
+      setSiteFilter(initialFilter);
+
+      await loadRooms(initialFilter);
     } catch (error) {
       setError(
         getThrownMessage(
@@ -131,12 +158,83 @@ export default function RoomManagement() {
     }
   }
 
+  /*
+   * Rooms for one site, or for all of them.
+   *
+   * Throws rather than showing the error itself, so the caller
+   * decides whether it belongs in the page or in the modal.
+   */
+  async function loadRooms(filter: string) {
+    const response = await apiFetch(
+      filter === ALL_SITES
+        ? "/api/rooms"
+        : `/api/rooms?site_id=${filter}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(
+        pickErrorMessage(
+          response,
+          data,
+          "Unable to load rooms."
+        )
+      );
+    }
+
+    setRooms(data);
+  }
+
+  /*
+   * Switching the table to another site.
+   */
+  async function changeSiteFilter(filter: string) {
+    setSiteFilter(filter);
+    setError("");
+    setSuccess("");
+
+    try {
+      setLoading(true);
+
+      await loadRooms(filter);
+    } catch (error) {
+      setError(
+        getThrownMessage(
+          error,
+          "Unable to load rooms."
+        )
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /*
+   * The name to show for a room's site.
+   *
+   * Sites come from the active list, so a room left behind by a
+   * site that was switched off has no name to show.
+   */
+  function siteNameOf(siteId: number): string {
+    return (
+      sites.find((site) => site.site_id === siteId)
+        ?.site_name ?? "Unknown site"
+    );
+  }
+
   // ==========================================================
   // FORM CHANGE
   // ==========================================================
 
   function handleChange(
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement
+    >
   ) {
     const { name, value } = e.target;
 
@@ -156,6 +254,10 @@ export default function RoomManagement() {
       room_name: "",
       capacity: "",
       location: "",
+
+      // A new room goes to the admin's own site unless they
+      // pick another one.
+      site_id: admin ? String(admin.site_id) : "",
     });
   }
 
@@ -193,6 +295,7 @@ export default function RoomManagement() {
     const roomName = formData.room_name.trim();
     const capacity = Number(formData.capacity);
     const location = formData.location.trim();
+    const siteId = Number(formData.site_id);
 
     // --------------------------------------------------------
     // Frontend validation
@@ -210,6 +313,11 @@ export default function RoomManagement() {
 
     if (!Number.isInteger(capacity) || capacity <= 0) {
       setError("Capacity must be greater than 0.");
+      return;
+    }
+
+    if (!siteId) {
+      setError("Please choose the site for this room.");
       return;
     }
 
@@ -240,7 +348,7 @@ export default function RoomManagement() {
           room_name: roomName,
           capacity,
           location: location || null,
-          site_id: admin.site_id,
+          site_id: siteId,
         }),
       });
 
@@ -257,13 +365,28 @@ export default function RoomManagement() {
       }
 
       // ------------------------------------------------------
-      // Add returned room to list
+      // Show the new room
+      //
+      // A room added to a site the table is not showing would
+      // otherwise appear for a moment and then be gone on the
+      // next load, so the table moves to that site instead.
       // ------------------------------------------------------
 
-      setRooms((prev) => [data, ...prev]);
+      const addedElsewhere =
+        siteFilter !== ALL_SITES &&
+        siteFilter !== String(data.site_id);
+
+      if (addedElsewhere) {
+        setSiteFilter(String(data.site_id));
+
+        await loadRooms(String(data.site_id));
+      } else {
+        setRooms((prev) => [data, ...prev]);
+      }
 
       setSuccess(
-        `Room "${data.room_name}" was added successfully.`
+        `Room "${data.room_name}" was added to ` +
+          `${siteNameOf(data.site_id)}.`
       );
 
       closeModal();
@@ -433,28 +556,71 @@ export default function RoomManagement() {
           </h2>
 
           <p className="mt-1 text-sm text-slate-500">
-            Manage meeting rooms for your assigned site.
+            Manage meeting rooms for any site, not only your own.
           </p>
 
           {admin && (
             <p className="mt-1 text-xs font-medium text-[#03045e]">
-              Site: {admin.site_name}
+              Your site: {admin.site_name}
             </p>
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setError("");
-            setSuccess("");
-            setIsModalOpen(true);
-          }}
-          disabled={!admin || loading}
-          className="rounded-md bg-[#03045e] px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Add Room
-        </button>
+        <div className="flex items-end gap-3">
+
+          {/* Which site's rooms the table is showing */}
+
+          <div>
+            <label
+              htmlFor="room-site-filter"
+              className="mb-1 block text-xs font-medium text-slate-500"
+            >
+              Site
+            </label>
+
+            <select
+              id="room-site-filter"
+              value={siteFilter}
+              onChange={(e) =>
+                changeSiteFilter(e.target.value)
+              }
+              disabled={!admin || sites.length === 0}
+              className="rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#03045e] disabled:bg-slate-50"
+            >
+              {/* Only until the admin's own site is known. */}
+              {siteFilter === "" && (
+                <option value="">Loading sites...</option>
+              )}
+
+              <option value={ALL_SITES}>
+                All sites
+              </option>
+
+              {sites.map((site) => (
+                <option
+                  key={site.site_id}
+                  value={String(site.site_id)}
+                >
+                  {site.site_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              setSuccess("");
+              resetForm();
+              setIsModalOpen(true);
+            }}
+            disabled={!admin || loading}
+            className="rounded-md bg-[#03045e] px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Add Room
+          </button>
+        </div>
       </div>
 
       {/* ======================================================
@@ -525,7 +691,11 @@ export default function RoomManagement() {
           {rooms.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-sm text-slate-500">
-                No rooms found for your site.
+                {siteFilter === ALL_SITES
+                  ? "No rooms have been set up yet."
+                  : `No rooms found for ${siteNameOf(
+                      Number(siteFilter)
+                    )}.`}
               </p>
             </div>
           ) : (
@@ -561,7 +731,7 @@ export default function RoomManagement() {
                   {/* Site */}
 
                   <p className="text-sm text-slate-600">
-                    {admin?.site_name ?? "Unknown Site"}
+                    {siteNameOf(room.site_id)}
                   </p>
 
                   {/* Capacity */}
@@ -646,7 +816,7 @@ export default function RoomManagement() {
                 </h3>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  Add a meeting room to your assigned site.
+                  Add a meeting room to any site.
                 </p>
               </div>
 
@@ -661,17 +831,41 @@ export default function RoomManagement() {
 
             </div>
 
-            {/* Assigned Site */}
+            {/* Site the room belongs to */}
 
             <div className="mt-5">
 
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="room-site"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
                 Site
               </label>
 
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
-                {admin?.site_name ?? "Loading site..."}
-              </div>
+              <select
+                id="room-site"
+                name="site_id"
+                value={formData.site_id}
+                onChange={handleChange}
+                required
+                disabled={submitting || sites.length === 0}
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#03045e] focus:ring-1 focus:ring-[#03045e]/20 disabled:bg-slate-50"
+              >
+                <option value="">
+                  {sites.length === 0
+                    ? "Loading sites..."
+                    : "Select site"}
+                </option>
+
+                {sites.map((site) => (
+                  <option
+                    key={site.site_id}
+                    value={String(site.site_id)}
+                  >
+                    {site.site_name}
+                  </option>
+                ))}
+              </select>
 
             </div>
 
@@ -816,9 +1010,10 @@ export default function RoomManagement() {
               <span className="font-medium text-slate-700">
                 {roomToDelete.room_name}
               </span>{" "}
-              ({roomToDelete.room_code}) from your site. A room
-              that already has reservations can&apos;t be
-              deleted — disable it instead.
+              ({roomToDelete.room_code}) from{" "}
+              {siteNameOf(roomToDelete.site_id)}. A room that
+              already has reservations can&apos;t be deleted —
+              disable it instead.
             </p>
 
             <div className="mt-6 flex justify-end gap-3">

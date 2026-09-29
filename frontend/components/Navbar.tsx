@@ -138,7 +138,7 @@ useEffect(() => {
 
           <div>
             <h1 className="text-base font-bold leading-tight text-[#03045e]">
-              EquiBook
+              EquiBook+
             </h1>
 
             <p className="text-xs font-medium text-slate-400">

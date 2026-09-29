@@ -238,12 +238,45 @@
     .badge.REJECTED { background: #fee2e2; color: #991b1b; }
     .badge.CANCELLED{ background: #f1f5f9; color: #475569; }
     .badge.inactive { background: #f1f5f9; color: #475569; }
+    .badge.enabled  { background: #dcfce7; color: #166534; }
+    .badge.disabled { background: #ffedd5; color: #9a3412; }
+    .badge.success  { background: #dcfce7; color: #166534; }
+    .badge.blocked  { background: #fef3c7; color: #92400e; }
+    .badge.shell    { background: #e0e7ff; color: #3730a3; }
+    .badge.panel    { background: #f1f5f9; color: #475569; }
 
     .filters {
         display: grid;
         grid-template-columns: repeat(5, 1fr) auto;
         gap: 12px;
         align-items: end;
+    }
+
+    .filters.three { grid-template-columns: repeat(3, 1fr) auto; }
+
+    /* Seven fields plus the reset button: exactly two rows of four. */
+    .filters.audit { grid-template-columns: repeat(4, 1fr); }
+
+    /* New-room form: same shape as the add-admin rows. */
+    .room-form {
+        display: grid;
+        grid-template-columns: .8fr 1.4fr .6fr 1.2fr 1fr;
+        gap: 12px;
+        align-items: end;
+    }
+
+    /* The audit log's own detail line, under the action. */
+    .detail {
+        font-size: 12.5px;
+        color: var(--muted);
+        line-height: 1.5;
+        margin-top: 3px;
+        max-width: 430px;
+    }
+
+    .mono {
+        font-family: "Courier New", Courier, monospace;
+        font-size: 12.5px;
     }
 
     .rows .row {
@@ -444,14 +477,20 @@
     @media (max-width: 1080px) {
         .kpis { grid-template-columns: repeat(3, 1fr); }
         .grid-2 { grid-template-columns: 1fr; }
-        .filters { grid-template-columns: 1fr 1fr; }
+        .filters,
+        .filters.three,
+        .filters.audit { grid-template-columns: 1fr 1fr; }
+        .room-form { grid-template-columns: 1fr 1fr; }
     }
 
     @media (max-width: 720px) {
         .kpis { grid-template-columns: repeat(2, 1fr); }
         .rows .row { grid-template-columns: 1fr; }
         .remove { width: 100%; }
-        .filters { grid-template-columns: 1fr; }
+        .filters,
+        .filters.three,
+        .filters.audit { grid-template-columns: 1fr; }
+        .room-form { grid-template-columns: 1fr; }
         .scroll-x { overflow-x: auto; }
     }
 </style>
@@ -473,6 +512,8 @@
         <button data-tab="admins" class="active">Admins</button>
         <button data-tab="bookings">Bookings</button>
         <button data-tab="analytics">Analytics</button>
+        <button data-tab="rooms">Rooms</button>
+        <button data-tab="audit">Audit logs</button>
     </nav>
 </header>
 
@@ -699,6 +740,120 @@
 
     </section>
 
+    <!-- ============ ROOMS ============ -->
+    <section data-panel="rooms" hidden>
+
+        <div class="kpis" id="room-kpis"></div>
+
+        <div class="card" id="stranded-card" style="display:none;">
+            <h2>Disabled, but still booked</h2>
+            <p class="hint">
+                These rooms are hidden from the booking forms, yet approved
+                reservations are still standing against them. Disabling a room
+                never cancels what was already approved &mdash; cancel those in
+                Equibook if they should not go ahead.
+            </p>
+            <div id="stranded-list"></div>
+        </div>
+
+        <div class="card">
+            <h2>Filters</h2>
+            <p class="hint">
+                Rooms are listed for every branch, not just your own &mdash;
+                this is the facility list, and any admin maintains it.
+            </p>
+            <div class="filters three" id="filters-rooms"></div>
+        </div>
+
+        <div class="card">
+            <h2>Rooms</h2>
+            <p class="hint" id="rooms-hint">Loading&hellip;</p>
+
+            <div class="scroll-x">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Room</th>
+                            <th>Code</th>
+                            <th>Branch</th>
+                            <th class="right">Capacity</th>
+                            <th>Location</th>
+                            <th>State</th>
+                            <th class="right">Bookings</th>
+                            <th class="right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rooms-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Add a Room</h2>
+            <p class="hint">
+                New rooms start enabled. Room codes are unique across every
+                branch, so a code already in use elsewhere is refused and the
+                error says where it is used.
+            </p>
+
+            <div class="room-form">
+                <div><label>Code</label><input type="text" id="room-code" placeholder="ZAP-201"></div>
+                <div><label>Name</label><input type="text" id="room-name" placeholder="Training Room"></div>
+                <div><label>Capacity</label><input type="number" id="room-capacity" min="1" value="10"></div>
+                <div><label>Location</label><input type="text" id="room-location" placeholder="2nd floor, east wing"></div>
+                <div><label>Branch</label><select id="room-site"></select></div>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="primary" id="room-create">Add room</button>
+                <span class="status" id="room-status"></span>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ============ AUDIT LOGS ============ -->
+    <section data-panel="audit" hidden>
+
+        <div class="card">
+            <h2>Filters</h2>
+            <p class="hint">
+                Every administrative action taken in this panel, newest first.
+                Refused attempts are recorded too &mdash; a sign-in that was
+                turned away, or a delete that was blocked, is often the line
+                worth finding.
+            </p>
+            <div class="filters audit" id="filters-audit"></div>
+        </div>
+
+        <div class="card">
+            <h2>Audit Log</h2>
+            <p class="hint" id="audit-hint">Loading&hellip;</p>
+
+            <div class="scroll-x">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>Who</th>
+                            <th>Action</th>
+                            <th>Target</th>
+                            <th>Branch</th>
+                            <th>Result</th>
+                            <th>From</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-body"></tbody>
+                </table>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="secondary" id="export-audit">Export CSV</button>
+            </div>
+        </div>
+
+    </section>
+
     </div>
 
 </main>
@@ -726,10 +881,24 @@ const STATUS_COLORS = {
 
 const NAVY = "#03045e";
 
-let boot = { sites: [], statuses: [], default_password: "ChangeMe123" };
+let boot = {
+    sites: [],
+    statuses: [],
+    audit_actions: [],
+    audit_outcomes: [],
+    default_password: "ChangeMe123",
+};
+
 let session = { authenticated: false, email: "" };
 let filters = { kind: "", site: "", status: "", from: "", to: "" };
 let bookings = [];
+
+let roomFilters = { site: "", state: "" };
+let rooms = [];
+
+let auditFilters = { action: "", outcome: "", actor: "", site: "", q: "", from: "", to: "" };
+let auditRows = [];
+let auditActors = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -1341,30 +1510,37 @@ async function loadBookings() {
     }
 }
 
-function exportCsv() {
-    if (!bookings.length) {
+/* Shared by the Bookings and Audit log exports. */
+function downloadCsv(columns, rows, filename) {
+    if (!rows.length) {
         banner("notice", "Nothing to export for these filters.");
         return;
     }
 
-    const columns = ["kind", "id", "employee_name", "employee_email", "site",
-        "detail", "date", "time", "duration_minutes", "passengers", "status",
-        "purpose", "requested_at"];
-
     const cell = (value) => `"${String(value === null || value === undefined ? "" : value).replace(/"/g, '""')}"`;
 
     const csv = [columns.join(",")]
-        .concat(bookings.map((row) => columns.map((column) => cell(row[column])).join(",")))
+        .concat(rows.map((row) => columns.map((column) => cell(row[column])).join(",")))
         .join("\n");
 
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = `equibook-bookings-${filters.from}-to-${filters.to}.csv`;
+    link.download = filename;
     link.click();
 
     URL.revokeObjectURL(url);
+}
+
+function exportCsv() {
+    downloadCsv(
+        ["kind", "id", "employee_name", "employee_email", "site", "detail",
+            "date", "time", "duration_minutes", "passengers", "status",
+            "purpose", "requested_at"],
+        bookings,
+        `equibook-bookings-${filters.from}-to-${filters.to}.csv`,
+    );
 }
 
 /* ==========================================================
@@ -1454,6 +1630,323 @@ async function loadAnalytics() {
 }
 
 /* ==========================================================
+   ROOMS
+   ========================================================== */
+
+function roomFilterMarkup() {
+    const siteOptions = ['<option value="">All branches</option>']
+        .concat(boot.sites.map((site) => `<option value="${esc(site)}"${roomFilters.site === site ? " selected" : ""}>${esc(site)}</option>`))
+        .join("");
+
+    return `
+        <div><label>Branch</label><select data-room-filter="site">${siteOptions}</select></div>
+        <div><label>State</label>
+            <select data-room-filter="state">
+                <option value=""${roomFilters.state === "" ? " selected" : ""}>Enabled &amp; disabled</option>
+                <option value="active"${roomFilters.state === "active" ? " selected" : ""}>Enabled only</option>
+                <option value="disabled"${roomFilters.state === "disabled" ? " selected" : ""}>Disabled only</option>
+            </select>
+        </div>
+        <div><label>&nbsp;</label><button type="button" class="secondary" data-room-preset="disabled">Show disabled rooms</button></div>
+        <div><button type="button" class="secondary" data-room-preset="reset">Clear filters</button></div>
+    `;
+}
+
+function renderRoomFilters() {
+    $("filters-rooms").innerHTML = roomFilterMarkup();
+
+    $("room-site").innerHTML = boot.sites
+        .map((site) => `<option value="${esc(site)}">${esc(site)}</option>`)
+        .join("") || `<option value="">No active branches</option>`;
+}
+
+async function loadRooms() {
+    const body = $("rooms-body");
+
+    try {
+        const data = await api(`/api/rooms?${new URLSearchParams(roomFilters)}`);
+
+        rooms = data.rooms;
+
+        const summary = data.summary;
+
+        $("room-kpis").innerHTML = [
+            kpi("Rooms", summary.total, `across ${summary.branches} branch${summary.branches === 1 ? "" : "es"}`),
+            kpi("Enabled", summary.active, "bookable by employees", "approved"),
+            kpi("Disabled", summary.disabled, "hidden from booking forms", summary.disabled ? "pending" : ""),
+            kpi("Shown", summary.shown, "matching these filters"),
+        ].join("");
+
+        // Only worth a card when there is something in it.
+        if (data.stranded.length) {
+            $("stranded-card").style.display = "";
+
+            $("stranded-list").innerHTML = data.stranded.map((room) => `
+                <div class="notice" style="margin-bottom:10px;">
+                    <strong>${esc(room.room_name)}</strong> (${esc(room.room_code)})
+                    at ${esc(room.site)} is disabled with
+                    ${room.upcoming} approved booking${room.upcoming === 1 ? "" : "s"} still ahead of it.
+                </div>
+            `).join("");
+
+        } else {
+            $("stranded-card").style.display = "none";
+        }
+
+        $("rooms-hint").textContent = summary.shown === summary.total
+            ? `All ${summary.total} room${summary.total === 1 ? "" : "s"}.`
+            : `${summary.shown} of ${summary.total} rooms match these filters.`;
+
+        if (!rooms.length) {
+            body.innerHTML = `<tr><td colspan="8" class="empty">No rooms match these filters.</td></tr>`;
+            return;
+        }
+
+        body.innerHTML = rooms.map((room) => `
+            <tr>
+                <td><strong>${esc(room.room_name)}</strong></td>
+                <td class="mono nowrap">${esc(room.room_code)}</td>
+                <td class="nowrap">${esc(room.site)}</td>
+                <td class="right">${room.capacity === null ? "&mdash;" : room.capacity}</td>
+                <td>${room.location ? esc(room.location) : '<span class="muted">&mdash;</span>'}</td>
+                <td><span class="badge ${room.is_active ? "enabled" : "disabled"}">${room.is_active ? "Enabled" : "Disabled"}</span></td>
+                <td class="right">${room.bookings}${room.upcoming ? `<div class="muted">${room.upcoming} upcoming</div>` : ""}</td>
+                <td class="right nowrap">
+                    <button class="link" data-room-action="toggle" data-id="${room.id}" data-active="${room.is_active ? 1 : 0}" data-label="${esc(room.room_name)}">${room.is_active ? "Disable" : "Enable"}</button>
+                    <button class="link danger" data-room-action="delete" data-id="${room.id}" data-label="${esc(room.room_name)}"${room.deletable ? "" : ` disabled title="${room.bookings} reservation(s) on record - disable it instead"`}>Delete</button>
+                </td>
+            </tr>
+        `).join("");
+
+    } catch (error) {
+        body.innerHTML = `<tr><td colspan="8" class="empty">${esc(error.message)}</td></tr>`;
+    }
+}
+
+async function onRoomAction(event) {
+    const button = event.target.closest("button[data-room-action]");
+    if (!button || button.disabled) return;
+
+    const { roomAction, id, label } = button.dataset;
+
+    try {
+        if (roomAction === "toggle") {
+            const isActive = button.dataset.active === "1";
+
+            if (isActive) {
+                const ok = await confirmDialog(
+                    "Disable this room?",
+                    `"${label}" disappears from the employee booking forms. `
+                    + "Bookings already approved against it are left alone.",
+                    "Disable",
+                );
+
+                if (!ok) return;
+            }
+
+            const result = await api("/api/rooms/status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: Number(id), is_active: !isActive }),
+            });
+
+            banner("ok", result.message);
+            loadRooms();
+            return;
+        }
+
+        if (roomAction === "delete") {
+            const ok = await confirmDialog(
+                "Delete this room?",
+                `"${label}" is removed for good. This is only possible `
+                + "because it has never been booked.",
+                "Delete",
+            );
+
+            if (!ok) return;
+
+            const result = await api("/api/rooms/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: Number(id), label }),
+            });
+
+            banner("ok", result.message);
+            loadRooms();
+        }
+
+    } catch (error) {
+        banner("error", error.message);
+    }
+}
+
+async function createRoom() {
+    const payload = {
+        room_code: $("room-code").value.trim(),
+        room_name: $("room-name").value.trim(),
+        capacity: Number($("room-capacity").value),
+        location: $("room-location").value.trim(),
+        site: $("room-site").value,
+    };
+
+    $("room-create").disabled = true;
+    $("room-status").textContent = "Adding…";
+
+    try {
+        const result = await api("/api/rooms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        banner("ok", result.message);
+
+        ["room-code", "room-name", "room-location"].forEach((id) => { $(id).value = ""; });
+        $("room-capacity").value = 10;
+
+        loadRooms();
+
+    } catch (error) {
+        banner("error", error.message);
+
+    } finally {
+        $("room-create").disabled = false;
+        $("room-status").textContent = "";
+    }
+}
+
+/* ==========================================================
+   AUDIT LOG
+   ========================================================== */
+
+function auditFilterMarkup() {
+    const actionOptions = ['<option value="">Any action</option>']
+        .concat(boot.audit_actions.map((item) => `<option value="${esc(item.value)}"${auditFilters.action === item.value ? " selected" : ""}>${esc(item.label)}</option>`))
+        .join("");
+
+    const outcomeOptions = ['<option value="">Any result</option>']
+        .concat(boot.audit_outcomes.map((outcome) => `<option value="${outcome}"${auditFilters.outcome === outcome ? " selected" : ""}>${outcome}</option>`))
+        .join("");
+
+    const actorOptions = ['<option value="">Anyone</option>']
+        .concat(auditActors.map((actor) => `<option value="${esc(actor.email)}"${auditFilters.actor === actor.email ? " selected" : ""}>${esc(actor.name)}</option>`))
+        .join("");
+
+    const siteOptions = ['<option value="">All branches</option>']
+        .concat(boot.sites.map((site) => `<option value="${esc(site)}"${auditFilters.site === site ? " selected" : ""}>${esc(site)}</option>`))
+        .join("");
+
+    return `
+        <div><label>Action</label><select data-audit-filter="action">${actionOptions}</select></div>
+        <div><label>Result</label><select data-audit-filter="outcome">${outcomeOptions}</select></div>
+        <div><label>Who</label><select data-audit-filter="actor">${actorOptions}</select></div>
+        <div><label>Branch</label><select data-audit-filter="site">${siteOptions}</select></div>
+        <div><label>From</label><input type="date" data-audit-filter="from" value="${esc(auditFilters.from)}"></div>
+        <div><label>To</label><input type="date" data-audit-filter="to" value="${esc(auditFilters.to)}"></div>
+        <div><label>Search</label><input type="search" data-audit-filter="q" value="${esc(auditFilters.q)}" placeholder="name, room, reason&hellip;"></div>
+        <div><label>&nbsp;</label><button type="button" class="secondary" data-audit-preset="reset">Last 30 days</button></div>
+    `;
+}
+
+function renderAuditFilters() {
+    $("filters-audit").innerHTML = auditFilterMarkup();
+}
+
+function setAuditRange() {
+    const today = new Date(boot.today || Date.now());
+
+    const back = new Date(today);
+    back.setDate(back.getDate() - 30);
+
+    auditFilters = {
+        action: "",
+        outcome: "",
+        actor: "",
+        site: "",
+        q: "",
+        from: back.toISOString().slice(0, 10),
+        to: today.toISOString().slice(0, 10),
+    };
+}
+
+function whenLabel(value) {
+    if (!value) return "";
+
+    // The stored timestamp has no zone: it is this machine's clock,
+    // which is the only clock anyone reading this log is on.
+    return String(value).replace("T", " ").slice(0, 19);
+}
+
+async function loadAudit() {
+    const body = $("audit-body");
+
+    try {
+        const data = await api(`/api/audit?${new URLSearchParams(auditFilters)}`);
+
+        auditRows = data.entries;
+
+        // The actor list comes back with every page of results, so
+        // the drop-down gains a person the first time they do
+        // anything, without a second round trip. The bar is only
+        // rebuilt when that list actually changed, and never while
+        // the cursor is still in it -- re-rendering under someone
+        // mid-search would drop what they were typing.
+        const changed = JSON.stringify(auditActors) !== JSON.stringify(data.actors);
+        auditActors = data.actors;
+
+        if (changed && !$("filters-audit").contains(document.activeElement)) {
+            renderAuditFilters();
+        }
+
+        $("audit-hint").textContent = data.truncated
+            ? `Showing the newest ${auditRows.length} of ${data.count} entries. Narrow the range to see the rest.`
+            : `${data.count} entr${data.count === 1 ? "y" : "ies"} between ${data.range.from} and ${data.range.to}.`;
+
+        if (!auditRows.length) {
+            body.innerHTML = `<tr><td colspan="7" class="empty">Nothing recorded for these filters.</td></tr>`;
+            return;
+        }
+
+        body.innerHTML = auditRows.map((entry) => `
+            <tr>
+                <td class="nowrap mono">${esc(whenLabel(entry.at))}</td>
+                <td>
+                    ${entry.actor_name ? `<strong>${esc(entry.actor_name)}</strong>` : '<span class="muted">shell</span>'}
+                    ${entry.actor_email ? `<div class="muted">${esc(entry.actor_email)}</div>` : ""}
+                </td>
+                <td>
+                    ${esc(entry.action_label)}
+                    ${entry.detail ? `<div class="detail">${esc(entry.detail)}</div>` : ""}
+                </td>
+                <td>
+                    ${entry.target_label ? esc(entry.target_label) : '<span class="muted">&mdash;</span>'}
+                    ${entry.target_type ? `<div class="muted">${esc(entry.target_type)}${entry.target_id ? " #" + esc(entry.target_id) : ""}</div>` : ""}
+                </td>
+                <td class="nowrap">${entry.site ? esc(entry.site) : '<span class="muted">&mdash;</span>'}</td>
+                <td><span class="badge ${esc(entry.outcome)}">${esc(entry.outcome)}</span></td>
+                <td class="nowrap">
+                    <span class="badge ${esc(entry.source)}">${esc(entry.source)}</span>
+                    ${entry.ip_address ? `<div class="muted mono">${esc(entry.ip_address)}</div>` : ""}
+                </td>
+            </tr>
+        `).join("");
+
+    } catch (error) {
+        body.innerHTML = `<tr><td colspan="7" class="empty">${esc(error.message)}</td></tr>`;
+    }
+}
+
+function exportAuditCsv() {
+    downloadCsv(
+        ["at", "actor_name", "actor_email", "action", "action_label", "outcome",
+            "target_type", "target_id", "target_label", "site", "detail",
+            "source", "ip_address"],
+        auditRows,
+        `equibook-audit-${auditFilters.from}-to-${auditFilters.to}.csv`,
+    );
+}
+
+/* ==========================================================
    TABS + BOOT
    ========================================================== */
 
@@ -1477,6 +1970,8 @@ function refresh() {
     if (currentTab === "admins") loadAdmins();
     if (currentTab === "bookings") loadBookings();
     if (currentTab === "analytics") loadAnalytics();
+    if (currentTab === "rooms") loadRooms();
+    if (currentTab === "audit") loadAudit();
 }
 
 function showGate(message) {
@@ -1511,6 +2006,12 @@ async function showApp() {
 
     setDefaultRange();
     renderFilters();
+
+    roomFilters = { site: "", state: "" };
+    renderRoomFilters();
+
+    setAuditRange();
+    renderAuditFilters();
 
     $("rows").innerHTML = "";
     addRow();
@@ -1599,6 +2100,54 @@ $("export-csv").addEventListener("click", exportCsv);
 ["filters", "filters-analytics"].forEach((id) => {
     $(id).addEventListener("change", onFilterChange);
     $(id).addEventListener("click", onFilterPreset);
+});
+
+/* Rooms */
+$("rooms-body").addEventListener("click", onRoomAction);
+$("room-create").addEventListener("click", createRoom);
+
+$("filters-rooms").addEventListener("change", (event) => {
+    const field = event.target.closest("[data-room-filter]");
+    if (!field) return;
+
+    roomFilters[field.dataset.roomFilter] = field.value;
+    renderRoomFilters();
+    loadRooms();
+});
+
+$("filters-rooms").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-room-preset]");
+    if (!button) return;
+
+    roomFilters = button.dataset.roomPreset === "disabled"
+        ? { site: "", state: "disabled" }
+        : { site: "", state: "" };
+
+    renderRoomFilters();
+    loadRooms();
+});
+
+/* Audit log */
+$("export-audit").addEventListener("click", exportAuditCsv);
+
+$("filters-audit").addEventListener("change", (event) => {
+    const field = event.target.closest("[data-audit-filter]");
+    if (!field) return;
+
+    auditFilters[field.dataset.auditFilter] = field.value;
+
+    // No re-render: there is only one audit filter bar, so the
+    // fields already show what was chosen, and rebuilding them
+    // would only cost the search box its focus.
+    loadAudit();
+});
+
+$("filters-audit").addEventListener("click", (event) => {
+    if (!event.target.closest("[data-audit-preset]")) return;
+
+    setAuditRange();
+    renderAuditFilters();
+    loadAudit();
 });
 
 init();

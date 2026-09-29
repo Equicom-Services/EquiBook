@@ -5,6 +5,7 @@ import { useCallback, useState, useEffect } from "react";
 import Calendar from "@/components/shared/Calendar";
 import RoomBookingDetails from "./RoomBookingDetails";
 import RoomRequestForm from "./RoomRequestForm";
+import BookingHelp from "@/components/employee/BookingHelp";
 
 interface RoomBooking {
   id: string;
@@ -50,7 +51,17 @@ interface RoomResponse {
   room_name: string;
 }
 
-export default function RoomBookingPage() {
+interface RoomBookingPageProps {
+  /*
+   * Changing this reloads the bookings, e.g. after the booking
+   * assistant cancels or edits one.
+   */
+  refreshKey?: number;
+}
+
+export default function RoomBookingPage({
+  refreshKey = 0,
+}: RoomBookingPageProps) {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
@@ -252,7 +263,7 @@ export default function RoomBookingPage() {
 
   useEffect(() => {
     fetchBookings();
-  }, [fetchBookings]);
+  }, [fetchBookings, refreshKey]);
 
   // ==========================================================
   // FILTER BOOKINGS BY BRANCH
@@ -457,13 +468,20 @@ return (
 
         {/* Request Form */}
         <div className="rounded-md bg-white p-6 xl:min-h-0 xl:overflow-y-auto">
-          <h2 className="text-lg font-semibold">
-            New Room Request
-          </h2>
+          <div className="mb-6 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">
+                New Room Request
+              </h2>
 
-          <p className="mt-1 mb-6 text-sm text-slate-500">
-            Fill in the details below to request a room.
-          </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Fill in the details below to request a room.
+              </p>
+            </div>
+
+            {/* Opens the guide, on its room section. */}
+            <BookingHelp topic="room" />
+          </div>
 
           <RoomRequestForm
             selectedDate={selectedDate}
