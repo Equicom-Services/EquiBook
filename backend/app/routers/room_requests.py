@@ -86,6 +86,31 @@ def create_room_request(
             detail="End time must be later than start time.",
         )
 
+    # --------------------------------------------------------
+    # Reject if an APPROVED booking already holds this slot
+    # --------------------------------------------------------
+
+    overlapping_booking = (
+        db.query(RoomRequest)
+        .filter(
+            RoomRequest.room_id == request.room_id,
+            RoomRequest.reservation_date == request.reservation_date,
+            RoomRequest.status == "APPROVED",
+            RoomRequest.start_time < request.end_time,
+            RoomRequest.end_time > request.start_time,
+        )
+        .first()
+    )
+
+    if overlapping_booking:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This room is already booked during the selected "
+                "date and time."
+            ),
+        )
+
     now = datetime.now()
 
     # --------------------------------------------------------
@@ -1526,6 +1551,37 @@ def update_room_request_status(
 # --------------------------------------------------------
 
     if new_status == "APPROVED":
+
+        # --------------------------------------------------------
+        # Refuse if an APPROVED booking already holds this slot.
+        # Locking the room row serializes concurrent approvals.
+        # --------------------------------------------------------
+
+        db.query(Room).filter(
+            Room.room_id == room_request.room_id
+        ).with_for_update().first()
+
+        overlapping_booking = (
+            db.query(RoomRequest)
+            .filter(
+                RoomRequest.room_reservation_id != request_id,
+                RoomRequest.room_id == room_request.room_id,
+                RoomRequest.reservation_date == room_request.reservation_date,
+                RoomRequest.status == "APPROVED",
+                RoomRequest.start_time < room_request.end_time,
+                RoomRequest.end_time > room_request.start_time,
+            )
+            .first()
+        )
+
+        if overlapping_booking:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This room is already booked during the selected "
+                    "date and time. Reject this request instead."
+                ),
+            )
 
         # --------------------------------------------------------
         # Find overlapping pending requests
